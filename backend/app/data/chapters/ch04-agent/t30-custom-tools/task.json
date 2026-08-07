@@ -1,0 +1,625 @@
+{
+  "steps": [
+    {
+      "id": "t30-custom-tools-s1",
+      "taskId": "t30-custom-tools",
+      "order": 1,
+      "title": "百宝囊开工:手写 @tool 装饰器",
+      "instruction": "### 目标\n章项目「百宝囊」开工:不依赖任何框架,手写一个 `@tool` 装饰器,把普通 Python 函数变成\"能被 Agent 发现、按名调用\"的工具,并维护全项目的地基——工具注册表 `TOOLBOX`。\n\n### 原理\n**为什么需要注册表?** LLM 本身只会输出文本,要让它\"做事\",必须有一套约定:程序这边维护一张清单(有哪些工具、叫什么、干什么用),把清单写进 prompt;LLM 按名字\"点名\",程序按名字查表、取出函数、执行。这张表就是一个 dict:键是工具名,值是函数对象。\n\n**装饰器的本质是高阶函数。** `@tool` 只是语法糖,等价于 `system_time = tool(system_time)`:接收一个函数、加工、返回。Python 函数是一等对象,可以像行李一样被贴标签——`func.tool_name = ...` 就是在函数对象上动态挂属性。这些元数据将来要喂给 LLM,正是 function calling 里 `tools` 参数的雏形。\n\n**描述从哪来?** 直接取函数的 docstring。这确立了贯穿本章的约定:docstring 不只是写给人看的注释,更是写给 LLM 看的\"使用说明书\"。工业界的 `langchain_core.tools.tool` 做的是同一件事,只是额外自动生成参数 schema——本任务先手写原理,后面再对照。\n\n### 操作\n1. 实现 `tool` 装饰器:贴 `tool_name` / `tool_description` 两个标签,把函数登记进 `TOOLBOX`,原样返回\n2. 参考已完成的 `system_time`,用 `@tool` 装饰第二件法宝 `roll_dice`\n3. 运行,观察 `show_toolbox` 打印的清单,体会\"直接调用\"与\"按名调用\"两种姿势\n\n### 常见坑\n- 装饰器忘了 `return func`:被装饰的函数会变成 `None`,一调用就 `TypeError: 'NoneType' object is not callable`\n- 函数没写 docstring 时 `func.__doc__` 是 `None`,必须 `or \"暂无描述\"` 兜底,否则 `.strip()` 直接 `AttributeError`",
+      "todoItems": [
+        {
+          "title": "实现 tool 装饰器:贴元数据并登记进 TOOLBOX",
+          "target": "tool() 装饰器函数体",
+          "code": "func.tool_name = func.__name__\nfunc.tool_description = (func.__doc__ or \"暂无描述\").strip()\nTOOLBOX[func.__name__] = func\nreturn func",
+          "expect": "直接调用与按名调用都能拿到同一件法宝,不再报 NotImplementedError"
+        },
+        {
+          "title": "用 @tool 装饰第二件法宝 roll_dice",
+          "target": "roll_dice(sides: int = 6) 定义",
+          "code": "@tool\ndef roll_dice(sides: int = 6) -> str: ...",
+          "expect": "roll_dice 自动登记进注册表,带 tool_name / tool_description 标签"
+        },
+        {
+          "title": "运行,观察 show_toolbox 打印的清单",
+          "target": "文件底部 main 入口",
+          "expect": "输出「百宝囊中共有 3 件法宝」,列出 system_time / roll_dice / hello,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:装饰器 = 接收函数、贴标签、登记、返回函数本身;注册表就是一个模块级 dict。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`func.__name__` 取函数名,`func.__doc__` 取 docstring(记得 or 兜底),`TOOLBOX[键] = 值` 登记。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:三行核心——`func.tool_name = func.__name__`;`func.tool_description = (func.__doc__ or \"暂无描述\").strip()`;`TOOLBOX[func.__name__] = func`,最后 `return func`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "@tool 只是语法糖:手动展开装饰器",
+          "language": "python",
+          "code": "def tool(func):\n    func.tool_name = func.__name__\n    func.tool_description = (func.__doc__ or \"暂无描述\").strip()\n    TOOLBOX[func.__name__] = func\n    return func\n\n# 这两行完全等价:\n# @tool\n# def hello(): ...\nhello = tool(hello)  # 装饰器被手动展开后的样子",
+          "description": "理解装饰器最好的方式就是把它展开:@ 写法与显式赋值一模一样。"
+        },
+        {
+          "title": "对照:LangChain 的 @tool 做的是同一件事",
+          "language": "python",
+          "code": "from langchain_core.tools import tool\n\n@tool\ndef calculate(expression: str) -> str:\n    \"\"\"计算数学表达式。\"\"\"\n    ...\n\nprint(calculate.name)         # 'calculate'\nprint(calculate.description)  # '计算数学表达式。'",
+          "description": "沙箱里已装 langchain_core;它的 @tool 同样从函数名和 docstring 提取元数据,只是额外生成参数 JSON Schema。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "装饰器(Decorator)",
+          "definition": "接收函数并返回函数的高阶函数,用 @ 语法贴在函数定义上方;本质是一次函数变换,常用于无侵入地增强函数。"
+        },
+        {
+          "name": "注册表模式(Registry)",
+          "definition": "用一个集中的字典登记'名字 -> 可调用对象',运行期按名查找调用;Agent 的工具发现、插件系统都靠它。"
+        },
+        {
+          "name": "docstring",
+          "definition": "函数/类定义后第一行的字符串字面量,存于 __doc__ 属性;本课程约定它同时充当给 LLM 看的工具描述。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "装饰器与注册表的全部依赖",
+          "description": "手写 @tool 只需 Python 本身:函数是一等对象,属性可动态挂载。datetime/random 用于两件示例法宝。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/",
+          "category": "语言内置",
+          "installHint": "无需安装"
+        },
+        {
+          "name": "langchain-core",
+          "role": "工业界对照(本步不要求使用)",
+          "description": "提供官方 @tool 装饰器,原理与本步手写版一致,额外生成参数 schema 并接入 LangChain Agent 体系。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain-core(沙箱已预装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 tool 装饰器与 roll_dice 法宝。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "tool",
+          "message": "请保留并实现 tool 装饰器函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "TOOLBOX\\[func\\.__name__\\]\\s*=\\s*func",
+          "message": "装饰器里需要把函数登记进 TOOLBOX 注册表(键为 func.__name__)。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "百宝囊中共有 3 件法宝",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印包含 3 件法宝的清单(system_time、roll_dice、hello)。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t30-custom-tools-s2",
+      "taskId": "t30-custom-tools",
+      "order": 2,
+      "title": "计算器法宝:AST 白名单安全求值",
+      "instruction": "### 目标\n给百宝囊添第一件\"实战\"法宝 `calculate`:能算 `3 * (4 + 5)` 这样的表达式,同时挡住 `__import__('os')` 之类的恶意输入。本步还会做一次断舍离:s1 的演示辅助函数已完成使命,从文件中移除,只留正式法宝。\n\n### 原理\n**为什么绝不能 `eval(expression)`?** 工具的输入将来来自 LLM,而 LLM 的输出可能被用户 prompt 诱导——`eval(\"__import__('os').system('rm -rf /')\")` 就是远程代码执行。把不可信字符串直接交给 eval,等于把服务器钥匙交给陌生人。\n\n**AST 白名单为什么安全?** `ast.parse(code, mode=\"eval\")` 把表达式解析成一棵语法树,然后我们**递归遍历这棵树,只放行白名单里的节点**:数字常量(`Constant`)、四则与乘方取余(`BinOp` + 白名单 operator)、负号(`UnaryOp`)。函数调用是 `Call` 节点、属性访问是 `Attribute` 节点、变量名是 `Name` 节点——统统不在白名单,直接 `raise`。攻击面从\"整个 Python\"收缩到\"几个算术运算符\",这就是白名单思维:默认拒绝,显式放行。\n\n**为什么出错返回字符串而不是 raise?** 工具的调用方是 Agent 主循环。抛 traceback 会打断整个循环;返回 `\"错误:除数不能为 0\"` 这样的可读字符串,LLM 读到后能自我纠正重试——**错误信息也是给 LLM 的观测**。\n\n### 操作\n1. 定义 `_SAFE_OPS`:AST 运算符节点到 `operator` 模块函数的映射\n2. 实现 `_eval_node`:递归求值,白名单外一律 `raise ValueError`\n3. 实现 `calculate`:try 求值转字符串,异常统一翻译成\"错误:\"开头的提示\n4. 运行,观察正常计算、注入攻击、除零、语法错误四种结果\n\n### 常见坑\n- `ast.parse(\"1 +\")` 抛的是 `SyntaxError`,不在 `ValueError` 家族里,except 列表必须显式带上\n- 判断运算符要用 `type(node.op) in _SAFE_OPS`;`node.op` 是实例不是类,直接 `node.op in _SAFE_OPS` 永远匹配不上",
+      "todoItems": [
+        {
+          "title": "定义 _SAFE_OPS:AST 运算符节点到 operator 函数的映射",
+          "target": "_SAFE_OPS 模块级字典",
+          "code": "{ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,\n ast.Div: operator.truediv, ast.Pow: operator.pow, ast.Mod: operator.mod,\n ast.USub: operator.neg}",
+          "expect": "白名单覆盖 + - * / ** % 与负号"
+        },
+        {
+          "title": "实现 _eval_node:递归求值,白名单外一律 raise ValueError",
+          "target": "_eval_node() 函数体",
+          "code": "isinstance(node, ast.BinOp) and type(node.op) in _SAFE_OPS\nreturn _SAFE_OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))",
+          "expect": "正常表达式算出结果;__import__('os') 等注入被 raise 拦截"
+        },
+        {
+          "title": "实现 calculate:try 求值转字符串,异常翻译成「错误:」提示",
+          "target": "calculate() 函数体",
+          "code": "ast.parse(expression, mode=\"eval\")\nexcept (ValueError, SyntaxError, ZeroDivisionError):",
+          "expect": "正常/注入/除零/语法错误四种输入都有可读输出,计算 3 * (4 + 5) = 27"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:parse 成 AST 后递归遍历;每个分支先 isinstance 判断节点类型,再查运算符白名单。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`ast.parse(expression, mode=\"eval\")`、`isinstance(node, ast.BinOp)`、`_SAFE_OPS[type(node.op)](左, 右)`。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:BinOp 分支写 `return _SAFE_OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))`;UnaryOp 同理用 node.operand;兜底 raise ValueError。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "eval 有多危险,AST 白名单就有多安全",
+          "language": "python",
+          "code": "# 危险:eval 会执行任何 Python 代码\neval(\"__import__('os').listdir('.')\")  # 任意系统命令都能跑\n\n# 安全:先解析成语法树,只放行白名单节点\nimport ast\ntree = ast.parse(\"1 + 2 * 3\", mode=\"eval\")\nprint(ast.dump(tree)[:60])  # Expression(body=BinOp(...",
+          "description": "对比两种求值方式:eval 把字符串当代码跑,AST 白名单把字符串当数据检查。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "抽象语法树(AST)",
+          "definition": "源代码解析后的树形结构,每个节点代表一种语法构造(常量、运算、调用等);ast 模块可在不执行代码的前提下检查其结构。"
+        },
+        {
+          "name": "白名单(Whitelist)",
+          "definition": "默认拒绝一切、只显式放行已知安全项的安全策略;比黑名单(默认放行、逐个封堵)更能抵御未知攻击。"
+        },
+        {
+          "name": "代码注入(Code Injection)",
+          "definition": "攻击者把恶意代码混进看似普通的数据中,诱使程序执行;eval 不可信输入是最典型的注入入口。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "ast / operator(Python 标准库)",
+          "role": "安全求值的双件套",
+          "description": "ast 负责把表达式解析成语法树,operator 提供 add/mul 等函数形式的运算符,二者配合实现白名单求值。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/ast.html",
+          "category": "语言内置",
+          "installHint": "无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 _eval_node 的运算分支与 calculate 的求值逻辑。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "calculate",
+          "message": "请保留并实现 calculate 工具函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "ast\\.parse",
+          "message": "必须用 ast.parse 白名单求值,禁止直接 eval 用户输入。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "计算 3 \\* \\(4 \\+ 5\\) = 27",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应正确算出 3 * (4 + 5) = 27,且注入/除零/语法错误都返回可读提示。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t30-custom-tools-s3",
+      "taskId": "t30-custom-tools",
+      "order": 3,
+      "title": "文本法宝:统计与大小写转换",
+      "instruction": "### 目标\n再添两件文本法宝:`count_text`(统计字符/单词/行数)与 `convert_case`(大小写转换)。工具不多,但要借它们建立两个重要的工具设计直觉:纯函数与工具粒度。\n\n### 原理\n**工具函数应当是纯函数。** 同样的输入永远得到同样的输出,不读写全局状态、不产生副作用(文件法宝是下步才讨论的受控例外)。纯函数好在哪?Agent 可能反复调用同一个工具,结果可预期才敢让它自主决策;测试也只需\"输入-输出\"断言,不必搭建复杂环境。\n\n**工具粒度:一个带参数的工具,胜过三个相似工具。** 要不要拆成 `to_upper` / `to_lower` / `to_title` 三件法宝?不要。每多一件工具,LLM 选择时的歧义就多一分,prompt 里的清单也长一截。正确做法是合并成一件,用 `mode` 参数区分行为——这就是 `convert_case(text, mode)` 的设计。参数化的另一个好处:LLM 填错 `mode` 时,你的错误提示能现场教它正确取值,下一轮它就改对了。\n\n**dict 分发替代 if-elif 链。** `{\"upper\": str.upper, ...}` 把字符串映射到函数对象,一行完成分派;新增模式只改字典不改分支逻辑。这也是\"函数是一等对象\"的又一次实战。\n\n### 操作\n1. 实现 `count_text`:一行 f-string 返回三项统计\n2. 实现 `convert_case`:dict 分发 + 非法 mode 的可读报错\n3. 运行,观察古诗统计结果与四种 mode 的表现\n\n### 常见坑\n- `text.split(\" \")` 遇到连续空格会产生空串计数;`split()` 不带参数按任意空白切分并自动忽略空串,才是正确姿势\n- 中英文混排时 `len(text)` 数的是字符(一个汉字算 1),不是字节;若按\"词\"统计中文则需要分词库,本步描述里只说\"单词数\"就是按空白切分的结果",
+      "todoItems": [
+        {
+          "title": "实现 count_text:一行 f-string 返回三项统计",
+          "target": "count_text() 函数体",
+          "code": "len(text)\ntext.split()\ntext.count(\"\\n\") + 1",
+          "expect": "古诗统计输出「字符数 23,单词数 4,行数 4」"
+        },
+        {
+          "title": "实现 convert_case:dict 分发 + 非法 mode 报错",
+          "target": "convert_case() 函数体",
+          "code": "modes = {\"upper\": str.upper, \"lower\": str.lower, \"title\": str.title}\nmodes[mode](text) if mode in modes else f\"错误:...\"",
+          "expect": "upper / lower / title / 非法 mode 四种情况都有可读输出"
+        },
+        {
+          "title": "运行,观察古诗统计结果与四种 mode 的表现",
+          "target": "文件底部 main 入口",
+          "expect": "终端输出统计结果与四行转换结果,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:count_text 是三个 len/count 的组合;convert_case 先建 mode 到函数的映射字典。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`len(text)`、`text.split()`(不带参数)、`text.count(\"\\n\")`;`str.upper / str.lower / str.title` 可直接当函数用。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:`modes = {\"upper\": str.upper, \"lower\": str.lower, \"title\": str.title}`,然后 `modes[mode](text) if mode in modes else f\"错误:...\"`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "split() 与 split(\" \") 的差别",
+          "language": "python",
+          "code": "s = \"a  b   c\"\nprint(s.split(\" \"))  # ['a', '', 'b', '', '', 'c'] —— 空串被算进去了\nprint(s.split())      # ['a', 'b', 'c'] —— 任意空白切分,忽略空串",
+          "description": "统计单词数时这个差别直接决定答案对错。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "纯函数(Pure Function)",
+          "definition": "输出只由输入决定、无副作用的函数;可缓存、可重放、易测试,是工具函数的理想形态。"
+        },
+        {
+          "name": "工具粒度(Tool Granularity)",
+          "definition": "工具划分的粗细程度;过细会让 LLM 选择困难、清单膨胀,过粗则参数复杂,经验法则是'相似行为合并为参数'。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 字符串方法",
+          "role": "文本法宝的全部武器",
+          "description": "split/upper/lower/title/count 等内置方法足以覆盖大多数文本统计与转换需求,且都是一等函数可直接放入 dict 分发。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/stdtypes.html#text-sequence-type-str",
+          "category": "语言内置",
+          "installHint": "无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 count_text 与 convert_case。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "count_text",
+          "message": "请保留并实现 count_text 工具函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "convert_case",
+          "message": "请保留并实现 convert_case 工具函数。",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "字符数 23,单词数 4,行数 4",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应正确统计古诗(23 字符 / 4 词 / 4 行),非法 mode 返回可读错误。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t30-custom-tools-s4",
+      "taskId": "t30-custom-tools",
+      "order": 4,
+      "title": "文件法宝:给读写能力装上护栏",
+      "instruction": "### 目标\n补上最后一大类法宝:`write_note` / `read_note` / `list_notes` 三件文件工具。文件读写是 Agent 最强大也最危险的能力,本步的核心不是\"怎么读写文件\",而是\"怎么把读写关进笼子\"。\n\n### 原理\n**最小权限原则。** 给 Agent 文件工具,等于把系统权限的钥匙交给一个会被 prompt 诱导的组件。防御思路与本课程执行代码的 Docker 沙箱同源:不追求\"挡住所有攻击\",而是先把活动范围缩到最小——文件法宝只许在专用目录 `pouch_notes/` 里活动,目录之外一概拒绝。\n\n**路径穿越(Path Traversal)与 resolve 防御。** 如果直接把用户给的文件名拼进路径,`\"../../etc/passwd\"` 就能读写系统文件——这是 Web 安全里的经典漏洞。防御手法:`Path.resolve()` 会把 `..`、`.`、符号链接全部归一化成真实绝对路径,然后再比较\"父目录是不是 NOTES_DIR\"。先归一化再判断,顺序不能反。\n\n**为什么返回 None 而不是抛异常?** `_safe_path` 是内部哨兵,返回 None 让调用方决定怎么向 Agent 报告;配合\"错误:...\"字符串约定,非法文件名对 LLM 来说只是一条可读的反馈,而不是一次崩溃。\n\n### 操作\n1. 实现 `_safe_path`:resolve 归一化 + 父目录比较,越界返回 None\n2. 实现 `write_note`:扩展名 + 路径双重把关,显式 UTF-8 写入\n3. 运行,观察正常写读、路径穿越被拦截、读取不存在笔记三种情况\n\n### 常见坑\n- 只做字符串 `startswith(\"pouch_notes\")` 判断而不 resolve:`pouch_notes/../evil.txt` 这种拼出来的路径能轻松绕过\n- `write_text` 不显式指定 `encoding=\"utf-8\"`:Windows 默认 GBK,中文笔记换个平台就乱码",
+      "todoItems": [
+        {
+          "title": "实现 _safe_path:resolve 归一化 + 父目录比较",
+          "target": "_safe_path() 函数体",
+          "code": "(NOTES_DIR / filename).resolve()\npath.parent == NOTES_DIR.resolve()",
+          "expect": "../ 穿越被归一化后识别并返回 None"
+        },
+        {
+          "title": "实现 write_note:扩展名 + 路径双重把关,显式 UTF-8 写入",
+          "target": "write_note() 函数体",
+          "code": "filename.endswith(\".txt\")\npath.write_text(content, encoding=\"utf-8\")",
+          "expect": "合法文件保存成功并返回「已保存 ...」;非法文件名返回「错误:」提示"
+        },
+        {
+          "title": "运行,观察正常写读、穿越拦截、读取不存在笔记",
+          "target": "文件底部 main 入口",
+          "expect": "输出「已保存 todo.txt」且 ../evil.txt 穿越攻击被拦截,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:_safe_path 就两件事——resolve 归一化,然后比较 path.parent 是否等于 NOTES_DIR.resolve()。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`(NOTES_DIR / filename).resolve()`、`path.parent`、`path.write_text(content, encoding=\"utf-8\")`。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:`return path if path.parent == NOTES_DIR.resolve() else None`;write_note 里先 `path = _safe_path(filename) if filename.endswith(\".txt\") else None`,为 None 返回错误提示,否则写文件并返回 f\"已保存 ...\"。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "resolve 如何拆穿 ../ 伪装",
+          "language": "python",
+          "code": "from pathlib import Path\nbase = Path(\"pouch_notes\")\nprint((base / \"../evil.txt\").resolve())        # 归一化后:已经逃出 pouch_notes\nprint((base / \"todo.txt\").resolve().parent)     # 归一化后:正好等于 base.resolve()\nprint((base / \"todo.txt\").resolve().parent == base.resolve())  # True,放行",
+          "description": "先 resolve 再比较父目录,是防路径穿越的标准手法。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "路径穿越(Path Traversal)",
+          "definition": "用 ../ 等相对路径片段逃出预期目录、读写任意文件的攻击手法;resolve 归一化后再校验是标准防御。"
+        },
+        {
+          "name": "最小权限原则(Least Privilege)",
+          "definition": "组件只被授予完成任务所必需的最小权限;文件工具只许访问一个专用目录,正是这一原则的体现。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "pathlib(Python 标准库)",
+          "role": "面向对象的路径操作",
+          "description": "Path 的 / 拼接、resolve 归一化、glob 列表、read_text/write_text 读写,是文件法宝的全部基础设施。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/pathlib.html",
+          "category": "语言内置",
+          "installHint": "无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 _safe_path 与 write_note。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "write_note",
+          "message": "请保留并实现 write_note 工具函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "\\.resolve\\(\\)",
+          "message": "必须用 Path.resolve() 归一化路径来防 ../ 穿越。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "已保存 todo\\.txt",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应成功保存并读回 todo.txt,且 ../evil.txt 穿越攻击被拦截。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t30-custom-tools-s5",
+      "taskId": "t30-custom-tools",
+      "order": 5,
+      "title": "法宝图鉴:描述、清单与统一入口",
+      "instruction": "### 目标\n把百宝囊切换到\"Agent 视角\":`build_tool_manifest()` 生成 JSON 格式的工具清单(法宝图鉴),`dispatch()` 提供统一调用入口;同时给每件法宝的描述做一轮\"面向 LLM\"的抛光。\n\n### 原理\n**描述决定 Agent 会不会用。** LLM 选择工具时唯一的依据就是你写的 description——它看不到函数体,只看清单。坏描述「计算」vs 好描述「计算数学表达式,支持 + - * / ** % 与括号,当用户要求算账时使用,如 3 * (4 + 5)」:前者 LLM 不知道该何时用、传什么;后者说清了**干什么、什么时候用、参数长什么样**三要素。对比本步 solution 与上一步的 docstring,你会发现每件法宝的描述都补齐了触发场景与示例——这不是润色,是工具开发的核心工作。\n\n**参数名是白送的,别浪费。** `inspect.signature(func).parameters` 能自动提取参数名,LLM 拼参数时全靠它对齐;所以参数起名(`expression` 而不是 `e`)也是描述的一部分。\n\n**dispatch 是信任边界。** LLM 的输出是不可信输入:可能点错名字(兜底返回图鉴提示)、可能给错参数(TypeError 翻译成中文提示)。统一入口把所有\"LLM 可能犯的错\"收拢在一处处理,主循环因此干净——下一个任务写 Agent 执行器时,你会感谢这个设计。\n\n### 操作\n1. 实现 `build_tool_manifest`:列表推导 + `json.dumps(..., ensure_ascii=False, indent=2)`\n2. 实现 `dispatch`:查表、未知工具兜底、参数错误翻译\n3. 对照 solution 抛光各法宝描述,运行观察 JSON 图鉴与四种 dispatch 结果\n\n### 常见坑\n- `json.dumps` 漏了 `ensure_ascii=False`:中文描述全部变成 `\\uXXXX` 转义,塞进 prompt 既费 token 又难读\n- dispatch 里直接 `TOOLBOX[tool_name]` 而不 `.get()` 兜底:LLM 点错一个名字,整个 Agent 循环就被 KeyError 炸掉",
+      "todoItems": [
+        {
+          "title": "实现 build_tool_manifest:列表推导生成图鉴并转 JSON",
+          "target": "build_tool_manifest() 函数体",
+          "code": "inspect.signature(func).parameters\njson.dumps(manifest, ensure_ascii=False, indent=2)",
+          "expect": "打印的 JSON 图鉴含每件法宝的 name / description / parameters"
+        },
+        {
+          "title": "实现 dispatch:get 查表 + 未知工具与参数错误兜底",
+          "target": "dispatch() 函数体",
+          "code": "TOOLBOX.get(tool_name)\nexcept TypeError as exc: return f\"错误:参数不对——{exc}\"",
+          "expect": "四种调用(计算/统计/未知工具/缺参数)都有可读输出,不抛 KeyError"
+        },
+        {
+          "title": "对照 solution 抛光各法宝描述并运行",
+          "target": "各 @tool 函数的 docstring",
+          "expect": "描述补齐触发场景与示例,JSON 图鉴中文不转义、可读性强"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:manifest = 遍历 TOOLBOX 生成 dict 列表再 dumps;dispatch = get 查表 + try 调用 + 异常翻译。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`inspect.signature(func).parameters`、`json.dumps(obj, ensure_ascii=False, indent=2)`、`TOOLBOX.get(tool_name)`。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:列表元素写 `{\"name\": name, \"description\": func.tool_description, \"parameters\": list(inspect.signature(func).parameters)}`;dispatch 里 `except TypeError as exc: return f\"错误:参数不对——{exc}\"`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "坏描述 vs 好描述",
+          "language": "text",
+          "code": "# 坏:LLM 不知道何时用、传什么、返回什么\n\"\"\"计算。\"\"\"\n\n# 好:干什么 + 什么时候用 + 参数示例 + 出错行为\n\"\"\"计算数学表达式并返回结果字符串,支持 + - * / ** % 与括号,\n如「3 * (4 + 5)」。用户要求算账、算数、换算时使用;\n算不了时会返回「错误:」开头的说明。\"\"\"",
+          "description": "描述是 LLM 认识工具的唯一渠道,写好描述 = 工具开发的核心工作量。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "工具清单(Tool Manifest)",
+          "definition": "以结构化形式(通常是 JSON)列出工具名称、描述、参数的清单,是 prompt 与 function calling 中 tools 字段的内容来源。"
+        },
+        {
+          "name": "Function Calling",
+          "definition": "LLM 按约定格式输出'要调用的工具名与参数',由程序真正执行的机制;本步的 manifest + dispatch 就是它的手工简化版。"
+        },
+        {
+          "name": "信任边界(Trust Boundary)",
+          "definition": "可信代码与不可信输入的分界线;LLM 输出属于不可信输入,dispatch 在边界上负责校验与兜底。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "inspect / json(Python 标准库)",
+          "role": "自省与序列化",
+          "description": "inspect.signature 自动提取函数参数名,json.dumps 把清单序列化成可塞进 prompt 的 JSON 文本。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/inspect.html",
+          "category": "语言内置",
+          "installHint": "无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 build_tool_manifest 与 dispatch。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "build_tool_manifest",
+          "message": "请保留并实现 build_tool_manifest 函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "dispatch",
+          "message": "请保留并实现 dispatch 统一入口函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "ensure_ascii=False",
+          "message": "json.dumps 请加 ensure_ascii=False,保住中文描述。",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "\"name\": \"calculate\"",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印包含 calculate 等工具的 JSON 图鉴,dispatch 四种调用都有可读输出。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t30-custom-tools-s6",
+      "taskId": "t30-custom-tools",
+      "order": 6,
+      "title": "法宝质检:给工具写单元测试",
+      "instruction": "### 目标\n百宝囊出师前的最后一道工序:为四类法宝各配测试用例,并实现一个极简测试运行器 `run_all_tests`,一键质检全部工具。\n\n### 原理\n**为什么工具特别需要测试?** 工具是 Agent 的手和脚——LLM 决策错了还能重来,工具执行错了就是错误的结果直接落地。而且工具集是高频改动区:加工具、改描述、调参数,没有测试,每次改动都在裸奔。\n\n**Arrange-Act-Assert 与三类用例。** 每个测试都是\"准备输入 → 执行 → 断言输出\"三段式;覆盖要分三类:开心路径(`calculate(\"1 + 2 * 3\") == \"7\"`)、错误分支(`\"错误\" in calculate(\"1 / 0\")`)、恶意输入(`\"错误\" in calculate(\"__import__('os')\")`)。只测开心路径的测试等于没测。\n\n**run_all_tests 就是 pytest 的缩影。** 看它做了四件事:发现(收集 `test_` 前缀函数)、执行(逐个调用)、隔离失败(try/except 保证一个挂了不影响后面的)、汇报(通过计数)。pytest 干的也是这四件事,只是更强大——沙箱里已预装 pytest,右侧示例给了同套断言的 pytest 写法,工程实践中直接用它。\n\n### 操作\n1. 补全 `test_calculate` 与 `test_dispatch` 两个用例\n2. 运行,确认输出 4/4 通过\n3. 故意把一个断言改错再运行,观察 FAIL 汇报与最终提示,然后改回来\n\n### 常见坑\n- 测试之间共享状态:文件测试请用独立文件名(如 unit.txt),别和演示代码写的 todo.txt 混在一起,否则执行顺序变了结果就变\n- 断言写成 `print(calculate(...))` 用眼睛核对:测试的灵魂是 assert 自动判定,人工核对迟早漏检",
+      "todoItems": [
+        {
+          "title": "补全 test_calculate:算对 + 除零 + 注入三类断言",
+          "target": "test_calculate() 函数体",
+          "code": "assert calculate(\"1 + 2 * 3\") == \"7\"\n\"错误\" in calculate(\"1 / 0\")\n\"错误\" in calculate(\"__import__('os')\")",
+          "expect": "PASS test_calculate"
+        },
+        {
+          "title": "补全 test_dispatch:调通 + 未知工具断言",
+          "target": "test_dispatch() 函数体",
+          "code": "assert dispatch(\"calculate\", expression=\"2 + 2\") == \"4\"\n\"错误\" in dispatch(\"fly_to_moon\")",
+          "expect": "PASS test_dispatch"
+        },
+        {
+          "title": "运行,确认 4/4 通过",
+          "target": "文件底部 main 入口",
+          "expect": "终端输出「测试结果: 4/4 通过」,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:测试 = 普通函数 + assert;test_calculate 要同时覆盖算对、除零、注入三种情况。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`assert 表达式`(失败抛 AssertionError);`dispatch(\"calculate\", expression=\"2 + 2\")` 按名调用。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:`assert calculate(\"1 + 2 * 3\") == \"7\" and \"错误\" in calculate(\"1 / 0\") and \"错误\" in calculate(\"__import__('os')\")`;dispatch 用例断言 `== \"4\"` 与未知工具含\"错误\"。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "同一批断言的 pytest 写法(工程实践)",
+          "language": "python",
+          "code": "# 保存为 test_baibaonang.py,然后命令行:pytest -v\ndef test_calculate():\n    assert calculate(\"1 + 2 * 3\") == \"7\"\n    assert \"错误\" in calculate(\"1 / 0\")\n\ndef test_dispatch():\n    assert dispatch(\"calculate\", expression=\"2 + 2\") == \"4\"\n    assert \"错误\" in dispatch(\"fly_to_moon\")",
+          "description": "pytest 自动发现 test_ 开头的函数,失败时给出断言两侧的详细对比;沙箱已预装 pytest。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "单元测试(Unit Test)",
+          "definition": "针对最小可测单元(函数)的自动化验证:准备输入、执行、断言输出;是改动代码时的安全网。"
+        },
+        {
+          "name": "断言(Assertion)",
+          "definition": "assert 语句在条件不成立时抛 AssertionError;测试用例通过断言自动判定对错,而非人工核对输出。"
+        },
+        {
+          "name": "测试运行器(Test Runner)",
+          "definition": "负责发现测试、逐个执行、隔离失败、汇总报告的机制;本步手写极简版,pytest 是工业级实现。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "pytest",
+          "role": "工业级测试框架(对照学习)",
+          "description": "自动发现 test_ 函数、详细断言报告、丰富的插件生态;本步手写运行器理解原理后,工程上直接用 pytest。",
+          "officialUrl": "https://docs.pytest.org/",
+          "category": "工具",
+          "installHint": "pip install pytest(沙箱已预装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 test_calculate 与 test_dispatch。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "def test_calculate",
+          "message": "请编写 test_calculate 测试函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "run_all_tests",
+          "message": "请保留 run_all_tests 测试运行器。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "测试结果: 4/4 通过",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后 4 个用例应全部 PASS,输出 测试结果: 4/4 通过。",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

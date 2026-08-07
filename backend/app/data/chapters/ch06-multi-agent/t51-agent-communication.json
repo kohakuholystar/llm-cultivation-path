@@ -1,0 +1,193 @@
+{
+  "steps": [
+    {
+      "id": "t51-agent-communication-s1",
+      "taskId": "t51-agent-communication",
+      "order": 1,
+      "title": "消息传递协议",
+      "instruction": "### 目标\n设计多 Agent 间的**消息协议**:Agent A 的输出如何变成 Agent B 能理解的输入。\n\n### 背景: 为什么需要协议而不是直接传字符串\n单 Agent 时代,LLM 输出直接给人看。多 Agent 时代,输出是给**另一个程序**看的——自由文本会导致:\n- 接收方无法可靠解析(\"结果在第二段第三句\"?)\n- 出错无法定位(是发送方格式错,还是接收方理解错?)\n- 无法追踪(这条消息是谁发的、属于哪个任务?)\n\n### 消息信封(Envelope)设计\n业界共识:消息 = **信封(元数据) + 载荷(结构化内容)**:\n```json\n{\n  \"msg_id\": \"m001\",\n  \"from\": \"researcher\",\n  \"to\": \"writer\",\n  \"msg_type\": \"task_result\",   // task_assign / task_result / ask / error\n  \"task_id\": \"t123\",           // 关联到具体任务, 支持多任务并行\n  \"payload\": {\"summary\": \"...\", \"sources\": [...]}\n}\n```\n**msg_type 枚举是协议的核心**:接收方按类型分发处理逻辑,而不是去猜文本意图。\n\n### 操作\n1. 用 dataclass 定义 `Message` 信封\n2. 实现 `send()` / `receive()`:发送时校验必填字段,接收时按 msg_type 分发\n3. 模拟两个 Agent 一次完整交互(派任务→回结果)",
+      "starterCode": "from dataclasses import dataclass\n\n@dataclass\nclass Message:\n    sender: str\n    receiver: str\n    content: str\n    msg_type: str = 'info'\n\n# 共享黑板(消息列表)\nblackboard: list[Message] = []\n\ndef send(sender, receiver, content, msg_type='info'):\n    msg = Message(sender, receiver, content, msg_type)\n    blackboard.append(msg)\n    print(f'{sender}→{receiver}: {content}')\n\ndef receive(receiver):\n    # 返回发给 receiver 的未读消息\n    return [m for m in blackboard if m.receiver == receiver]\n\n# 模拟 Agent 通信\nsend('researcher', 'writer', '找到资料: AI 是...')\nsend('writer', 'researcher', '收到,继续找 Transformer')\nmsgs = receive('researcher')\nprint(f'researcher 收到 {len(msgs)} 条消息')",
+      "solutionCode": "from dataclasses import dataclass\n\n@dataclass\nclass Message:\n    sender: str\n    receiver: str\n    content: str\n    msg_type: str = 'info'\n\nblackboard: list[Message] = []\n\ndef send(sender, receiver, content, msg_type='info'):\n    msg = Message(sender, receiver, content, msg_type)\n    blackboard.append(msg)\n    print(f'{sender}→{receiver}: {content}')\n\ndef receive(receiver):\n    return [m for m in blackboard if m.receiver == receiver]\n\nsend('researcher', 'writer', '找到资料: AI 是...')\nsend('writer', 'researcher', '收到,继续找 Transformer')\nmsgs = receive('researcher')\nprint(f'researcher 收到 {len(msgs)} 条消息')\nfor m in msgs:\n    print(f'  from {m.sender}: {m.content}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Message 含 sender/receiver/content/type。"
+        },
+        {
+          "order": 2,
+          "text": "blackboard 是共享消息列表。"
+        },
+        {
+          "order": 3,
+          "text": "receive 过滤 receiver 的消息。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "blackboard = []  # 共享黑板\nblackboard.append(Message('a','b','hi'))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "消息传递",
+          "definition": "Agent 间通过消息通信"
+        },
+        {
+          "name": "共享黑板",
+          "definition": "所有 Agent 共享的消息列表"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "dataclasses",
+          "role": "消息定义",
+          "description": "Python 标准库的数据类,用 @dataclass 装饰器快速定义数据容器类,自动生成 __init__ 等方法。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "Message",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t51-agent-communication-s2",
+      "taskId": "t51-agent-communication",
+      "order": 2,
+      "title": "LLM Agent 间对话",
+      "instruction": "### 目标\n实现**共享黑板(Blackboard)**:多个 Agent 读写同一个共享工作区来协作,而非两两直接通信。\n\n### 背景: 黑板模式 vs 点对点消息\n- **点对点**:A 直接发消息给 B。简单,但 N 个 Agent 要维护 N² 条通道,加新 Agent 要改所有旧的\n- **黑板模式**:所有 Agent 往公共黑板写中间结果,各自订阅关心的内容。加新 Agent 只需让它读写黑板——**系统复杂度从 N² 降到 N**\n\n黑板模式来自 1970 年代的 AI 研究(Hearsay-II 语音识别系统),今天的多 Agent 框架(AutoGen 的 GroupChat、MetaGPT 的 MessagePool)本质都是黑板。\n\n### 黑板的关键设计\n- **分区**:黑板按主题分区(research/draft/review),Agent 只订阅相关区,避免信息过载\n- **版本/时间戳**:同一位置被多次写入时,读方能知道哪个最新\n- **只追加不修改**:历史记录保留,出错可回溯(事件溯源思想)\n\n### 操作\n1. 实现 `Blackboard`:`write(zone, key, value, author)` / `read(zone)` / `subscribe(zone)`\n2. 模拟三个 Agent(researcher/writer/reviewer)通过黑板接力完成一篇文章\n3. 打印黑板最终状态,展示协作痕迹",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef call_agent(system_prompt, user_input):\n    resp = client.chat.completions.create(\n        model='deepseek-v4-pro',\n        messages=[{'role':'system','content':system_prompt}, {'role':'user','content':user_input}]\n    )\n    return resp.choices[0].message.content\n\n# Agent 1: 研究员\nresearch = call_agent('你是研究员,用一句话介绍主题', '介绍 Transformer')\nprint(f'研究员: {research}')\n\n# Agent 2: 写手, 根据研究写摘要\nsummary = call_agent(, research)\nprint(f'写手: {summary}')",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef call_agent(system_prompt, user_input):\n    resp = client.chat.completions.create(\n        model='deepseek-v4-pro',\n        messages=[{'role':'system','content':system_prompt}, {'role':'user','content':user_input}]\n    )\n    return resp.choices[0].message.content\n\nresearch = call_agent('你是研究员,用一句话介绍主题', '介绍 Transformer')\nprint(f'研究员: {research}')\n\nsummary = call_agent('你是写手,把研究员的资料改成易懂的50字摘要', research)\nprint(f'写手: {summary}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Agent 1 输出作为 Agent 2 输入。"
+        },
+        {
+          "order": 2,
+          "text": "每个 Agent 有不同 system prompt(角色)。"
+        },
+        {
+          "order": 3,
+          "text": "协作:研究员找资料,写手加工。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# Agent 链式协作\nresearch = agent1('研究')\nsummary = agent2(research)  # 用前一个输出"
+        }
+      ],
+      "terms": [
+        {
+          "name": "角色分工",
+          "definition": "不同 Agent 承担不同角色"
+        },
+        {
+          "name": "链式协作",
+          "definition": "前一个 Agent 输出作后一个输入"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "call_agent",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t51-agent-communication-s3",
+      "taskId": "t51-agent-communication",
+      "order": 3,
+      "title": "状态同步与黑板模式",
+      "instruction": "### 目标\n处理多 Agent 协作的**冲突与死锁**:两个 Agent 结论矛盾怎么办?互相等待怎么破?\n\n### 背景: 分布式系统的老问题在 Agent 上重演\n多 Agent 系统 = 分布式系统,经典问题一个不少:\n- **结论冲突**:researcher 说\"数据支持 A\",critic 说\"数据支持 B\"——需要**仲裁者(arbitrator)**或多数投票\n- **循环依赖/死锁**:A 等 B 的输出,B 等 A 的输出——需要**超时机制 + 依赖图检测环**\n- **消息风暴**:Agent 互相提问无限循环——需要**最大跳数(hop limit)**,消息每转发一次 hop+1,超限丢弃\n\n### 冲突解决三策(按成本排序)\n1. **规则仲裁**:预设优先级(如\"数据 Agent 的结论优先于直觉 Agent\"),零成本但不灵活\n2. **投票**:奇数个 Agent 表决,简单可靠,适合二元决策\n3. **仲裁 Agent**:专门一个 LLM 看双方论据给裁决——最像人类,但多一次调用成本\n\n### 操作\n1. 给消息加 hop 字段,转发超限丢弃(防死循环)\n2. 实现多数投票:3 个 Agent 对同一问题表决\n3. 模拟 2:1 场景,输出最终裁决",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\nblackboard = {'task': '写一篇AI科普', 'research': '', 'outline': '', 'draft': ''}\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\n# Agent 1: 研究员, 写 blackboard['research']\nblackboard['research'] = llm(f\"研究主题:{blackboard['task']},输出3个要点\")\nprint(f'研究员完成: {blackboard[\"research\"][:50]}')\n\n# Agent 2: 大纲师, 读 research 写 outline\nblackboard['outline'] = llm(f\"根据研究写大纲:{blackboard['research']}\")\nprint(f'大纲师完成: {blackboard[\"outline\"][:50]}')\n\n# Agent 3: 写手, 读 outline 写 draft\nblackboard['draft'] = llm(f\"根据大纲写正文:{blackboard['outline']}\")\nprint(f'写手完成: {blackboard[\"draft\"][:50]}')\n\nprint('\\n=== 最终黑板 ===')\nfor k, v in blackboard.items():\n    print(f'{k}: {v[:30]}...')",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\nblackboard = {'task': '写一篇AI科普', 'research': '', 'outline': '', 'draft': ''}\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\nblackboard['research'] = llm(f\"研究主题:{blackboard['task']},输出3个要点\")\nprint(f'研究员完成: {blackboard[\"research\"][:50]}')\n\nblackboard['outline'] = llm(f\"根据研究写大纲:{blackboard['research']}\")\nprint(f'大纲师完成: {blackboard[\"outline\"][:50]}')\n\nblackboard['draft'] = llm(f\"根据大纲写正文:{blackboard['outline']}\")\nprint(f'写手完成: {blackboard[\"draft\"][:50]}')\n\nprint('\\n=== 最终黑板 ===')\nfor k, v in blackboard.items():\n    print(f'{k}: {v[:30]}...')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "blackboard 是共享状态 dict。"
+        },
+        {
+          "order": 2,
+          "text": "每个 Agent 读前序结果,写自己的部分。"
+        },
+        {
+          "order": 3,
+          "text": "协作:研究→大纲→写作。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "blackboard = {'research': '', 'outline': ''}\nblackboard['research'] = agent1()  # 写\nx = blackboard['research']  # 读"
+        }
+      ],
+      "terms": [
+        {
+          "name": "黑板模式",
+          "definition": "共享状态 dict,Agent 读写协作"
+        },
+        {
+          "name": "状态同步",
+          "definition": "Agent 通过黑板共享进度"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "llm",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

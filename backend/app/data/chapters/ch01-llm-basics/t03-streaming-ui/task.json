@@ -1,0 +1,573 @@
+{
+  "steps": [
+    {
+      "id": "t03-streaming-ui-s1",
+      "taskId": "t03-streaming-ui",
+      "order": 1,
+      "title": "流式初体验:stream=True 打开增量之门",
+      "instruction": "### 目标\n为灵讯通实现 `stream_chat(client, config, question)`:用 `stream=True` 发起请求,逐个接收增量 chunk,拼出完整回复并统计块数。\n\n### 原理\n**非流式是“憋大招”。** 普通请求下,服务端要把整段回答全部生成完,才通过一个 HTTP 响应一次性返回。回答越长,用户盯着空白屏幕的时间越久——十秒的回答就是十秒的沉默。\n\n**流式是“边想边说”。** 加上 `stream=True` 后,服务端改用 SSE(Server-Sent Events)协议:每生成一小段 token,就立刻沿同一条 HTTP 连接推送一个 `data: {...}` 事件,直到生成结束才关闭。openai SDK 把这串事件封装成一个 Python 迭代器,`for chunk in stream` 即可逐块消费。\n\n**chunk 的结构变了。** 非流式的文本在 `choices[0].message.content`(全量);流式的文本在 `choices[0].delta.content`(增量)——每个 chunk 只携带“新增的那几个字”,拼起所有增量才是完整回复。注意:第一个 chunk 通常只带 `delta.role` 而没有文本,最后一个 chunk 带 `finish_reason` 标志结束,它们的 `content` 都是 None,累加前必须判空。\n\n### 操作\n1. 复用 t01 的 `APIConfig` 与 `create_client`(骨架已含)\n2. 实现 stream_chat:create 时加 `stream=True`,迭代收集非空 delta\n3. 返回 (拼接文本, 块数),main 打印对话与统计\n4. 配好 Key 运行;本地演示可设 MOCK_LLM=1 用内置假回复\n\n### 常见坑\n- 把流式 chunk 当非流式响应:`chunk.choices[0].message` 不存在,流式里只有 `delta`\n- `parts.append(delta)` 不判空:role 块与结束块的 content 是 None,最后 `\"\".join` 时直接 TypeError",
+      "todoItems": [
+        {
+          "title": "实现 stream_chat：create 加 stream=True 拿到流式迭代器",
+          "target": "stream_chat() 函数",
+          "code": "client.chat.completions.create(model=..., messages=[...], stream=True)",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "迭代流，累加非空 delta.content 增量",
+          "target": "stream_chat() 的 for 循环",
+          "code": "chunk.choices[0].delta.content",
+          "expect": "首/末块 content 为 None 时不报 TypeError"
+        },
+        {
+          "title": "返回 (拼接文本, 块数)，main 打印对话与统计",
+          "target": "stream_chat() 与 main 入口",
+          "code": "\"\".join(parts)",
+          "expect": "打印完整回复与 chunk 块数"
+        },
+        {
+          "title": "配好 Key 运行，或 MOCK_LLM=1 离线演示",
+          "target": "终端命令",
+          "code": "MOCK_LLM=1",
+          "expect": "输出完整回复，退出码 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:非流式拿全量 message.content;流式改成迭代 stream,收集每块的 delta.content 增量。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:client.chat.completions.create(model=..., messages=[...], stream=True);增量文本 = chunk.choices[0].delta.content。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:for chunk in stream: delta = chunk.choices[0].delta.content; if delta: chunks.append(delta);return \"\".join(chunks), len(chunks)"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "非流式 vs 流式的返回形态",
+          "language": "python",
+          "code": "# 非流式:一次性拿到完整响应,文本在 message.content(全量)\nresp = client.chat.completions.create(model=..., messages=[...])\ntext = resp.choices[0].message.content\n\n# 流式:拿到的是迭代器,文本在 delta.content(增量,需自行拼接)\nstream = client.chat.completions.create(model=..., messages=[...], stream=True)\nfor chunk in stream:\n    delta = chunk.choices[0].delta.content\n    if delta:  # 首块/末块 content 为 None,必须判空\n        parts.append(delta)",
+          "description": "同一个 create 调用,stream 开关决定了返回的是完整响应还是增量迭代器。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "SSE(Server-Sent Events)",
+          "definition": "基于 HTTP 长连接的服务端推送协议,服务端可沿同一连接持续发送 data: 事件;LLM 流式输出的事实标准。"
+        },
+        {
+          "name": "chunk / delta",
+          "definition": "流式响应的基本单位;每个 chunk 的 delta.content 只含新增文本(增量),拼接全部增量才得到完整回复。"
+        },
+        {
+          "name": "finish_reason",
+          "definition": "流式最后一个 chunk 携带的结束标志(如 stop / length),其 delta.content 通常为 None。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;stream=True 时 chat.completions.create 返回可迭代的流式响应,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容大模型 API,支持 SSE 流式输出;本课程默认模型 deepseek-v4-pro,端点 https://api.deepseek.com。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,在平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 stream_chat 的流式调用与增量收集。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请调用 client.chat.completions.create 发起请求。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "stream_chat",
+          "message": "请实现 stream_chat 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "stream\\s*=\\s*True",
+          "message": "必须传入 stream=True 开启流式输出。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "delta\\.content",
+          "message": "流式增量文本在 chunk.choices[0].delta.content。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t03-streaming-ui-s2",
+      "taskId": "t03-streaming-ui",
+      "order": 2,
+      "title": "首 token 延迟:给灵讯通测量 TTFT",
+      "instruction": "### 目标\n把 s1 的流式函数升级为 `stream_with_stats`:在逐块接收的同时测量 **TTFT(首 token 延迟)**、总耗时与生成吞吐,返回回复文本和一份 `StreamStats` 计时报告。\n\n### 原理\n**为什么 TTFT 是流式时代的第一指标?** 一次 LLM 调用的总延迟可以拆成两段:第一段是网络往返、排队和**预填充(prefill)**——服务端读完你的整个 prompt,算出第一个 token;第二段是**逐 token 解码(decode)**——每生成一个 token 就推一次。非流式把两段全部藏起来,用户感知到的延迟 = 总时长;流式把第二段变成“阅读时间”,用户感知到的延迟 ≈ TTFT。**用户对“快”的判断,几乎完全由 TTFT 决定。**\n\n**怎么测才准?** 用 `time.perf_counter()` 打三个点:发起请求前(起点)、第一个**非空** delta 到达时(TTFT)、迭代结束(总耗时)。注意首块可能只是 role 块,content 为 None——把它当“首 token”会严重低估 TTFT,必须等第一个有文本的块。\n\n**吞吐也是体检指标。** 字符数 ÷ 总耗时 ≈ 解码速度。TTFT 高但吞吐正常,瓶颈在网络或排队;TTFT 低但吞吐慢,瓶颈在模型生成。\n\n### 操作\n1. 定义 `StreamStats` dataclass:ttft_ms / total_ms / chunk_count / char_count\n2. stream_with_stats 里 perf_counter 打三点,首个非空 delta 记 TTFT\n3. main 打印回复与计时报告(TTFT、总耗时、吞吐)\n\n### 常见坑\n- 用第一个 chunk(而不是第一个非空 delta)记 TTFT:role 块会让 TTFT 虚低,数据自欺欺人\n- 计时用 `time.time()`:系统校时会让时钟“跳变”,测间隔必须用 `perf_counter`",
+      "todoItems": [
+        {
+          "title": "定义 StreamStats dataclass：ttft_ms / total_ms / chunk_count / char_count",
+          "target": "StreamStats 类（文件顶部空壳）",
+          "code": "@dataclass",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "perf_counter 三点打点，首个非空 delta 才记 TTFT",
+          "target": "stream_with_stats() 函数",
+          "code": "ttft_ms = (time.perf_counter() - start) * 1000",
+          "expect": "role 块不虚低 TTFT，数据可信"
+        },
+        {
+          "title": "main 打印回复与计时报告（TTFT、总耗时、吞吐）",
+          "target": "main 入口",
+          "expect": "输出含 TTFT 与总耗时的报告"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:TTFT = 第一个非空 delta 到达时刻 − 发起时刻;总耗时 = 迭代结束时刻 − 发起时刻。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:time.perf_counter() 打点;ttft_ms = (time.perf_counter() - start) * 1000;先用 ttft_ms = None 占位,首个非空块时赋值一次。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:if not delta: continue; if ttft_ms is None: ttft_ms = (time.perf_counter() - start) * 1000;循环外 total_ms = (time.perf_counter() - start) * 1000"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "三点计时法",
+          "language": "python",
+          "code": "start = time.perf_counter()   # 点①:发起前\nttft_ms = None\nfor chunk in stream:\n    delta = chunk.choices[0].delta.content\n    if not delta:\n        continue              # role 块/心跳块不算首 token\n    if ttft_ms is None:\n        ttft_ms = (time.perf_counter() - start) * 1000  # 点②:首块\ntotal_ms = (time.perf_counter() - start) * 1000     # 点③:流结束",
+          "description": "起点、首块、终点三个打点,拆出 TTFT 与总耗时。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "TTFT(Time To First Token)",
+          "definition": "从发起请求到收到第一个非空 token 的耗时;包含网络往返、排队与预填充,是用户对“快”的第一感知指标。"
+        },
+        {
+          "name": "预填充 / 解码(prefill / decode)",
+          "definition": "LLM 推理两阶段:prefill 并行读完整个 prompt 算出首 token;decode 逐 token 串行生成。TTFT 由前者主导,总时长还叠加后者。"
+        },
+        {
+          "name": "感知延迟",
+          "definition": "用户主观感受到的等待时间;流式输出让它从“总时长”缩短为“TTFT + 阅读时间”。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;stream=True 时 chat.completions.create 返回可迭代的流式响应,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 stream_with_stats 的计时逻辑。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "stream_with_stats",
+          "message": "请实现 stream_with_stats 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "stream\\s*=\\s*True",
+          "message": "测量 TTFT 需要 stream=True 的流式请求。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "perf_counter",
+          "message": "计时请使用 time.perf_counter()。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "StreamStats",
+          "message": "请保留 StreamStats 数据类存放计时结果。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t03-streaming-ui-s3",
+      "taskId": "t03-streaming-ui",
+      "order": 3,
+      "title": "打字机界面:让回复逐字浮现",
+      "instruction": "### 目标\n实现 `typewriter_print`:把 s2 收到的增量文本**逐块渲染**到终端——不换行、立即冲刷,让灵讯通的回复像真人打字一样逐字浮现,并返回完整文本供后续使用。\n\n### 原理\n**为什么直接 print 看不到流式效果?** Python 的 stdout 默认是**行缓冲**的:数据先攒在缓冲区,遇到换行符才一次性刷到终端。如果你 `print(delta)` 逐块打印,每块自带换行,回复会一截一截竖着蹦出来;如果 `print(delta, end=\"\")`,缓冲不刷,终端上还是一片死寂,直到流结束——流式白开了。\n\n**三件套:`end=\"\"` + `flush=True` + 节奏。** `end=\"\"` 让多个增量落在同一行;`flush=True` 强制把缓冲区立刻推到终端,每个 chunk 到达的瞬间用户就能看见;`time.sleep(delay)` 则是可选的节奏器——真实模式下 API 推送速度天然形成节奏,MOCK 演示时人为放缓更有“人味”。\n\n**这就是 ChatGPT 式体验的全部秘密。** 打字机效果并不让答案更快生成,它只是把“等待”改写成“阅读”:TTFT 之后,用户的每一秒都有新内容可看。感知延迟因此被大幅压缩,这是所有对话产品的体验基石。\n\n### 操作\n1. iter_deltas 生成器已就绪:统一产出非空文本增量(真实/MOCK 两路)\n2. typewriter_print 里逐块 `print(delta, end=\"\", flush=True)`,delay>0 时 sleep\n3. 收集 parts 并在流结束后 `print()` 补换行,返回拼接文本\n\n### 常见坑\n- 忘记 `flush=True`:输出全憋在缓冲区,流式效果完全消失,像非流式一样“憋大招”\n- 逐块 `print(delta)` 不加 `end=\"\"`:每个增量占一行,回复被竖着撕碎",
+      "todoItems": [
+        {
+          "title": "typewriter_print 逐块 print(delta, end=\"\", flush=True)",
+          "target": "typewriter_print() 函数",
+          "code": "print(delta, end=\"\", flush=True)",
+          "expect": "回复逐字浮现，不被行缓冲憋住"
+        },
+        {
+          "title": "delay>0 时用 time.sleep 控制节奏",
+          "target": "typewriter_print() 循环内",
+          "code": "time.sleep(delay)",
+          "expect": "MOCK 演示时回复放缓、有打字机节奏"
+        },
+        {
+          "title": "收集 parts，流结束后补换行并返回拼接文本",
+          "target": "typewriter_print() 尾部",
+          "code": "print()",
+          "expect": "回复一行打完，后续输出不粘连"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:打字机 = 不换行 + 立即冲刷;print 的两个关键字参数就能搞定。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:print(delta, end=\"\", flush=True);节奏控制用 time.sleep(delay)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:print(delta, end=\"\", flush=True); parts.append(delta); if delay: time.sleep(delay);循环结束后 print() 补换行。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "打字机三件套",
+          "language": "python",
+          "code": "for delta in iter_deltas(client, config, question):\n    print(delta, end=\"\", flush=True)  # 同一行 + 立即可见\n    time.sleep(0.03)                 # 可选:放缓节奏\nprint()  # 流结束补换行,否则下一句输出会粘在回复后面",
+          "description": "end 控制换行,flush 控制缓冲,sleep 控制节奏。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "行缓冲(line buffering)",
+          "definition": "stdout 默认的缓冲策略:数据攒到换行才写入终端;流式逐字输出必须用 flush=True 绕过它。"
+        },
+        {
+          "name": "flush",
+          "definition": "强制把输出缓冲区的内容立刻写入终端/文件的操作;打字机效果的关键开关。"
+        },
+        {
+          "name": "打字机效果(typewriter effect)",
+          "definition": "逐字渲染回复的界面效果;不改变生成速度,只把等待改写为阅读,压缩感知延迟。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;stream=True 时 chat.completions.create 返回可迭代的流式响应,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 typewriter_print 的逐块打印。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "typewriter_print",
+          "message": "请实现 typewriter_print 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "flush\\s*=\\s*True",
+          "message": "打字机效果必须 flush=True 立即冲刷输出。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "end\\s*=\\s*\"\"",
+          "message": "逐字打印需 end=\"\" 避免每块换行。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请保留 chat.completions.create 的流式调用。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t03-streaming-ui-s4",
+      "taskId": "t03-streaming-ui",
+      "order": 4,
+      "title": "健壮流式封装:空 chunk 与断流都兜得住",
+      "instruction": "### 目标\n把流式消费封装成 `safe_stream` 生成器:自动跳过两类无效 chunk(空 choices 心跳块、无文本块),迭代中途断流时**保留已收到的部分文本**并留下事故报告,而不是把半句回复和异常一起甩给用户。\n\n### 原理\n**真实的流远比教科书脏。** 教科书里每个 chunk 都有文本;生产环境里你会遇到:①**心跳块**——网关为防止代理超时,定期推送 `choices` 为空的 chunk(对应 SSE 的注释行),直接索引 `choices[0]` 会 IndexError;②**无文本块**——role 块、finish 块,`delta.content` 为 None;③**中途断流**——连接在生成一半时被重置,`for chunk in stream` 迭代到一半抛 `APIConnectionError`。\n\n**断流时已收到的文本是资产。** 用户已经读了半分钟的内容,因为一个网络抖动全部丢弃、弹一屏 traceback,是最差的失败方式。工程上的体面做法:消费循环整体包进 try/except,异常时标记 `truncated=True` 并**平静结束生成器**,调用方拿着已收到的部分文本继续展示,再补一句“流中断,内容可能不完整”。\n\n**为什么用生成器 + 报告对象?** 生成器让消费方零感知地逐块接收(yield 天然支持打字机渲染);统计信息(chunks/skipped/truncated)不适合塞进返回值打断流式节奏,所以用一个 `StreamReport` 对象由调用方传入、消费方填写——这是“带外信道”的经典写法。\n\n### 操作\n1. 打开流(真实或 MOCK 假流,假流会注入空块与断流)\n2. try 包住整个迭代:空 choices → skipped+1 跳过;空 delta → 跳过;否则 yield\n3. except 中记 truncated 与异常类型名;main 打印部分文本与报告\n\n### 常见坑\n- 不判 `chunk.choices` 空列表就取 `[0]`:心跳块一来直接 IndexError\n- except 里 re-raise 或不设标志:调用方分不清“正常结束”和“断流结束”,部分结果被当成完整答案",
+      "todoItems": [
+        {
+          "title": "判空 chunk.choices：心跳块跳过并 skipped+1",
+          "target": "safe_stream() 生成器",
+          "code": "if not chunk.choices: report.skipped += 1",
+          "expect": "心跳块不引发 IndexError"
+        },
+        {
+          "title": "判空 delta.content：role/finish 块跳过",
+          "target": "safe_stream() 生成器",
+          "code": "if not delta: continue",
+          "expect": "无文本块不污染拼接结果"
+        },
+        {
+          "title": "try/except 兜住断流：记 truncated 与异常类型名",
+          "target": "safe_stream() 生成器",
+          "code": "except Exception as exc: report.truncated = True",
+          "expect": "断流保留已收文本，不抛 traceback"
+        },
+        {
+          "title": "main 打印部分文本与报告（chunks/skipped/truncated）",
+          "target": "main 入口",
+          "expect": "报告标注‘流中断，内容可能不完整’"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:无效块有两种——choices 为空(心跳)与 delta.content 为空(role/finish);都记 skipped 后 continue。断流靠 try/except 兜住。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:if not chunk.choices: report.skipped += 1; continue;异常类型名用 type(exc).__name__。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:try: for chunk in open_stream(...): ... yield delta;except Exception as exc: report.truncated = True; report.error = type(exc).__name__"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "两种无效 chunk 的防御写法",
+          "language": "python",
+          "code": "for chunk in stream:\n    if not chunk.choices:      # 心跳块:choices 是空列表\n        continue\n    delta = chunk.choices[0].delta.content\n    if not delta:            # role 块 / finish 块:content 为 None\n        continue\n    yield delta",
+          "description": "两道判空是健壮流式消费的最低配置,缺一不可。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "心跳块(keep-alive chunk)",
+          "definition": "服务端/网关为维持连接定期推送的空 chunk(choices 为空列表),对应 SSE 注释行;消费方必须跳过。"
+        },
+        {
+          "name": "断流(stream interruption)",
+          "definition": "流式连接在生成中途断开;健壮实现应保留已收文本、标记截断状态,而不是抛 traceback。"
+        },
+        {
+          "name": "防御式编程",
+          "definition": "对外部输入(网络、API)做最坏假设并逐一设防的编程风格;流式消费的两道判空 + 一层 try 就是典型实践。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;stream=True 时 chat.completions.create 返回可迭代的流式响应,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容大模型 API,支持 SSE 流式输出;本课程默认模型 deepseek-v4-pro,端点 https://api.deepseek.com。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,在平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 safe_stream 的判空与断流处理。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "safe_stream",
+          "message": "请实现 safe_stream 生成器。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "not\\s+chunk\\.choices",
+          "message": "需要判空 chunk.choices(心跳块 choices 为空列表)。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "except\\s+Exception",
+          "message": "需要 try/except 兜住迭代中途的断流异常。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请保留 chat.completions.create 的流式调用。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t03-streaming-ui-s5",
+      "taskId": "t03-streaming-ui",
+      "order": 5,
+      "title": "对照实验:流式 vs 非流式,用数据说话",
+      "instruction": "### 目标\n设计并执行一次对照实验:**同一问题、同一模型、同一客户端**,分别用非流式与流式各跑一次,测量“首字可见时间”与“总耗时”,打印对比报告并得出结论——灵讯通的体验优化从此有了数据依据。\n\n### 原理\n**对照实验的第一原则是只改一个变量。** 两次调用必须共享 prompt、model、temperature 等所有参数,唯一的差别是 `stream` 开关;否则差异可能来自问题本身或模型抖动,结论就站不住。严谨起见还应多次重复取平均(网络延迟本身有噪声),本任务为控制成本各跑一次,但要知道这是简化。\n\n**两个指标回答两个不同的问题。** “首字可见时间”(非流式 = 总耗时;流式 = TTFT)回答“用户多久开始看到内容”;“总耗时”回答“完整答案多久生成完”。实验的预期结论:**两者的总耗时几乎相同**——流式并不加速生成,服务端的工作量一模一样;但**首字可见时间相差数倍**,因为流式把漫长的解码阶段变成了用户的阅读时间。\n\n**这就是工程决策的标准姿势。** “流式体验更好”不该是一句玄学口号,而应该是一次可复现实验的输出:跑数据 → 出报告 → 下结论。以后评估任何优化(换模型、加缓存、调参数),都是同一套方法论。\n\n### 操作\n1. measure_blocking:非流式调用,first = total = 总耗时\n2. measure_streaming:流式调用,first = TTFT,total = 流结束\n3. run_experiment 汇总两次结果,打印对比与结论(首字提前倍数)\n\n### 常见坑\n- 两次实验换了问题或参数:变量没控制住,对比失去意义\n- 用一次实验的微小差异下大结论:网络延迟有噪声,生产评估要多次取平均",
+      "todoItems": [
+        {
+          "title": "实现 measure_blocking：非流式调用，first = total = 总耗时",
+          "target": "measure_blocking() 函数",
+          "code": "client.chat.completions.create(...)",
+          "expect": "返回的首字时间与总耗时一致"
+        },
+        {
+          "title": "实现 measure_streaming：first = TTFT，total = 流结束",
+          "target": "measure_streaming() 函数",
+          "code": "time.perf_counter()",
+          "expect": "复用 s2 的三点计时法"
+        },
+        {
+          "title": "run_experiment 汇总两次结果，打印对比与结论",
+          "target": "run_experiment() 函数",
+          "code": "blocking.first_ms / streaming.first_ms",
+          "expect": "报告显示流式首字提前数倍、总耗时相近"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:对照实验只改 stream 开关;非流式首字=总耗时,流式首字=TTFT。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:measure_streaming 与 s2 的计时法相同:time.perf_counter() 三点打点,首个非空 delta 记 TTFT。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return MeasureResult(\"流式\", first_ms=ttft_ms or total_ms, total_ms=total_ms, chars=chars);结论倍数 = blocking.first_ms / streaming.first_ms"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "对照实验三原则",
+          "language": "text",
+          "code": "1. 单变量:同一 prompt、同一模型、同一客户端,只改 stream 开关\n2. 可复现:记录每次的首字时间与总耗时,而非凭感觉\n3. 有结论:数据 → 报告 → 决策(本实验:流式让首字提前 N 倍可见)",
+          "description": "实验方法本身比实验结果更值得记住:任何优化都该这样评估。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "对照实验(controlled experiment)",
+          "definition": "只改变一个变量、其余条件保持一致的实验方法;是评估优化效果的标准姿势。"
+        },
+        {
+          "name": "E2E 延迟(端到端延迟)",
+          "definition": "从发起请求到拿到完整结果的总耗时;流式与非流式的 E2E 延迟基本相同。"
+        },
+        {
+          "name": "首字可见时间",
+          "definition": "用户第一次看到回复内容的时刻;非流式 = E2E 延迟,流式 = TTFT,是流式体验优势的量化表达。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;stream=True 时 chat.completions.create 返回可迭代的流式响应,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容大模型 API,支持 SSE 流式输出;本课程默认模型 deepseek-v4-pro,端点 https://api.deepseek.com。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,在平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 measure_streaming 的流式测量。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "run_experiment",
+          "message": "请保留 run_experiment 汇总实验结果。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 2,
+          "message": "对照实验需要非流式与流式两次 chat.completions.create 调用。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "stream\\s*=\\s*True",
+          "message": "流式分支必须传 stream=True。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "perf_counter",
+          "message": "计时请使用 time.perf_counter()。",
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

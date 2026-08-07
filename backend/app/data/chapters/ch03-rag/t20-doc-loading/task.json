@@ -1,0 +1,593 @@
+{
+  "steps": [
+    {
+      "id": "t20-doc-loading-s1",
+      "taskId": "t20-doc-loading",
+      "order": 1,
+      "title": "开卷:把古籍装进 Document",
+      "instruction": "### 目标\n建立「藏经阁」项目的第一块基石:把一份古籍文本加载为结构化的 `Document` 对象——后续切分、向量化、检索全都依赖这个数据载体。\n\n### 原理\nRAG 系统的第一课:**原始文本不能直接进流程,必须先变成\"带出身证明的数据\"**。LangChain 生态里这个载体就是 `Document`,它只有两个核心字段:`page_content`(文本本体)和 `metadata`(来源、格式、长度等描述信息)。\n\n为什么元数据从第一天就要带上?因为后面每一步都消费它:切分时要知道 chunk 出自哪本书(答案溯源引用)、检索时要按来源过滤(\"只在功法类典籍里找\")、评估时要统计各来源的命中率。一个只有纯字符串的语料库,走到检索那步就废了——你找回了文本,却答不出\"这句话出自哪\"。\n\n另一个要点是**显式指定 `encoding=\"utf-8\"`**。Python 的 `open()` / `read_text()` 默认使用系统编码(Windows 上是 GBK),修仙典籍全是中文,跨平台时不写 encoding 必炸成乱码或直接 `UnicodeDecodeError`。这是中文 RAG 项目出勤率最高的 bug。\n\n工程组织上,我们用 `shelve_books()` 把内置语料先落到磁盘再读回——和真实项目\"扫描语料目录\"的路径完全一致,而不是图省事直接操作内存字符串。\n\n### 操作\n1. 运行骨架中的 `shelve_books`,把内置语料写入 `cangjingge/` 目录\n2. 定义 `Document` dataclass:两个字段 + 一个 `preview` 预览方法\n3. 补全 `load_txt`:读文件、构造 Document、附 source/format/chars 三项元数据\n4. 运行,核对藏品预览与元数据清单\n\n### 常见坑\n- **忘记 `encoding=\"utf-8\"`**:Windows 默认 GBK,中文文件直接 `UnicodeDecodeError`;即使侥幸读出来也是乱码,embedding 出来全是噪声。\n- **把来源信息拼进正文**:有人图省事把\"来源:筑基总纲.txt\"拼到文本开头,这会污染 embedding 的语义表示——来源永远走 metadata 通道,不进正文。\n- **dataclass 可变默认值**:`metadata: dict = {}` 会直接报 `ValueError`,所有实例共享一个 dict 的坑 Python 帮你堵死了,必须用 `field(default_factory=dict)`。",
+      "todoItems": [
+        {
+          "title": "运行 shelve_books,把内置语料落盘到 cangjingge/ 目录",
+          "target": "shelve_books()",
+          "code": "shelve_books() 将语料写入 Path(\"cangjingge\") 目录",
+          "expect": "控制台出现落盘提示,cangjingge/ 目录生成语料文件"
+        },
+        {
+          "title": "定义 Document dataclass:两个字段 + preview 预览方法",
+          "target": "class Document",
+          "code": "@dataclass + page_content: str / metadata: dict = field(default_factory=dict) + preview()",
+          "expect": "能构造 Document 对象并预览正文"
+        },
+        {
+          "title": "补全 load_txt:读文件并附 source/format/chars 三项元数据",
+          "target": "load_txt()",
+          "code": "path.read_text(encoding=\"utf-8\") + Document(text, {\"source\": path.name, \"format\": \"txt\", \"chars\": len(text)})",
+          "expect": "输出\"全文共 N 字\"与藏品元数据清单"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "dataclass 是装饰器:在 class 上一行写 @dataclass,字段写成「名字: 类型」的类属性。"
+        },
+        {
+          "order": 2,
+          "text": "metadata 的可变默认值要用 field(default_factory=dict),直接写 = {} 会报 ValueError。"
+        },
+        {
+          "order": 3,
+          "text": "return Document(text, {\"source\": path.name, \"format\": \"txt\", \"chars\": len(text)})"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "dataclass 最小示例",
+          "language": "python",
+          "code": "from dataclasses import dataclass, field\n\n\n@dataclass\nclass Point:\n    x: int\n    tags: list = field(default_factory=list)  # 可变默认值必须走 factory",
+          "description": "可变默认值(list/dict)一律用 field(default_factory=...),否则所有实例共享同一份。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Document",
+          "definition": "RAG 流程中的最小数据单元,包含 page_content(文本本体)与 metadata(来源等描述信息)两个核心字段。"
+        },
+        {
+          "name": "元数据(Metadata)",
+          "definition": "描述数据的数据:来源、格式、长度等。在 RAG 中承担溯源引用、过滤检索、调试定位的职责,与正文分通道传递。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "pathlib",
+          "role": "文件路径处理库",
+          "description": "Python 标准库的面向对象路径工具,Path / 拼接、read_text/write_text 一把梭,跨平台免拼字符串。",
+          "officialUrl": "https://docs.python.org/3/library/pathlib.html",
+          "category": "标准库",
+          "installHint": "Python 3.12 内置,无需安装"
+        },
+        {
+          "name": "dataclasses",
+          "role": "数据载体声明工具",
+          "description": "Python 标准库,用 @dataclass 装饰器自动生成 __init__/__repr__ 等样板代码,适合定义 Document 这类纯数据类。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.12 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全所有 # TODO 标记的代码",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 Document dataclass",
+          "astType": "class_def",
+          "name": "Document",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要实现 load_txt 函数",
+          "astType": "function_def",
+          "name": "load_txt",
+          "blocking": false
+        },
+        {
+          "type": "regex_in_code",
+          "message": "metadata 默认值应使用 field(default_factory=dict)",
+          "pattern": "field\\(default_factory=dict\\)",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行后应输出加载的典籍字数",
+          "expectedStdout": "全文共 \\d+ 字",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-doc-loading-s2",
+      "taskId": "t20-doc-loading",
+      "order": 2,
+      "title": "多格式入藏:txt/md/代码各配一把钥匙",
+      "instruction": "### 目标\n把藏经阁从\"只收 txt\"升级为\"多格式入藏\":txt / Markdown / Python 代码各配一把专用钥匙(加载器),再用统一入口按扩展名分发。\n\n### 原理\n真实知识库从来不是单一格式。多格式加载的关键洞察是:**共性走统一接口,个性走格式专属元数据**。三种格式读出文本的方式一模一样(`read_text`),但能挖出的\"出身信息\"完全不同:\n\n- txt 没有结构,记下长度已是全部;\n- Markdown 的 `#` 标题是天然语义锚点,提取 title 和章节数后,后续切分可以按标题对齐边界;\n- 代码文件的骨架是函数,用 `ast.parse` 解析语法树、统计 `ast.FunctionDef` 节点数——**不要拿正则数 `def`**,注释和字符串里出现的 \"def\" 会骗过你,AST 只认真正的语法节点。\n\n工程模式上注意两点。一是**分发表(dispatch table)**:`LOADERS = {\".txt\": _load_txt, ...}` 把\"扩展名 → 加载函数\"的映射数据化,新增格式只加一行字典,不用改 if-else 长龙——LangChain 的 `DirectoryLoader` 的 loader_cls 参数就是同款思想。二是**fail-fast**:遇到不支持的格式直接 `raise ValueError`,绝不静默当 txt 处理。静默降级意味着 PDF 的二进制乱码悄悄混进知识库,污染 embedding 和检索,而且几周内没人发现;一声脆响的异常才是仁慈。\n\n### 操作\n1. 补全 `_load_md`:提取首个一级标题与标题总数\n2. 补全 `_load_py`:用 AST 统计函数定义数\n3. 补全 `load_document`:查分发表,查不到就报错\n4. 运行,核对书目清单与\"拒绝入藏\"演示\n\n### 常见坑\n- **用正则解析代码**:`re.findall(\"def \", code)` 会把注释、字符串里的 \"def\" 全算进去,统计虚高。\n- **扩展名大小写**:`README.MD` 的 suffix 是 `.MD`,查表前先 `.lower()`,否则莫名 miss。\n- **静默兜底**:`except: return Document(\"\")` 把错误吞掉,空文档流向下游,排查时哭都来不及。",
+      "todoItems": [
+        {
+          "title": "补全 _load_md:提取首个一级标题与标题总数",
+          "target": "_load_md()",
+          "code": "title = next((ln[2:] for ln in text.splitlines() if ln.startswith(\"# \")), \"无题\");headings = sum(1 for ln in text.splitlines() if ln.startswith(\"#\"))",
+          "expect": "md 卷的 title/headings 进入元数据,书目清单出现 Markdown 卷"
+        },
+        {
+          "title": "补全 _load_py:用 AST 统计函数定义数",
+          "target": "_load_py()",
+          "code": "sum(isinstance(n, ast.FunctionDef) for n in ast.walk(ast.parse(text)))",
+          "expect": "代码卷 funcs 数量进入元数据,输出「共入藏 3 卷典籍」"
+        },
+        {
+          "title": "补全 load_document:按扩展名查分发表,查不到抛 ValueError",
+          "target": "load_document()",
+          "code": "loader = LOADERS.get(path.suffix.lower());if loader is None: raise ValueError(...)",
+          "expect": "未知扩展名报错,演示「拒绝入藏」分支"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "三种格式读文本的方式相同,差异只在元数据:md 挖标题,py 数函数;分发逻辑走 LOADERS 字典查表。"
+        },
+        {
+          "order": 2,
+          "text": "ast.walk(ast.parse(text)) 遍历所有语法节点,isinstance(n, ast.FunctionDef) 过滤出函数定义。"
+        },
+        {
+          "order": 3,
+          "text": "loader = LOADERS.get(path.suffix.lower());if loader is None: raise ValueError(...);否则 return loader(path)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "用 AST 统计函数定义数",
+          "language": "python",
+          "code": "import ast\n\ntree = ast.parse(code_text)\nfuncs = [n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]\nprint(len(funcs), funcs)",
+          "description": "AST 只认真实语法节点,注释和字符串里的 def 不会混入——这是正则做不到的。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "分发表(Dispatch Table)",
+          "definition": "用字典把「键 → 处理函数」的映射数据化,替代 if-else 长龙;新增格式只加一行,不改控制流。"
+        },
+        {
+          "name": "AST(抽象语法树)",
+          "definition": "源码的结构化树形表示。ast.parse 把代码解析成树,节点类型(FunctionDef/Assign 等)反映语法结构而非文本表象。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "ast",
+          "role": "代码结构解析库",
+          "description": "Python 标准库的抽象语法树模块,用于静态分析 Python 源码:统计函数、提取结构,无需执行代码。",
+          "officialUrl": "https://docs.python.org/3/library/ast.html",
+          "category": "标准库",
+          "installHint": "Python 3.12 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全所有 # TODO 标记的代码",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要实现统一入口 load_document",
+          "astType": "function_def",
+          "name": "load_document",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "加载代码文件应使用 ast.parse 解析语法树",
+          "pattern": "ast\\.parse",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行后应输出三卷典籍的书目信息",
+          "expectedStdout": "共入藏 3 卷典籍",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-doc-loading-s3",
+      "taskId": "t20-doc-loading",
+      "order": 3,
+      "title": "动刀:手写递归字符切分器",
+      "instruction": "### 目标\n手写一个递归字符切分器(Recursive Character Splitter),把三卷典籍切成大小可控、边界自然、带重叠的 chunk——这是藏经阁能被检索的前提。\n\n### 原理\n为什么必须切分?两个硬约束:embedding 模型有输入长度上限;更重要的是**检索粒度**——整本书做一个 embedding,语义被稀释成\"平均味\",查\"走火怎么办\"会命中整本《筑基总纲》而不是具体那一段。切太小又走向反面:半句话没有完整语义,向量化后全是噪声。\n\n递归字符切分的核心思想是**按语义层级逐级降格**:优先在段落(`\\n\\n`)断开;段落太长,退而求其次按行(`\\n`);还太长,按句(`。`);万不得已才逐字硬切。这样绝大多数 chunk 的边界落在自然语义边界上,而不是一句话的正中间。LangChain 的 `RecursiveCharacterTextSplitter` 就是这个算法,本步手写它的核心——理解原理后,它的行为对你而言不再\"诡异\"。\n\n`chunk_overlap`(重叠)解决**跨边界语义断裂**:关键句\"以温水沐足\"若被切成两半,两个 chunk 各拿一半,检索全废;让每个 chunk 尾部与下一个 chunk 头部重复十几字,语义就连续了。合并逻辑 `_merge_splits` 是细节所在:碎片顺序装箱,装满封箱;封箱后从箱头丢弃碎片,直到剩余不超过重叠预算——这些\"箱尾\"自然成为下一箱的箱头。最后对仍超长的块**带着下一层分隔符递归**,保证 chunk_size 是硬契约、绝不超界。\n\n### 操作\n1. 补全 `_merge_splits` 的封箱与重叠保留逻辑\n2. 补全 `split_text` 的分隔符选择与递归降级\n3. 运行,观察三种格式各自的切分边界,确认\"最长块不超上限\"\n\n### 常见坑\n- **`chunk_overlap >= chunk_size`**:合并逻辑直接失去意义,入口必须先校验拦截(参考答案里有这个守卫)。\n- **分隔符顺序放反**:先按 `。` 再按 `\\n\\n`,chunk 会碎成一地短句——分隔符列表的顺序就是语义优先级。\n- **忘记递归**:只在顶层分一次,超长段落原样塞进结果,chunk_size 形同虚设;必须对超长块用下一层分隔符再切。",
+      "todoItems": [
+        {
+          "title": "补全 _merge_splits:碎片装箱与重叠预算保留",
+          "target": "_merge_splits()",
+          "code": "装满即封箱:if current and size + len(piece) + len(sep) > chunk_size: 封箱后 while size > chunk_overlap: size -= len(current.pop(0)) + len(sep)",
+          "expect": "碎片按序装箱,箱尾保留不超过 chunk_overlap 的重叠"
+        },
+        {
+          "title": "补全 split_text:选择分隔符并对超长块递归降级",
+          "target": "split_text()",
+          "code": "sep = next((s for s in separators if s == \"\" or s in text), \"\");deeper = separators[separators.index(sep)+1:] or [\"\"];超长块用 deeper 递归",
+          "expect": "输出各格式切分边界与「共切出 N 块」,最长块不超过 chunk_size"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "先想清楚装箱循环:什么时候封箱?封箱后 current 里该按 chunk_overlap 预算留下多少?"
+        },
+        {
+          "order": 2,
+          "text": "sep = next((s for s in separators if s == '' or s in text), '');下一层分隔符是 separators[separators.index(sep)+1:] or ['']。"
+        },
+        {
+          "order": 3,
+          "text": "封箱后裁重叠:while current and size > chunk_overlap: size -= len(current.pop(0)) + (len(sep) if current else 0)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "工业对照:RecursiveCharacterTextSplitter",
+          "language": "python",
+          "code": "from langchain_text_splitters import RecursiveCharacterTextSplitter\n# langchain 1.x 的经典组件也可从 langchain_classic.text_splitter 导入\n\nsplitter = RecursiveCharacterTextSplitter(\n    chunk_size=60, chunk_overlap=15,\n    separators=[\"\\n\\n\", \"\\n\", \"。\", \"\"],\n)\nchunks = splitter.split_text(text)",
+          "description": "生产环境直接用现成实现(算法与本步手写的一致);手写是为了理解它的行为边界。注意 langchain 1.x 已将经典组件移至 langchain_classic 命名空间。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "递归字符切分(Recursive Character Splitting)",
+          "definition": "按分隔符语义层级(段落→行→句→字)逐级降格的切分算法,尽量让 chunk 边界落在自然语义边界上。"
+        },
+        {
+          "name": "重叠(Chunk Overlap)",
+          "definition": "相邻 chunk 之间重复的字符数,用于保住跨边界的语义连续性;过大浪费 token,过小救不了断句。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-text-splitters",
+          "role": "工业级文本切分组件",
+          "description": "LangChain 的切分器包,RecursiveCharacterTextSplitter 是本步手写算法的工业实现。langchain 1.x 中经典组件位于 langchain_classic 命名空间。",
+          "officialUrl": "https://python.langchain.com/docs/concepts/text_splitters/",
+          "category": "框架",
+          "installHint": "pip install langchain-text-splitters(沙箱已预装;本任务为理解原理而手写)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全所有 # TODO 标记的代码",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要实现 split_text 递归切分函数",
+          "astType": "function_def",
+          "name": "split_text",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "切分器必须支持 chunk_overlap 重叠参数",
+          "pattern": "chunk_overlap",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行后应输出各 chunk 清单与总块数",
+          "expectedStdout": "共切出 \\d+ 块",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-doc-loading-s4",
+      "taskId": "t20-doc-loading",
+      "order": 4,
+      "title": "立户:给 chunk 签发身份证",
+      "instruction": "### 目标\n给每个 chunk 签发\"身份证\":chunk_id、序号、总数、原文偏移量——让切分结果从\"一堆字符串\"升级为可溯源、可定位、可调试的结构化数据。\n\n### 原理\n切分是 RAG 里信息**只丢不增**的环节:长文档变碎片,整体结构没了,元数据是唯一能补回上下文的地方。一套合格的 chunk 元数据至少回答四个问题:\n\n- 出自哪本书(`source`)——答案末尾的引用标注、按来源过滤检索都靠它;\n- 第几块、共几块(`chunk_index` / `total_chunks`)——判断\"这条信息是否完整,要不要把相邻块也取进上下文\";\n- 在原文什么位置(`start` / `end` 偏移量)——前端高亮原文、人工核对出处靠它;\n- 全局唯一称呼(`chunk_id`)——日志、调试、去重的钥匙。\n\nchunk_id 的设计有讲究:`筑基总纲.txt#003` 这种\"来源#序号\"可读性好,排查日志时一眼定位;序号用 `:03d` 补零是为了**字符串排序正确**——不补零的话 `#10` 会排在 `#2` 前面。偏移量定位有个真坑:因为重叠,相邻 chunk 的内容在原文中**重复出现**,`text.find(chunk)` 从头找会命中更早的位置;维护一个 `search_from` 游标,从上一块的终点附近继续找,才不会错位。\n\n最后那段完整性自检是工程师的肌肉记忆:**凡是\"我算出来的位置\",都要能反推验证**——用偏移量回原书切片,必须与 chunk 内容一字不差,assert 不过就是实现有 bug。\n\n### 操作\n1. 补全 `split_documents`:total / search_from 游标\n2. 逐块计算 start/end 偏移量,拼装完整元数据\n3. 运行,核对户口本表格与\"偏移量自检通过: N/N\"\n\n### 常见坑\n- **find 从头找**:重叠内容在原文重复出现,偏移量全部指向前一处,自检立刻露馅。\n- **total_chunks 先写后算**:切完之前不知道总数,必须先切出列表再回填。\n- **元数据合并顺序写反**:`{**chunk_meta, **doc.metadata}` 会让文档级字段顶掉 chunk 级字段,chunk_index 全变成同一个值。",
+      "todoItems": [
+        {
+          "title": "补全 split_documents:回填 total 并维护 search_from 定位游标",
+          "target": "split_documents()",
+          "code": "total = len(pieces);start = doc.page_content.find(text, search_from);search_from = max(search_from, end - chunk_overlap)",
+          "expect": "户口本表格出现 chunk_index/total_chunks 与正确偏移量"
+        },
+        {
+          "title": "逐块计算 start/end 偏移量并拼装 chunk_id 元数据",
+          "target": "chunk_id",
+          "code": "chunk_id = f\"{source}#{i:03d}\";meta = {**chunk_meta, **doc.metadata}",
+          "expect": "输出「偏移量自检通过: N/N」,每块可溯源回原文位置"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "total 切完才知道:先拿到 pieces 再回填;search_from 是偏移量定位游标,防止重叠内容定位串位。"
+        },
+        {
+          "order": 2,
+          "text": "start = doc.page_content.find(text, search_from);end = start + len(text)。"
+        },
+        {
+          "order": 3,
+          "text": "search_from = max(search_from, end - chunk_overlap);chunk_id = f\"{source}#{i:03d}\"。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "一份合格的 chunk 元数据",
+          "language": "python",
+          "code": "{\n    \"source\": \"筑基总纲.txt\",   # 出自哪本书 → 引用溯源\n    \"chunk_id\": \"筑基总纲.txt#003\",  # 全局唯一 → 日志/去重\n    \"chunk_index\": 3, \"total_chunks\": 9,  # 第几块/共几块 → 要不要补相邻块\n    \"start\": 141, \"end\": 199,          # 原文偏移量 → 高亮定位\n}",
+          "description": "元数据的每个字段都对应一个下游消费场景——不是为了好看。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "chunk_id",
+          "definition": "chunk 的全局唯一标识,常用「来源#补零序号」格式,兼顾可读性与字符串排序正确性。"
+        },
+        {
+          "name": "偏移量(Offset)",
+          "definition": "chunk 在原文中的起止字符位置(start/end),用于答案高亮与人工核对出处;定位时要警惕重叠内容造成的重复匹配。"
+        },
+        {
+          "name": "溯源(Provenance)",
+          "definition": "答案可回指原文出处的能力,依赖切分时完整保留 source 与偏移量元数据。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "dataclasses",
+          "role": "数据载体声明工具",
+          "description": "Document 在切分管线中被反复构造:原文档进、chunk 出,dataclass 让「文本+元数据」的传递始终类型清晰。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.12 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全所有 # TODO 标记的代码",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要实现 split_documents 函数",
+          "astType": "function_def",
+          "name": "split_documents",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "偏移量定位需要 search_from 游标防止重叠串位",
+          "pattern": "search_from",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行后偏移量自检应全部通过",
+          "expectedStdout": "偏移量自检通过: \\d+/\\d+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-doc-loading-s5",
+      "taskId": "t20-doc-loading",
+      "order": 5,
+      "title": "质检:切分质量评估",
+      "instruction": "### 目标\n给切分结果做\"质检\":用长度分布(min / mean / median / p90 / max)、超界块数量、实测重叠率三个维度量化切分质量,替代\"看着还行\"的玄学判断。\n\n### 原理\n不能量化的东西就无法优化。切分质量有两个核心指标族:\n\n**长度分布**回答\"块切得匀不匀\"。只看平均数是经典陷阱:mean 刚好等于 chunk_size,实际可能是\"一半 10 字、一半 110 字\"的两极分化。所以要配齐一组统计量:`p90`(九十分位)告诉你\"九成的块最长有多长\",`min` 暴露过碎的空话块(检索时匹配上也没信息),`median` 与 `mean` 的差距暴露分布偏斜。**超界块数**(> chunk_size)是硬指标:递归切分器的契约就是绝不超界,出现超界说明实现有 bug,必须为 0。\n\n**实测重叠率**回答\"重叠预算花得对不对\"。你声明 `chunk_overlap=15`,实际相邻 chunk 重了多少字?用\"前块最长后缀 = 后块前缀\"的算法实测——声明值只是预算,合并逻辑按分隔符对齐后实际值往往更小。注意只对**同源且相邻**的 chunk 测:上一本书的最后一块和下一本书的第一块没有任何关系,混进来只会拉低均值、误导判断。\n\n这一步建立的 `evaluate_chunks` 就是下一步调参的打分器——有了量化指标,\"哪个参数好\"才从吵架变成查表。真实项目里这套指标还会加上\"检索命中率\"等端到端维度(那是本课程后续 t24 评估任务的故事)。\n\n### 操作\n1. 补全 `measure_overlap`:最长公共前后缀\n2. 补全 `evaluate_chunks`:同源相邻过滤 + 重叠实测\n3. 运行,阅读质检报告,确认结论为\"合格\"\n\n### 常见坑\n- **只看 mean**:两极分化的分布平均值可以很漂亮,必须配分位数一起看。\n- **跨文档算重叠**:不同来源的相邻 chunk 没有重叠义务,算进去纯属噪声。\n- **空 chunk 混入统计**:`strip` 后为空的分段要在切分出口过滤,否则 min 永远是 0、mean 被拉低。",
+      "todoItems": [
+        {
+          "title": "补全 measure_overlap:求最长公共前后缀",
+          "target": "measure_overlap()",
+          "code": "for size in range(min(len(prev), len(nxt)), 0, -1):if prev.endswith(nxt[:size]):return size",
+          "expect": "返回相邻 chunk 的实际重叠字数"
+        },
+        {
+          "title": "补全 evaluate_chunks:同源相邻过滤 + 统计量计算",
+          "target": "evaluate_chunks()",
+          "code": "pairs = [(a.page_content, b.page_content) for a, b in zip(chunks, chunks[1:]) if a.metadata[\"source\"] == b.metadata[\"source\"]];statistics.mean/median/p90",
+          "expect": "输出长度分布与实测重叠率,「质检结论: 合格」"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "最长公共前后缀:从大到小试,prev.endswith(nxt[:size]) 成立即返回 size。"
+        },
+        {
+          "order": 2,
+          "text": "zip(chunks, chunks[1:]) 得相邻对,再用 a.metadata['source'] == b.metadata['source'] 过滤跨文档对。"
+        },
+        {
+          "order": 3,
+          "text": "pairs = [(a.page_content, b.page_content) for a, b in zip(chunks, chunks[1:]) if ...];overlaps = [measure_overlap(a, b) for a, b in pairs]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "statistics 快速上手",
+          "language": "python",
+          "code": "import statistics\n\nlengths = sorted([12, 45, 58, 60, 60, 34])\nstatistics.mean(lengths)     # 平均值:掩盖分布形态\nstatistics.median(lengths)   # 中位数:抗极端值\np90 = lengths[int(len(lengths) * 0.9)]  # 九成分位:大多数块最长有多长",
+          "description": "评估分布不要只看 mean——median 与 p90 才能暴露偏斜和长尾。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "P90 分位数",
+          "definition": "90% 的样本不超过的值。比 max 稳健(不受个别极端值带偏),比 mean 更能反映「大多数块的真实上限」。"
+        },
+        {
+          "name": "实测重叠率",
+          "definition": "相邻 chunk 实际重复的字符数,用「前块最长后缀 = 后块前缀」算法测得;与声明的 chunk_overlap(预算)往往不同。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "statistics",
+          "role": "统计计算库",
+          "description": "Python 标准库,mean/median 等常用统计量开箱即用,零依赖完成切分质量评估。",
+          "officialUrl": "https://docs.python.org/3/library/statistics.html",
+          "category": "标准库",
+          "installHint": "Python 3.12 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全所有 # TODO 标记的代码",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要实现 evaluate_chunks 评估函数",
+          "astType": "function_def",
+          "name": "evaluate_chunks",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "长度分布统计应使用 statistics.mean/median",
+          "pattern": "statistics\\.(mean|median)",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "质检结论应为合格(无超界块)",
+          "expectedStdout": "质检结论: 合格",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-doc-loading-s6",
+      "taskId": "t20-doc-loading",
+      "order": 6,
+      "title": "定稿:调参对比与索引管线",
+      "instruction": "### 目标\n把前五步的零件总装成一条索引管线,并办一场\"参数擂台赛\":三套 chunk_size / overlap 配置同场竞技,用评分函数选出藏经阁的定稿参数。\n\n### 原理\n切分参数没有银弹,只有**权衡**:chunk 小,检索精确但语义不完整、块数多(索引贵、拼进上下文的块也多);chunk 大,语义完整但检索噪声大、容易顶爆上下文窗口。正确的选择方式是把权衡量化后交给数据:同一批文档、同一套评估函数,只换参数,横向对比。\n\n评分函数体现你的价值取向。本步的设计是:**超界一票否决**(契约破坏,直接 -1);平均长度贴近目标的 0.8 倍得分高(留 20% 余量给后续 prompt 包装);实测重叠贴近预算得分高。权重 0.6 / 0.4 是经验值——真实项目里这个函数应由\"检索命中率\"这类端到端指标主导,那是 t24 评估任务的故事。注意评分函数只做相对比较,绝对值大小没有意义。\n\n工程细节有两处值得品味。其一,三套配置**共用同一份已加载的 docs**,只重跑切分——加载是 IO、切分是 CPU,调参循环里反复读盘既慢又蠢,语料一大差距立现。其二,`build_index` 把\"切分 → 体检 → 评分\"收拢成一个函数,返回 `(chunks, metrics)` 二元组——这就是藏经阁的索引构建器,下一任务(t21 向量化)会把它的输出直接灌进向量库。\n\n### 操作\n1. 补全 `score` 评分函数\n2. 补全 `build_index` 管线串联\n3. 补全擂台主循环与最佳配置选择\n4. 运行,看三套配置的对比表与最终定稿\n\n### 常见坑\n- **调参循环里重复加载文档**:每次循环都 read_text 一遍,语料一大就慢得离谱——加载一次,复用。\n- **只看单一指标**:块数最少 ≠ 最好,大块意味着检索噪声,必须多维评分。\n- **结果不可复现**:遍历目录不排序,两次运行顺序不同、结论漂移——`sorted()` 固定顺序是廉价保险。",
+      "todoItems": [
+        {
+          "title": "补全 score:超界一票否决 + 归一化加权",
+          "target": "score()",
+          "code": "if m[\"oversize\"]:return -1.0;return round(fit * 0.6 + overlap_fit * 0.4, 3)",
+          "expect": "三套配置各得到可横向比较的得分"
+        },
+        {
+          "title": "补全 build_index:切分 → 体检 → 评分串成管线",
+          "target": "build_index()",
+          "code": "chunks = split_documents(docs, **cfg);metrics = evaluate_chunks(chunks, **cfg);return chunks, {\"score\": score(metrics, cfg)}",
+          "expect": "返回 (chunks, metrics) 二元组,输出三套配置对比表"
+        },
+        {
+          "title": "补全擂台主循环:选出最佳配置",
+          "target": "best = max(results, key=...)",
+          "code": "best = max(results, key=lambda k: results[k][1][\"score\"])",
+          "expect": "输出「最佳配置: ... 得分 ...」"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "评分函数:超界一票否决是硬约束;fit 类指标用「1 - 偏差/目标」归一到 [0,1] 再加权。"
+        },
+        {
+          "order": 2,
+          "text": "build_index = 切分 + evaluate + score,返回 (chunks, metrics) 二元组;chunk 元数据记得带 chunk_id。"
+        },
+        {
+          "order": 3,
+          "text": "best = max(results, key=lambda k: results[k][1]['score'])——key 取每个配置的得分。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "评分函数的设计模式",
+          "language": "python",
+          "code": "def score(m, chunk_size):\n    if m[\"oversize\"]:\n        return -1.0  # 硬约束:一票否决\n    fit = max(1 - abs(m[\"mean\"] - chunk_size * 0.8) / (chunk_size * 0.8), 0.0)\n    return round(fit, 3)  # 软指标:归一化后加权",
+          "description": "硬约束一票否决 + 软指标归一加权,是手写评分函数的通用套路。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "超参数调优(Hyperparameter Tuning)",
+          "definition": "chunk_size/overlap 这类「人工设定、不通过学习获得」的参数选择过程;本步用多配置同场对比 + 评分函数的极简形式。"
+        },
+        {
+          "name": "索引管线(Indexing Pipeline)",
+          "definition": "加载 → 切分 → 质检 → 评分串成的固定流程,输出可直接灌入向量库;管线的价值在于可复现、可对比。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "工业级 RAG 框架(对照)",
+          "description": "生产中的等价物是 LangChain 的 TextSplitter 加评估流水线;本任务手写全套以理解原理。langchain 1.x 经典组件位于 langchain_classic 命名空间。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain(沙箱已预装 1.3.x)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全所有 # TODO 标记的代码",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要实现 build_index 索引管线函数",
+          "astType": "function_def",
+          "name": "build_index",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要定义多套候选配置 CONFIGS",
+          "pattern": "CONFIGS",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "擂台赛应输出最佳配置",
+          "expectedStdout": "最佳配置: .+得分",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

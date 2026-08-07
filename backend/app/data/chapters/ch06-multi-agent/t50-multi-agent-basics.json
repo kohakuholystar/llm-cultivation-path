@@ -1,0 +1,220 @@
+{
+  "steps": [
+    {
+      "id": "t50-multi-agent-basics-s1",
+      "taskId": "t50-multi-agent-basics",
+      "order": 1,
+      "title": "理解多Agent概念与角色分工",
+      "instruction": "## 目标\n理解为什么需要多Agent，以及如何设计角色分工。\n\n## 概念解释\n- **多Agent系统**：多个智能体协作完成复杂任务，每个Agent有独立角色和职责。\n- **角色分工**：将任务分解为子任务，分配给不同Agent，如“研究员Agent”负责搜索信息，“写手Agent”负责生成文本。\n- **协作模式**：串行（一个Agent输出作为下一个输入）和并行（多个Agent同时工作后合并结果）。\n\n## 操作指引\n在下方代码中，你将定义一个简单的多Agent系统：创建两个Agent类（`Researcher`和`Writer`），每个类有一个`process`方法。`Researcher`接收一个主题，返回模拟的研究结果；`Writer`接收研究结果，返回模拟的文章。然后实现一个`Coordinator`类，它接收主题，依次调用两个Agent，并返回最终文章。\n\n### 为什么这样做？\n通过定义清晰的Agent类和协调者，你可以理解角色分工如何简化复杂任务。\n\n### 代码说明\n- `Researcher.process(topic)`：返回一个字符串，如“Research findings on {topic}”。\n- `Writer.process(research)`：返回一个字符串，如“Article based on: {research}”。\n- `Coordinator.run(topic)`：调用两个Agent，返回最终文章。\n\n请在 `# TODO:` 处填写缺失的代码。",
+      "starterCode": "class Researcher:\n    def process(self, topic: str) -> str:\n        # TODO: 返回模拟的研究结果\n# 提示: return f\"Research findings on {topic}\"\n        pass\n\nclass Writer:\n    def process(self, research: str) -> str:\n        # TODO: 返回基于研究的文章\n# 提示: return f\"Research findings on {topic}\"\n        pass\n\nclass Coordinator:\n    def __init__(self):\n        self.researcher = Researcher()\n        self.writer = Writer()\n\n    def run(self, topic: str) -> str:\n        # TODO: 依次调用两个Agent并返回结果\n# 提示: return f\"Research findings on {topic}\"\n        pass\n\n# 测试\ncoord = Coordinator()\nresult = coord.run(\"AI Ethics\")\nprint(result)",
+      "solutionCode": "class Researcher:\n    def process(self, topic: str) -> str:\n        return f\"Research findings on {topic}\"\n\nclass Writer:\n    def process(self, research: str) -> str:\n        return f\"Article based on: {research}\"\n\nclass Coordinator:\n    def __init__(self):\n        self.researcher = Researcher()\n        self.writer = Writer()\n\n    def run(self, topic: str) -> str:\n        research = self.researcher.process(topic)\n        article = self.writer.process(research)\n        return article\n\n# 测试\ncoord = Coordinator()\nresult = coord.run(\"AI Ethics\")\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "思考每个Agent的process方法应该返回什么格式的字符串。"
+        },
+        {
+          "order": 2,
+          "text": "Coordinator的run方法需要先调用researcher，再将结果传给writer。"
+        },
+        {
+          "order": 3,
+          "text": "确保返回的字符串包含输入信息，例如使用f-string。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Agent方法示例",
+          "language": "python",
+          "code": "class SimpleAgent:\n    def process(self, input_data):\n        return f\"Processed: {input_data}\""
+        }
+      ],
+      "terms": [
+        {
+          "name": "多Agent系统",
+          "definition": "由多个智能体组成的系统，通过协作完成复杂任务。"
+        },
+        {
+          "name": "角色分工",
+          "definition": "将任务分解为子任务，分配给不同Agent执行。"
+        },
+        {
+          "name": "串行协作",
+          "definition": "Agent按顺序执行，前一个输出作为后一个输入。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "编程语言",
+          "description": "Python 是本课程使用的编程语言,也是 LLM/AI 领域的主流语言,生态最丰富。用于实现Agent类和协调者。",
+          "officialUrl": "https://www.python.org/",
+          "category": "语言"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填充所有 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中必须包含 class Researcher、class Writer 和 class Coordinator",
+          "astType": "class_def",
+          "name": "Coordinator",
+          "minCount": 1
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行结果应包含 'Article based on: Research findings on AI Ethics'",
+          "expectedStdout": "Article based on: Research findings on AI Ethics",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t50-multi-agent-basics-s2",
+      "taskId": "t50-multi-agent-basics",
+      "order": 2,
+      "title": "实现串行与并行协作模式",
+      "instruction": "## 目标\n实现两种基本协作模式：串行和并行。\n\n## 概念解释\n- **串行模式**：Agent按顺序工作，前一个的输出是后一个的输入，适合有依赖关系的任务。\n- **并行模式**：多个Agent同时工作（在模拟中表现为顺序调用但结果独立），最后合并结果，适合无依赖的任务。\n\n## 操作指引\n在下方代码中，你需要完成`run_serial`和`run_parallel`函数。\n- `run_serial(agents, input_data)`：接受一个Agent列表和初始输入，依次调用每个Agent的`process`方法，将上一个输出作为下一个输入，返回最终结果。\n- `run_parallel(agents, input_data)`：接受一个Agent列表和输入，每个Agent独立处理相同的输入（模拟并行），返回结果列表。\n\n### 为什么这样做？\n掌握这两种模式是构建复杂多Agent流程的基础。\n\n### 代码说明\n- 假设每个Agent都有`process`方法。\n- 串行：结果链式传递。\n- 并行：每个Agent处理相同输入，结果收集成列表。\n\n请在 `# TODO:` 处填写缺失的代码。",
+      "starterCode": "class EchoAgent:\n    def __init__(self, prefix):\n        self.prefix = prefix\n    def process(self, data):\n        return f\"{self.prefix}: {data}\"\n\ndef run_serial(agents, input_data):\n    # TODO: 串行执行，返回最终结果\n# 提示: self.prefix = prefix\n    pass\n\ndef run_parallel(agents, input_data):\n    # TODO: 并行执行，返回结果列表\n# 提示: self.prefix = prefix\n    pass\n\n# 测试\nagents = [EchoAgent(\"A\"), EchoAgent(\"B\")]\nserial_result = run_serial(agents, \"start\")\nparallel_result = run_parallel(agents, \"data\")\nprint(f\"Serial: {serial_result}\")\nprint(f\"Parallel: {parallel_result}\")",
+      "solutionCode": "class EchoAgent:\n    def __init__(self, prefix):\n        self.prefix = prefix\n    def process(self, data):\n        return f\"{self.prefix}: {data}\"\n\ndef run_serial(agents, input_data):\n    current = input_data\n    for agent in agents:\n        current = agent.process(current)\n    return current\n\ndef run_parallel(agents, input_data):\n    results = []\n    for agent in agents:\n        results.append(agent.process(input_data))\n    return results\n\n# 测试\nagents = [EchoAgent(\"A\"), EchoAgent(\"B\")]\nserial_result = run_serial(agents, \"start\")\nparallel_result = run_parallel(agents, \"data\")\nprint(f\"Serial: {serial_result}\")\nprint(f\"Parallel: {parallel_result}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "串行模式需要用一个变量保存中间结果，并在循环中更新。"
+        },
+        {
+          "order": 2,
+          "text": "并行模式需要创建一个空列表，然后在循环中逐个添加结果。"
+        },
+        {
+          "order": 3,
+          "text": "注意串行时每次调用agent.process的参数是当前中间结果，并行时参数始终是原始input_data。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "串行模式示例",
+          "language": "python",
+          "code": "def serial(agents, data):\n    for agent in agents:\n        data = agent.process(data)\n    return data"
+        },
+        {
+          "title": "并行模式示例",
+          "language": "python",
+          "code": "def parallel(agents, data):\n    return [agent.process(data) for agent in agents]"
+        }
+      ],
+      "terms": [
+        {
+          "name": "串行协作",
+          "definition": "Agent按顺序执行，输出作为下一个输入。"
+        },
+        {
+          "name": "并行协作",
+          "definition": "多个Agent独立处理相同输入，结果合并。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "编程语言",
+          "description": "Python 是本课程使用的编程语言,也是 LLM/AI 领域的主流语言,生态最丰富。",
+          "officialUrl": "https://www.python.org/",
+          "category": "语言"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填充所有 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行结果应包含 'Serial: B: A: start' 和 'Parallel: [\"A: data\", \"B: data\"]'",
+          "expectedStdout": "Serial: B: A: start\nParallel: ['A: data', 'B: data']",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t50-multi-agent-basics-s3",
+      "taskId": "t50-multi-agent-basics",
+      "order": 3,
+      "title": "设计任务分解与角色分配系统",
+      "instruction": "## 目标\n设计一个简单的任务分解器，将复杂任务拆分为子任务，并分配给不同角色。\n\n## 概念解释\n- **任务分解**：将一个大任务（如“写一篇关于AI的文章”）拆分为多个小任务（如“研究AI历史”、“写引言”、“写正文”等）。\n- **角色分配**：根据子任务性质，分配给合适的Agent（如“研究员”、“写手”）。\n- **协调器**：负责分解任务、分配并收集结果。\n\n## 操作指引\n在下方代码中，你需要完成`TaskDecomposer`类，它有一个`decompose`方法，接收一个任务描述，返回子任务列表（每个子任务是一个字典，包含`task`和`role`）。然后完成`Coordinator`类，它接收任务描述，使用`TaskDecomposer`分解，然后为每个子任务调用对应的Agent（Agent的`process`方法接收子任务），最后汇总结果。\n\n### 为什么这样做？\n任务分解和角色分配是多Agent系统的核心设计模式。\n\n### 代码说明\n- `TaskDecomposer.decompose(task_description)`：返回列表，如`[{\"task\":\"研究AI历史\",\"role\":\"researcher\"}, {\"task\":\"写文章\",\"role\":\"writer\"}]`。\n- `Coordinator`初始化时创建Agent字典：`{\"researcher\": Researcher(), \"writer\": Writer()}`。\n- `Coordinator.run(task)`：分解任务，对每个子任务调用对应Agent的`process`，返回结果列表。\n\n请在 `# TODO:` 处填写缺失的代码。",
+      "starterCode": "class Researcher:\n    def process(self, task):\n        return f\"Researched: {task}\"\n\nclass Writer:\n    def process(self, task):\n        return f\"Wrote: {task}\"\n\nclass TaskDecomposer:\n    def decompose(self, task_description: str) -> list:\n        # TODO: 根据任务描述返回子任务列表，每个子任务包含'task'和'role'\n# 提示: return f\"Researched: {task}\"\n        # 示例：如果task_description包含'research'和'write'，则分解为两个子任务\n        pass\n\nclass Coordinator:\n    def __init__(self):\n        self.agents = {\n            'researcher': Researcher(),\n            'writer': Writer()\n        }\n        self.decomposer = TaskDecomposer()\n\n    def run(self, task_description: str) -> list:\n        # TODO: 分解任务，分配并执行，返回结果列表\n# 提示: return f\"Researched: {task}\"\n        pass\n\n# 测试\ncoord = Coordinator()\nresult = coord.run(\"Research AI history and write an article\")\nprint(result)",
+      "solutionCode": "class Researcher:\n    def process(self, task):\n        return f\"Researched: {task}\"\n\nclass Writer:\n    def process(self, task):\n        return f\"Wrote: {task}\"\n\nclass TaskDecomposer:\n    def decompose(self, task_description: str) -> list:\n        subtasks = []\n        if 'research' in task_description.lower():\n            subtasks.append({'task': 'AI history', 'role': 'researcher'})\n        if 'write' in task_description.lower():\n            subtasks.append({'task': 'article on AI history', 'role': 'writer'})\n        return subtasks\n\nclass Coordinator:\n    def __init__(self):\n        self.agents = {\n            'researcher': Researcher(),\n            'writer': Writer()\n        }\n        self.decomposer = TaskDecomposer()\n\n    def run(self, task_description: str) -> list:\n        subtasks = self.decomposer.decompose(task_description)\n        results = []\n        for subtask in subtasks:\n            agent = self.agents[subtask['role']]\n            result = agent.process(subtask['task'])\n            results.append(result)\n        return results\n\n# 测试\ncoord = Coordinator()\nresult = coord.run(\"Research AI history and write an article\")\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "TaskDecomposer.decompose需要根据输入字符串的关键词决定子任务。"
+        },
+        {
+          "order": 2,
+          "text": "Coordinator.run中，先调用decomposer，然后遍历子任务，根据'role'获取对应agent并调用process。"
+        },
+        {
+          "order": 3,
+          "text": "确保子任务列表包含正确的字段名'task'和'role'。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "任务分解示例",
+          "language": "python",
+          "code": "def decompose(task):\n    if 'research' in task:\n        return [{'task': 'research', 'role': 'researcher'}]\n    return []"
+        }
+      ],
+      "terms": [
+        {
+          "name": "任务分解",
+          "definition": "将复杂任务拆分为多个简单子任务。"
+        },
+        {
+          "name": "角色分配",
+          "definition": "根据子任务性质指定负责的Agent角色。"
+        },
+        {
+          "name": "协调器",
+          "definition": "负责分解、分配和汇总结果的组件。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "编程语言",
+          "description": "Python 是本课程使用的编程语言,也是 LLM/AI 领域的主流语言,生态最丰富。",
+          "officialUrl": "https://www.python.org/",
+          "category": "语言"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填充所有 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行结果应包含 'Researched: AI history' 和 'Wrote: article on AI history'",
+          "expectedStdout": "['Researched: AI history', 'Wrote: article on AI history']",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中必须包含 class TaskDecomposer 和 class Coordinator",
+          "astType": "class_def",
+          "name": "Coordinator",
+          "minCount": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+"""天庭辩论 · s2:交锋回合与轮次编排
+
+立场已固化,本步让两位辩论员真正交锋。把「回合」抽象成一个简单
+状态机:Debate 类负责记录全部发言(transcript),并按轮次轮换取句,
+让反驳不重复、先后有秩序——这是把真实 LLM 请进来之前先跑通的
+纯逻辑骨架。跑完两轮,你应该得到 6 条记录:2 条立论 + 4 条交锋。
+"""
+DEBATE_TOPIC = "天庭的灵讯服务该由 Agent 全自动上线,还是保留人工复核?"
+
+# 每个立场对应一句开篇立论,立场键名与 Debater.stance 严格一致
+OPENING_SCRIPT = {
+    "支持": "灵讯服务流程已全面自动化,Agent 上线又快又稳,人工复核纯属拖后腿。",
+    "反对": "灵讯服务关系天庭民生,一旦 Agent 决策失误影响面巨大,必须保留人工复核。",
+}
+
+# 反驳词库:每个立场两句,按轮次循环取用
+REBUTTAL_SCRIPT = {
+    "支持": ["自动化能把错误率压到接近零,人工复核反而引入主观偏差。",
+             "先全自动上线再灰度观测,比事事等人拍板更快暴露问题。"],
+    "反对": ["灵讯一旦误判,影响的是成千上万仙民,快不等于对。",
+             "人工复核不是拖慢上线,而是给 Agent 的决策兜底。"],
+}
+
+# 身份、辩题与立场全部焊进系统层:改口不是辩论,坚持才是
+SYSTEM_PROMPT_TEMPLATE = (
+    "你是天庭辩手「{role}·{name}」,立场「{stance}」。"
+    "当前辩题:{topic}。"
+    "无论对方怎么说都不得改口,你的一切发言都要服务于捍卫自己的立场。"
+    "你的开篇立论已经公开声明,后续交锋必须与之自洽。"
+)
+
+
+class Debater:
+    """一名立场固定的辩论员。"""
+
+    def __init__(self, name: str, role: str, stance: str) -> None:
+        self.name = name
+        self.role = role
+        self.stance = stance
+        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+            role=role, name=name, topic=DEBATE_TOPIC, stance=stance,
+        )
+
+    def opening_statement(self) -> str:
+        """输出开篇立论,立场铁打不动。"""
+        return f"{self.role}·{self.name} 立论:{OPENING_SCRIPT[self.stance]}"
+
+
+class Debate:
+    """回合制辩论编排器:记录发言并按轮次轮换取句。"""
+
+    def __init__(self, debaters: list[Debater]) -> None:
+        self.debaters = debaters
+        self.transcript: list[str] = []
+        self._used: dict[str, int] = {}
+
+    def opening_round(self) -> None:
+        for d in self.debaters:
+            line = d.opening_statement()
+            self.transcript.append(line)
+            print(line)
+
+    def rebut(self, debater: Debater) -> str:
+        idx = self._used.get(debater.stance, 0)
+        script = REBUTTAL_SCRIPT[debater.stance]
+        line = script[idx % len(script)]
+        self._used[debater.stance] = idx + 1
+        return line
+
+    def run(self, rounds: int = 2) -> list[str]:
+        self.opening_round()
+        for r in range(1, rounds + 1):
+            for d in self.debaters:
+                line = f"[第{r}轮] {d.role}·{d.name}:{self.rebut(d)}"
+                self.transcript.append(line)
+                print(line)
+        return self.transcript
+
+
+def main() -> None:
+    debaters = [
+        Debater("司命星君", "正方", "支持"),
+        Debater("纠察灵官", "反方", "反对"),
+    ]
+    records = Debate(debaters).run(rounds=2)
+    print(f"\n[辩论记录] 共 {len(records)} 条,交锋完成。")
+
+
+if __name__ == "__main__":
+    main()

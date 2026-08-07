@@ -1,0 +1,213 @@
+{
+  "steps": [
+    {
+      "id": "t55-swarm-s1",
+      "taskId": "t55-swarm",
+      "order": 1,
+      "title": "Swarm 模式概念",
+      "instruction": "### 目标\n理解 OpenAI Swarm 的极简哲学:**Agent = 指令 + 函数列表,协作 = 例程(routine)间的移交(handoff)**。\n\n### 背景: Swarm 为什么\"反框架\"\nSwarm(2024, 已被 Responses API 吸收)的核心观点:多 Agent 不需要重型框架,两个原语就够:\n1. **handoff(移交)**:当前 Agent 说\"这事不归我管,转给 X\"——对话上下文原封不动移交给下一个 Agent\n2. **routine(例程)**:每个 Agent 本质是一段系统提示词+它能调的工具,像客服工单的\"处理流程卡\"\n\n对比 CrewAI:没有 Task/Crew/process 这些概念,只有\"谁在说话、它能干什么、它能把话转给谁\"。**极简的代价**:编排逻辑全在各 Agent 的指令里,复杂流程难以维护——所以 Swarm 定位是教学/轻量场景。\n\n### handoff 的实现本质\n就是函数调用返回一个 Agent 对象:\n```python\ndef transfer_to_sales():\n    return sales_agent   # 框架看到返回值是 Agent 就切换\n```\n下一轮对话由 sales_agent 接管(换 system prompt + 换工具表)。\n\n### 操作\n1. 定义 `Agent`(name/instructions/functions)\n2. 实现移交函数:返回另一个 Agent\n3. 模拟\"客服→技术专员\"的转接对话",
+      "starterCode": "import concurrent.futures\n\n# 轻量 Agent: 只有一个简单规则\ndef simple_agent(task_id, task):\n    # 简单规则: 返回处理结果\n    result = f'Agent{task_id} 处理: {task}'\n    return result\n\n# 启动多个 Agent 并行\ntasks = [('分析数据',), ('生成报告',), ('检查错误',), ('优化代码',)]\n\nwith concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:\n    # 提交所有任务\n    futures = [executor.submit(simple_agent, i, t[0]) for i, t in enumerate(tasks)]\n    results = [f.result() for f in futures]\n\nfor r in results:\n    print(r)\nprint(f'\\n{len(results)} 个 Agent 并行完成')",
+      "solutionCode": "import concurrent.futures\n\ndef simple_agent(task_id, task):\n    result = f'Agent{task_id} 处理: {task}'\n    return result\n\ntasks = [('分析数据',), ('生成报告',), ('检查错误',), ('优化代码',)]\n\nwith concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:\n    futures = [executor.submit(simple_agent, i, t[0]) for i, t in enumerate(tasks)]\n    results = [f.result() for f in futures]\n\nfor r in results:\n    print(r)\nprint(f'\\n{len(results)} 个 Agent 并行完成')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Swarm: 多个简单 Agent 并行。"
+        },
+        {
+          "order": 2,
+          "text": "ThreadPoolExecutor 并行执行。"
+        },
+        {
+          "order": 3,
+          "text": "个体简单,并行产生涌现。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from concurrent.futures import ThreadPoolExecutor\nwith ThreadPoolExecutor(4) as ex:\n    results = list(ex.map(agent, tasks))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Swarm",
+          "definition": "大量轻量Agent并行协作"
+        },
+        {
+          "name": "涌现",
+          "definition": "个体简单,群体智能"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "concurrent.futures",
+          "role": "并行执行",
+          "description": "Python 标准库的并发执行模块,提供 ThreadPoolExecutor/ProcessPoolExecutor 实现并行调用,用于多 Agent 并发。ThreadPoolExecutor",
+          "officialUrl": "https://docs.python.org/3/library/concurrent.futures.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 ThreadPoolExecutor。",
+          "api": "ThreadPoolExecutor",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t55-swarm-s2",
+      "taskId": "t55-swarm",
+      "order": 2,
+      "title": "Agent 间局部交互",
+      "instruction": "### 目标\n实现 Swarm 的**运行循环**:接收用户输入→当前 Agent 响应→可能移交→新 Agent 继续,直到问题解决。\n\n### 背景: 循环里的状态\nSwarm 循环维护两样东西:\n- **messages**:完整对话历史(移交不清空!新 Agent 能看到之前全部对话——这是 Swarm 的关键设计,上下文无缝衔接)\n- **active_agent**:当前控制对话的 Agent\n\n每轮:active_agent 看完整历史 → 输出回复或调用移交函数 → 若移交,active_agent 换成新 Agent 继续。\n\n### 上下文共享 vs 隔离\nSwarm 选择全共享(历史全移交),优点是用户不用重复描述问题(\"我再说一遍我的订单号...\"),缺点:\n- 历史膨胀,token 成本随移交次数线性涨\n- 敏感信息泄露风险(客服 Agent 看到的支付信息,技术 Agent 也看到了)\n**工程取舍**:轻量场景全共享;复杂场景在移交时做\"摘要移交\"(只传关键字段)。\n\n### 操作\n1. 实现 `Swarm.run(agent, user_msg)`:循环直到无移交\n2. 移交时打印\"🔄 转接给 X\"\n3. 模拟:用户报 bug → 客服记录 → 转技术 → 技术给出修复方案",
+      "starterCode": "import concurrent.futures\n\nshared_state = {'results': [], 'round': 0}\n\ndef agent(task_id, input_data):\n    # 简单规则: 处理输入 + 加自己的见解\n    output = f'Agent{task_id}: 基于[{input_data}]产出[{input_data}+见解{task_id}]'\n    shared_state['results'].append(output)\n    return output\n\n# 多轮交互\ntasks = ['初始数据']\nfor rnd in range(3):\n    shared_state['round'] = rnd\n    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:\n        # 每轮用上一轮结果作输入\n        inputs = shared_state['results'][-4:] if shared_state['results'] else tasks\n        futures = [ex.submit(agent, i, inp) for i, inp in enumerate(inputs)]\n        list(f.result() for f in futures)\n    print(f'轮{rnd}: {len(shared_state[\"results\"])} 条结果')\n\nprint('\\n=== 涌现结果 ===')\nfor r in shared_state['results'][-5:]:\n    print(r)",
+      "solutionCode": "import concurrent.futures\n\nshared_state = {'results': [], 'round': 0}\n\ndef agent(task_id, input_data):\n    output = f'Agent{task_id}: 基于[{input_data}]产出[{input_data}+见解{task_id}]'\n    shared_state['results'].append(output)\n    return output\n\ntasks = ['初始数据']\nfor rnd in range(3):\n    shared_state['round'] = rnd\n    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:\n        inputs = shared_state['results'][-4:] if shared_state['results'] else tasks\n        futures = [ex.submit(agent, i, inp) for i, inp in enumerate(inputs)]\n        list(f.result() for f in futures)\n    print(f'轮{rnd}: {len(shared_state[\"results\"])} 条结果')\n\nprint('\\n=== 涌现结果 ===')\nfor r in shared_state['results'][-5:]:\n    print(r)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Agent 间通过 shared_state 交互。"
+        },
+        {
+          "order": 2,
+          "text": "每轮用上一轮结果作输入。"
+        },
+        {
+          "order": 3,
+          "text": "多轮交互产生涌现。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 局部交互\nshared = []\ndef agent(inp):\n    out = process(inp)\n    shared.append(out)  # 共享给其他"
+        }
+      ],
+      "terms": [
+        {
+          "name": "局部交互",
+          "definition": "Agent 间通过共享状态交互"
+        },
+        {
+          "name": "涌现行为",
+          "definition": "多轮交互产生群体智能"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "concurrent.futures",
+          "role": "并行",
+          "description": "Python 标准库的并发执行模块,提供 ThreadPoolExecutor/ProcessPoolExecutor 实现并行调用,用于多 Agent 并发。",
+          "officialUrl": "https://docs.python.org/3/library/concurrent.futures.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "agent",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t55-swarm-s3",
+      "taskId": "t55-swarm",
+      "order": 3,
+      "title": "Swarm vs 中心化总结",
+      "instruction": "### 目标\n用 Swarm 思想实现**分诊(Triage)系统**:一个前台 Agent 判断意图,把对话移交給对应专家 Agent。\n\n### 背景: 分诊是 handoff 最经典的应用\n客服系统的第一线永远是分诊台:\n- 用户意图不明(\"我的东西坏了\")→ 前台澄清(\"是订单问题还是产品故障?\")\n- 意图明确 → 移交给专家(退款专员/技术支持/账单专员)\n- **专家也能往回移**:技术发现其实是账单问题 → 再移交给账单(handoff 不是单向的!)\n\n### 分诊 Agent 的提示词要点\n```\n你是分诊员。规则:\n1. 意图明确 → 立即调用对应移交函数, 不要自己回答专业问题\n2. 意图不明 → 最多追问 2 个问题澄清, 然后必须做出移交决定\n3. 绝不承诺解决方案——那是专家的事\n```\n**关键约束\"不要自己回答\"**:分诊员越俎代庖是新手最常犯的错,导致用户得到不专业的回答。\n\n### 操作\n1. 定义 3 个专家 Agent(退款/技术/账单)+ 1 个分诊 Agent\n2. 分诊 Agent 有 3 个移交函数;专家各有 1 个\"转回分诊台\"函数\n3. 模拟 3 种用户输入,验证都路由到正确专家",
+      "starterCode": "# t55-s3: Swarm 分诊系统\nclass Agent:\n    def __init__(self, name: str, instructions: str, functions: dict = None):\n        self.name = name\n        self.instructions = instructions\n        self.functions = functions or {}\n\n\nclass Swarm:\n    def run(self, agent: Agent, user_msg: str, max_turns: int = 6) -> list:\n        \"\"\"运行循环: 返回对话记录 [{speaker, text}]。\"\"\"\n        history = [{\"speaker\": \"user\", \"text\": user_msg}]\n        current = agent\n        for _ in range(max_turns):\n            # 模拟LLM决策: 根据当前Agent和最新消息决定 回复 或 移交\n            reply, next_agent = self._respond(current, history)\n            history.append({\"speaker\": current.name, \"text\": reply})\n            if next_agent is None:\n                break\n            # TODO: 打印移交信息, current 换成 next_agent\n        return history\n\n    def _respond(self, agent: Agent, history: list) -> tuple:\n        \"\"\"模拟响应逻辑(已给全): 分诊员按关键词移交, 专家直接答复。\"\"\"\n        msg = history[-1][\"text\"]\n        if agent.name == \"triage\":\n            if \"退款\" in msg or \"退钱\" in msg:\n                return (\"明白, 为您转接退款专员\", refund_agent)\n            if \"报错\" in msg or \"bug\" in msg.lower():\n                return (\"明白, 为您转接技术支持\", tech_agent)\n            return (\"请补充: 是退款/技术/账单哪类问题?\", None)\n        return (f\"[{agent.name}] 已处理您的问题\", None)\n\n\n# TODO: 定义 tech_agent / refund_agent / triage 三个Agent\n# triage 的 functions 里应有到两位专家的移交函数\n\nif __name__ == \"__main__\":\n    s = Swarm()\n    for msg in [\"我要退款\", \"APP一直报错闪退\"]:\n        print(f\"用户: {msg}\")\n        for h in s.run(triage, msg)[1:]:\n            print(f\"  {h['speaker']}: {h['text']}\")\n        print()\n",
+      "solutionCode": "# t55-s3: Swarm 分诊系统\nclass Agent:\n    def __init__(self, name: str, instructions: str, functions: dict = None):\n        self.name = name\n        self.instructions = instructions\n        self.functions = functions or {}\n\n\nclass Swarm:\n    def run(self, agent: Agent, user_msg: str, max_turns: int = 6) -> list:\n        history = [{\"speaker\": \"user\", \"text\": user_msg}]\n        current = agent\n        for _ in range(max_turns):\n            reply, next_agent = self._respond(current, history)\n            history.append({\"speaker\": current.name, \"text\": reply})\n            if next_agent is None:\n                break\n            print(f\"  🔄 {current.name} 移交给 {next_agent.name}\")\n            current = next_agent\n        return history\n\n    def _respond(self, agent: Agent, history: list) -> tuple:\n        msg = history[-1][\"text\"]\n        if agent.name == \"triage\":\n            if \"退款\" in msg or \"退钱\" in msg:\n                return (\"为您转接退款专员\", refund_agent)\n            if \"报错\" in msg or \"闪退\" in msg or \"bug\" in msg.lower():\n                return (\"为您转接技术支持\", tech_agent)\n            return (\"请补充: 是退款/技术/账单哪类问题?\", None)\n        # 专家处理: 发现不属于自己的领域可以转回分诊台\n        if agent.name == \"tech\" and \"退款\" in msg:\n            return (\"这其实退款问题, 我帮您转回分诊台\", triage)\n        return (f\"已处理您的问题: '{msg[:15]}...' 解决方案已发送\", None)\n\n\ndef transfer_to_refund():\n    return refund_agent\n\ndef transfer_to_tech():\n    return tech_agent\n\ntech_agent = Agent(\"tech\", \"你是技术支持, 只处理bug/报错类问题\", {})\nrefund_agent = Agent(\"refund\", \"你是退款专员, 只处理退款/退钱\", {})\ntriage = Agent(\"triage\",\n               \"你是分诊员: 意图明确立即移交, 绝不自己回答专业问题\",\n               {\"transfer_to_refund\": transfer_to_refund, \"transfer_to_tech\": transfer_to_tech})\n\nif __name__ == \"__main__\":\n    s = Swarm()\n    for msg in [\"我要退款\", \"APP一直报错闪退\", \"你好我有个问题\"]:\n        print(f\"用户: {msg}\")\n        for h in s.run(triage, msg)[1:]:\n            print(f\"  [{h['speaker']}] {h['text']}\")\n        print()\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Swarm 并行快但难协调。"
+        },
+        {
+          "order": 2,
+          "text": "Supervisor 可控但有瓶颈。"
+        },
+        {
+          "order": 3,
+          "text": "同质任务用 Swarm,流程任务用 Supervisor。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# Swarm: 并行, 涌现\n# Supervisor: 串行, 可控"
+        }
+      ],
+      "terms": [
+        {
+          "name": "单点故障",
+          "definition": "Supervisor 挂全停"
+        },
+        {
+          "name": "可扩展性",
+          "definition": "Swarm 易扩展"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "concurrent.futures",
+          "role": "并行",
+          "description": "Python 标准库的并发执行模块,提供 ThreadPoolExecutor/ProcessPoolExecutor 实现并行调用,用于多 Agent 并发。",
+          "officialUrl": "https://docs.python.org/3/library/concurrent.futures.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 Agent。",
+          "astType": "class_def",
+          "name": "Agent",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 Swarm。",
+          "astType": "class_def",
+          "name": "Swarm",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,623 @@
+{
+  "steps": [
+    {
+      "id": "t41-context-window-s1",
+      "taskId": "t41-context-window",
+      "order": 1,
+      "title": "预算先行:启发式称重与预算账本",
+      "instruction": "### 目标\n\n为章项目「乾坤圈」打好上下文管理的第一块地基:学会给每条消息「称重」。你要实现启发式的 token 估算函数 heuristic_tokens、创建时自动称重的消息类 Message,以及预算账本 TokenBudget(总量、输出预留、可用窗口、剩余空间),最后打印一张完整的上下文账目,确认当前消息放得下。\n\n### 原理\n\n大模型的上下文窗口是硬上限:一次请求里 prompt 装得下多少 token,决定了 Agent 能「记得」多少历史。各家模型的 tokenizer 分词规则各不相同,但绝大多数 token 都来自中文与英文文本——一个足够好的启发式是:CJK 字符每个约 1 token,ASCII 每 4 个字符约 1 token。它不必精确到个位,只要量级正确,就能在真正溢出之前发出预警。预算账本遵循一个朴素的会计原则:总预算(total)等于输出预留(reserve_output)加上下文窗口(max_context)。输出预留是留给模型写回答的「活钱」,绝不能全押在历史里;只有窗口装得下,才谈得上把历史发给模型。\n\n### 操作\n\n1. 实现 Message.__post_init__:消息创建时用 heuristic_tokens 估算内容 token 数,存入 self.tokens;\n2. 实现 TokenBudget.remaining:返回窗口剩余空间,即 max_context 减去当前消息总占用;\n3. 运行 main,核对打印的账目,确认「预算是否放得下当前消息: True」。\n\n### 常见坑\n\n- token 估算不能返回 0——空字符串至少算 1 个 token,否则剩余空间可能变负,下游逻辑失真;\n- 输出预留不是摆设:窗口塞到 100% 是事故前兆,永远给模型留出回复的空间;\n- Message 是 dataclass,字段顺序即构造参数顺序,tokens 放在最后用 field(init=False) 自动填充,调用方无需传参。\n",
+      "todoItems": [
+        {
+          "title": "实现 Message.__post_init__ 自动称重",
+          "target": "Message.__post_init__",
+          "code": "self.tokens = heuristic_tokens(self.content)",
+          "expect": "每条消息创建后自带 tokens 估算值"
+        },
+        {
+          "title": "实现 TokenBudget.remaining 剩余空间",
+          "target": "TokenBudget.remaining",
+          "code": "return self.max_context - self.used(messages)",
+          "expect": "账目里剩余空间 = 窗口 − 已占用"
+        },
+        {
+          "title": "运行 main 核对上下文账目",
+          "target": "main / print_ledger",
+          "code": "运行 s1 starter,逐条核对 token 估算与剩余空间",
+          "expect": "末行打印「预算是否放得下当前消息: True」"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "称重公式就三个数:CJK 字符数 + ceil(去空格后的 ASCII 字符数 / 4),结果至少为 1;CJK 用 re.compile(r\"[\\u4e00-\\u9fff]\") 统计。"
+        },
+        {
+          "order": 2,
+          "text": "TokenBudget 的三个量由构造参数推导:max_context = total - reserve_output;used(messages) 是所有消息 tokens 之和;remaining = max_context - used。"
+        },
+        {
+          "order": 3,
+          "text": "Message 是 @dataclass:tokens 声明为 field(init=False, default=0),在 __post_init__ 里赋值,构造时只需传 role 与 content。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "启发式称重对照",
+          "language": "python",
+          "code": "# heuristic_tokens 估算示例(CJK 每字 1,ASCII 每 4 字符 1):\ntext = \"你是乾坤圈的守门人\"    # 10 个 CJK → 10 token\ntext = \"Hello World\"           # 去空格 10 字符 → ceil(10/4) = 3 token\ntext = \"token 预算:2048\"       # CJK 3 + ASCII 8/4=2 → 5 token",
+          "description": "同一函数对中文与英文给出量级正确的估算,足以支撑预算判断。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "上下文窗口",
+          "definition": "单次请求中模型能接收的 prompt token 上限,超过即溢出、截断或报错。"
+        },
+        {
+          "name": "输出预留",
+          "definition": "从总预算中扣出、专供模型生成回答的 token 额度,保证窗口不挤占回复空间。"
+        },
+        {
+          "name": "启发式估算",
+          "definition": "不依赖真实 tokenizer 的近似计数,如 CJK 每字 1、ASCII 每 4 字符 1,量级正确即可。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库(dataclasses/re/math)",
+          "role": "数据建模与文本处理",
+          "description": "dataclass 定义消息结构、re 统计 CJK 字符、math 处理上取整,全程零第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.9+ 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未完成:请实现 __post_init__ 与 remaining。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Message 消息类。",
+          "astType": "class_def",
+          "name": "Message",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 TokenBudget 预算类。",
+          "astType": "class_def",
+          "name": "TokenBudget",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请使用 heuristic_tokens 估算 token。",
+          "pattern": "heuristic_tokens",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出完整账目,且当前消息放得下。",
+          "expectedStdout": "预算是否放得下当前消息: True",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-context-window-s2",
+      "taskId": "t41-context-window",
+      "order": 2,
+      "title": "滑动窗口:旧消息整段让位",
+      "instruction": "### 目标\n\n给「乾坤圈」装上第一个真正落地的清理策略——滑动窗口。当历史消息装不进预算时,用 trim_window 从最新往最旧保留消息,system 指令永远不动,塞不下的旧消息整段丢弃,并返回丢弃数量与保留列表。\n\n### 原理\n\n对话有个朴素规律:「最近的最相关」。用户当前的问题依赖最近几轮上下文,而十轮前的寒暄价值趋近于零。滑动窗口正是这一观察的直白实现——像一块贴着最新消息滑动的挡板,窗口里永远是最新的一段。与逐条随机删除不同,滑动窗口保持对话的连续性:模型看到的始终是一段完整、连贯、以最新消息结尾的对话,而不是千疮百孔的历史。system 指令是例外中的例外:它定义 Agent 的角色与行为规则,优先级最高,无论窗口多窄都必须保留——所以窗口算法要把 system 单独拎出来,先从它起步。\n\n### 操作\n\n1. 在 trim_window 里先把 system 消息放入 kept;\n2. 从最新往最旧逐条尝试:把当前消息临时插到 kept 最前,若 budget.fits 则保留,否则 break;\n3. 运行 main,核对截断后的保留数与丢弃数,并确认最终用量落在窗口内。\n\n### 常见坑\n\n- 遍历方向别搞反:必须从最新开始倒着扫,否则最先丢掉的是最新消息;\n- system 判断用 role == \"system\",不要用索引硬编码——消息列表结构可能变化;\n- trim 返回 (kept, dropped) 二元组,调用方两者都要用,别只 return kept。\n",
+      "todoItems": [
+        {
+          "title": "实现 trim_window 滑动窗口裁剪",
+          "target": "trim_window",
+          "code": "for m in reversed(messages[len(kept):]):能装下则 kept.insert(0, m),否则 break",
+          "expect": "system 保留,最新消息优先存活,丢弃数随返回值给出"
+        },
+        {
+          "title": "运行 main 核对截断结果",
+          "target": "main 末尾打印",
+          "code": "运行 s2 starter,核对保留数与丢弃数",
+          "expect": "打印「截断后 N 条,丢弃 M 条」且用量落在窗口内"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "先把 system 单独放进 kept,再对剩余部分 reversed 遍历——顺序错了会丢掉最新消息。"
+        },
+        {
+          "order": 2,
+          "text": "逐条尝试的写法:若 budget.fits([m] + kept) 则 kept.insert(0, m),否则 break;用列表拼接构造试探列表即可。"
+        },
+        {
+          "order": 3,
+          "text": "丢弃数 = len(messages) - len(kept),和 kept 一起 return,供上层报告裁掉了多少。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "窗口随时间推进",
+          "language": "python",
+          "code": "# 窗口(固定容量)随时间推进:最新的进,最旧的出\n窗口 = [m1, m2, m3, m4, m5]\n新一轮对话后 -> [m2, m3, m4, m5, m6]\n新一轮对话后 -> [m3, m4, m5, m6, m7]\n# system 指令例外:永远钉在窗口最前,不可被挤出",
+          "description": "滑动窗口的语义:最新消息保底,容量不足时整段裁掉最旧的。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "滑动窗口",
+          "definition": "只保留最近一段对话的裁剪策略,窗口内容随时间推进整体前移,旧的整段退出。"
+        },
+        {
+          "name": "system 指令",
+          "definition": "定义 Agent 角色与规则的全局指令,优先级最高,任何裁剪策略都必须保留。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库(dataclasses/re/math)",
+          "role": "数据建模与文本处理",
+          "description": "延续 s1 的称重基础,本步只用列表运算实现窗口裁剪,无第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.9+ 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未完成:请实现 trim_window 的扫描循环。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 trim_window 裁剪函数。",
+          "astType": "function_def",
+          "name": "trim_window",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "system 消息必须被特殊保留。",
+          "pattern": "role == \"system\"",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出截断后的保留数与丢弃数。",
+          "expectedStdout": "截断后 \\d+ 条,丢弃 \\d+ 条,用量 \\d+ / 150 token",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-context-window-s3",
+      "taskId": "t41-context-window",
+      "order": 3,
+      "title": "滚动摘要:旧对话压成一行浓缩信息",
+      "instruction": "### 目标\n\n实现把「旧对话压成一行浓缩信息」的滚动摘要能力:先写 make_summary,把一批旧消息逐条取首句、拼成一行摘要并截断到上限;再用 SummaryBuffer 封装摘要缓冲,攒够旧消息就折叠出新的摘要消息。最后运行 main,验证压缩后的消息条数与窗口用量。\n\n### 原理\n\n上下文管理里有一类专门对付「旧但还有用」消息的招数:滚动摘要。它不把旧消息原样删掉,而是把最旧的一批压缩成一句话——保留「谁说了什么」的骨架,丢掉细节。token 账上是巨亏转盈:一条几十 token 的消息,压成摘要后只占几个 token 的份额。摘要的通用形态是「角色:首句」:user:问题,assistant:回答,再用分号串成一行。这个形态对模型友好——它看起来仍然像一段对话,只是更短。折叠出来的摘要消息本身也是消息,可以继续参与下一轮折叠:摘要套摘要,这正是「滚动」二字的意思。\n\n### 操作\n\n1. 实现 make_summary:遍历消息,取每条内容按「。」切出的首句,拼成「角色:首句」追加进 parts;\n2. 用「;」连接 parts,截断到 max_chars 上限后返回;\n3. 实现 SummaryBuffer.fold:已有旧摘要时把它作为 system 消息接到最前面,再生成新摘要,返回参与折叠的消息数;\n4. 运行 main,核对打印的折叠条数与压缩后的窗口用量。\n\n### 常见坑\n\n- 摘要必须截断:不截断的话,折叠几轮之后摘要比原对话还长,滚动摘要就失去了意义;\n- 旧摘要不能丢:fold 时若 self.text 非空,必须把旧摘要作为 system 消息一起压缩,否则信息层层丢失;\n- 摘要消息要带「过往摘要」前缀,一眼认出它是浓缩产物,也方便上层日志排查。\n",
+      "todoItems": [
+        {
+          "title": "实现 make_summary 首句拼接",
+          "target": "make_summary",
+          "code": "first = m.content.split(\"。\")[0];parts.append(f\"{m.role}:{first}\")",
+          "expect": "得到一行「角色:首句」摘要并截断到 max_chars"
+        },
+        {
+          "title": "实现 SummaryBuffer.fold 摘要折叠",
+          "target": "SummaryBuffer.fold",
+          "code": "旧摘要作为 system 消息接到最前,self.text = make_summary(messages, max_chars)",
+          "expect": "fold 返回参与折叠的消息数,旧摘要不丢失"
+        },
+        {
+          "title": "运行 main 核对折叠结果",
+          "target": "main 打印",
+          "code": "运行 s3 starter,核对折叠条数与摘要文本",
+          "expect": "看到「折叠 3 条,摘要:」与压缩后的条数、用量"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "取首句用 m.content.split(\"。\")[0],别拼整段内容——摘要要的是骨架不是全文。"
+        },
+        {
+          "order": 2,
+          "text": "拼接格式是 f\"{m.role}:{first}\",多条之间用 ; 连接,最后 text[:max_chars] 截断。"
+        },
+        {
+          "order": 3,
+          "text": "fold 里旧摘要不能丢:若 self.text 非空,先把它作为 system 消息接到最前面再压缩。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "摘要随对话滚动",
+          "language": "python",
+          "code": "# 滚动摘要的直观样子(伪代码)\n旧消息: [问灵脉, 答灵石, 问丹炉, 答火候]\n折叠一次 -> 摘要 = \"user:问灵脉;assistant:答灵石;user:问丹炉;assistant:答火候\"\n再折叠   -> 新摘要接上旧摘要,信息层层浓缩,长度几乎不变",
+          "description": "滚动摘要不删除旧消息,而是把旧消息压成一行,摘要本身参与下一轮压缩。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "滚动摘要",
+          "definition": "把最旧的一批对话压缩成一条摘要消息的裁剪策略,摘要本身参与后续折叠,信息层层浓缩。"
+        },
+        {
+          "name": "摘要缓冲",
+          "definition": "SummaryBuffer:攒够旧消息就压成一条新摘要、并保留旧摘要的容器,所有折叠动作都发生在缓冲里。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库(dataclasses/re/math)",
+          "role": "数据建模与文本处理",
+          "description": "延续 s1 的称重基础,本步只做字符串切分与列表运算,无第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.9+ 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未完成:请实现 make_summary 与 SummaryBuffer。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 make_summary 摘要函数。",
+          "astType": "function_def",
+          "name": "make_summary",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 SummaryBuffer 摘要缓冲类。",
+          "astType": "class_def",
+          "name": "SummaryBuffer",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "摘要消息必须带【过往摘要】前缀。",
+          "pattern": "过往摘要",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出折叠条数与压缩后的窗口用量。",
+          "expectedStdout": "折叠 \\d+ 条[\\s\\S]*压缩后 \\d+ 条 \\+ 1 条摘要,用量 \\d+ / 200 token",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-context-window-s4",
+      "taskId": "t41-context-window",
+      "order": 4,
+      "title": "重要性淘汰:低价值消息逐个让位",
+      "instruction": "### 目标\n\n实现「低价值消息逐个让位」的重要性淘汰:先写 importance_score,给每条消息按角色、时新度、内容量打一个综合分;再写 evict_low_importance,在窗口放不下时反复弹出得分最低且非 system 的消息,直到装得下。运行 main,验证淘汰条数与留存后的窗口用量。\n\n### 原理\n\n摘要擅长压缩「旧对话」,但它并不适合所有消息:有些消息(工具返回、最新指令)不该被压成一行,它们的信息密度太高。于是换第二种处置:重要性淘汰。给每条消息打一个分,分数由三块组成——角色基础分(tool 最高、user 次之、assistant 再次,未知角色保底)、时新度加分(越新的消息分越高,与位置成正比)、内容量加分(信息越多越值得留,但封顶)。system 消息直接给满分 1000,任何淘汰都不许碰它。淘汰的过程不是一次算完再批量删,而是「while 装不下就弹一条最低分」的循环:每次重新打分,因为消息的位置变了,时新度也跟着变。\n\n### 操作\n\n1. 实现 importance_score:system 返回 1000.0;其余按角色取基础分,加上时新度与内容量加分后返回;\n2. 实现 evict_low_importance:复制消息列表,装不下时枚举所有非 system 消息,弹出得分最低的一条,把内容前 16 字记入 victims;\n3. 运行 main,核对「被淘汰」列表与留存后的窗口用量。\n\n### 常见坑\n\n- system 必须双保险豁免:评分给 1000 分,淘汰循环里还要显式排除 role == \"system\",缺一不可;\n- 得分相同要有个稳定的决出办法:min 时把内容本身作为第二关键字,结果才可复现;\n- 淘汰是逐条的:别试图一次删多条——位置变了分数就变了,逐条弹才能弹得准。\n",
+      "todoItems": [
+        {
+          "title": "实现 importance_score 重要性打分",
+          "target": "importance_score",
+          "code": "return base + recency + size",
+          "expect": "system 满分 1000,其余按角色/时新度/内容量加分"
+        },
+        {
+          "title": "实现 evict_low_importance 最低分淘汰",
+          "target": "evict_low_importance",
+          "code": "candidates 枚举非 system 索引,min 取最低分弹出,内容前 16 字入 victims",
+          "expect": "循环淘汰直到装得下,system 消息永不被动"
+        },
+        {
+          "title": "运行 main 核对淘汰名单",
+          "target": "main 打印",
+          "code": "运行 s4 starter,核对「被淘汰」列表与留存用量",
+          "expect": "看到被淘汰条数与留存后的窗口用量"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "system 要拿满分并双保险:评分返回 1000.0,淘汰循环里还要显式排除 role == system。"
+        },
+        {
+          "order": 2,
+          "text": "取最低分用 min(candidates, key=lambda i: (importance_score(...), kept[i].content)),内容做第二关键字保证稳定。"
+        },
+        {
+          "order": 3,
+          "text": "淘汰是逐条的 while 循环,不是一次算好批量删——位置变了分数就变了。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "按分数逐个让位",
+          "language": "python",
+          "code": "# 重要性打分(伪代码)\nscore(user)   = 60 + 时新度 + 内容量\nscore(tool)   = 80 + 时新度 + 内容量   # 工具结果最值得留\nscore(system) = 1000                    # 永不移除\n装不下时 -> 弹出分数最低的那条,直到装下为止",
+          "description": "角色、时新度、内容量三块分组成总分,每次弹出最低分,天然保留最新与工具消息。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "重要性打分",
+          "definition": "给每条消息按角色、时新度、内容量打综合分,分数越低越先被淘汰的评估方法。"
+        },
+        {
+          "name": "角色权重",
+          "definition": "不同角色消息的基础分:tool 最高、user 次之、assistant 再次,system 直接豁免淘汰。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库(dataclasses/re/math)",
+          "role": "数据建模与文本处理",
+          "description": "延续 s1 的称重基础,本步只用字典取分与列表运算实现淘汰,无第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.9+ 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未完成:请实现 importance_score 与 evict_low_importance。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 importance_score 重要性打分函数。",
+          "astType": "function_def",
+          "name": "importance_score",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 evict_low_importance 淘汰函数。",
+          "astType": "function_def",
+          "name": "evict_low_importance",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "system 消息必须获得最高分。",
+          "pattern": "1000\\.0",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出被淘汰列表与留存后的窗口用量。",
+          "expectedStdout": "被淘汰 \\d+ 条[\\s\\S]*留存 \\d+ 条,用量 \\d+ / 50 token",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-context-window-s5",
+      "taskId": "t41-context-window",
+      "order": 5,
+      "title": "溢出恢复:三级处置逐级收紧",
+      "instruction": "### 目标\n\n实现「三级处置、逐级收紧」的溢出恢复函数 recover_overflow:窗口放不下时,先折叠旧对话为摘要,仍放不下就淘汰低价值消息,再放不下就整窗截断兜底,最后仍放不下才报错。本步预算 900、输出预留 760,可用窗口只有 140 token。运行 main,验证处置动作列表与最终用量。\n\n### 原理\n\n单独的招数各有短板:摘要能把旧对话压成一行,但它只压旧消息;淘汰能精确挤出低价值消息,但对「全都很重要」的窗口无能为力;窗口截断最粗暴,直接把最旧的整段扔掉。真实系统把三者串成一条处置链:先做成本最低的「压缩」,不够再做「精挑细选」的淘汰,还不够才「整段丢弃」,最后才是报错兜底——宁可让上层知道窗口失控,也不能静默丢消息。每条处置动作都记进 actions 列表,上层可以把它打印成日志或回执,让处置过程可审计。\n\n### 操作\n\n1. 实现 recover_overflow:装得下时原样返回 (history, [], 0);\n2. 一级处置:把 current[1:-4] 的旧消息折叠成摘要,拼到最新 4 条之后,动作记入 actions;\n3. 二级处置:仍溢出就调用 evict_low_importance 淘汰低价值消息;\n4. 三级处置:仍溢出就调用 trim_window 整窗截断;再放不下则 raise ValueError;\n5. 运行 main,核对「摘要折叠」「淘汰低价值消息」等处置记录与最终用量。\n\n### 常见坑\n\n- 处置链顺序不能乱:先折叠、再淘汰、最后截断,跳级会让最新消息无故丢失;\n- current[1:-4] 表示除 system 与最新 4 条之外的旧消息,不要手滑写成 [1:];\n- actions 每级都要 append:上层靠它审计——处置完成却无日志,等于白处置。\n",
+      "todoItems": [
+        {
+          "title": "实现 recover_overflow 一级折叠处置",
+          "target": "recover_overflow",
+          "code": "old = current[1:-4];folded = summary.fold(old);current = current[:1] + current[-4:] + [摘要消息]",
+          "expect": "actions 出现「摘要折叠 N 条」记录"
+        },
+        {
+          "title": "实现二三级处置与兜底报错",
+          "target": "recover_overflow",
+          "code": "仍溢出调 evict_low_importance;再溢出调 trim_window;仍放不下 raise ValueError",
+          "expect": "处置链逐级收紧,最终用量落进窗口"
+        },
+        {
+          "title": "运行 main 核对处置记录",
+          "target": "main 打印",
+          "code": "运行 s5 starter,核对「处置」清单与最终用量",
+          "expect": "看到折叠/淘汰/截断记录与最终 token 用量"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "处置链顺序固定:先折叠、再淘汰、最后截断,每一步仍溢出才进入下一步。"
+        },
+        {
+          "order": 2,
+          "text": "current[1:-4] 表示除 system 与最新 4 条之外的旧消息,折叠动作只针对它们。"
+        },
+        {
+          "order": 3,
+          "text": "每级处置都要往 actions 里 append 一条动作,上层靠它审计处置过程。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "处置链逐级收紧",
+          "language": "python",
+          "code": "# 溢出时的处置顺序(伪代码)\n先折叠摘要:  把最旧的一批压成一行\n仍溢出 -> 淘汰低价值:逐条弹出分数最低的非 system 消息\n仍溢出 -> 窗口截断:整段丢掉最旧的\n仍溢出 -> raise ValueError:宁可报错,不可静默丢消息",
+          "description": "成本从低到高的处置链,每一级失效才进入下一级,最后以报错兜底。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "溢出恢复",
+          "definition": "窗口放不下时执行的多级处置流程,按成本从低到高逐级收紧,直到历史装进窗口。"
+        },
+        {
+          "name": "兜底处置",
+          "definition": "折叠与淘汰都失效时启用的最终手段,如窗口截断或直接报错,保证不静默丢消息。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库(dataclasses/re/math)",
+          "role": "数据建模与文本处理",
+          "description": "延续前几步的称重与裁剪基础,本步把处置函数串成处置链,无第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.9+ 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未完成:请实现 recover_overflow 的处置链。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 recover_overflow 溢出恢复函数。",
+          "astType": "function_def",
+          "name": "recover_overflow",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "最后一级处置应直接报错。",
+          "pattern": "raise ValueError",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出逐级处置的记录与最终用量。",
+          "expectedStdout": "摘要折叠[\\s\\S]*淘汰低价值消息[\\s\\S]*本轮折叠",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-context-window-s6",
+      "title": "总装:乾坤圈上下文管理器",
+      "instruction": "### 目标\n把前五步的散件——称重、滚动摘要、重要性评分、淘汰与溢出恢复——总装成一根完整的轴:一个黑盒上下文管理器。外部只调用 add 添加消息、snapshot 读取快照、stats 查看统计三个动作,内部自动称重、自动折叠、自动淘汰,窗口永不溢出。本步沿用预算 900、输出预留 760,可用窗口 140 token。\n\n### 原理\n管理器对外只暴露三个动作,内部逻辑完全黑盒:\n1. add:追加一条消息后立即称重,若当前用量超出预算窗口,就触发溢出恢复链,把处置结果回写进内部消息列表;\n2. snapshot:返回内部消息列表的防御性副本,调用方怎么改都不影响管理器的内部状态;\n3. stats:汇报折叠与淘汰的累计条数,以及当前用量与窗口上限的账目。\n\n溢出恢复链与第五步一致:先折叠最旧的一批旧消息成一行滚动摘要,仍溢出就按重要性分数逐条淘汰低价值消息,再溢出直接抛错——宁可报错,也不静默丢消息。折叠与淘汰的计数由管理器统一累计,处置动作逐条打印,便于外部审计整个处置过程。\n\n### 操作\n1. 实现称重与预算:heuristic_tokens 按 CJK 每字 1 token、ASCII 每 4 字符 1 token 估算;TokenBudget 以 total 减 reserve_output 得出窗口上限;\n2. 实现滚动摘要:SummaryBuffer 维护一行摘要文本,fold 把旧消息压进文本并返回折叠条数;\n3. 实现淘汰:importance_score 按角色、位置与长度打分,分越低越先淘汰,evict_lowest 反复弹出最低分并把动作记入 actions;\n4. 实现恢复链:recover_overflow 先折叠、再淘汰、最后报错,返回处置后的消息列表、动作与折叠条数;\n5. 总装:ContextManager 的 add 触发恢复链,累计折叠与淘汰计数,打印每条处置记录;main 连续添加七条消息,观察最后一次添加触发的完整处置流程。\n\n### 常见坑\n- snapshot 一定要返回副本,直接返回内部列表会让外部改动污染窗口状态;\n- 摘要消息也是消息,折叠后要插回列表,否则窗口账目会漏算;\n- 淘汰循环里每次都要重新挑最低分,且永远不碰 system 消息;\n- 处置动作要逐条打印并计数,方便上层审计,不要静默处理。",
+      "todoItems": [
+        {
+          "title": "实现称重与预算三件套",
+          "target": "heuristic_tokens / Message.__post_init__ / TokenBudget",
+          "code": "CJK 每字 1、ASCII 每 4 字符 1;__post_init__ 自动称重;max_context = total - reserve_output",
+          "expect": "消息自动称重,窗口上限 140 token"
+        },
+        {
+          "title": "实现滚动摘要与重要性淘汰",
+          "target": "make_summary / SummaryBuffer.fold / importance_score / evict_lowest",
+          "code": "拼接摘要并截断;fold 接旧摘要;打分后反复弹最低分并记入 actions",
+          "expect": "溢出时能自动折叠与淘汰,动作留痕"
+        },
+        {
+          "title": "实现 recover_overflow 恢复链",
+          "target": "recover_overflow",
+          "code": "先折叠最旧一批,仍溢出调 evict_lowest,再溢出 raise ValueError",
+          "expect": "返回处置后的消息、动作与折叠条数"
+        },
+        {
+          "title": "总装 ContextManager 并运行验证",
+          "target": "ContextManager.add / stats",
+          "code": "add 触发恢复链、累计计数、逐条打印 [恢复];运行 main 观察七条消息",
+          "expect": "看到 [恢复] 处置记录与最终统计行"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "管理器只暴露三个动作:add 添加、snapshot 快照、stats 统计,内部处置链对外不可见。"
+        },
+        {
+          "order": 2,
+          "text": "折叠后要把摘要当作一条 system 消息插回列表,窗口账目才会把摘要算进去。"
+        },
+        {
+          "order": 3,
+          "text": "淘汰只挑非 system 里分数最低的,折叠与淘汰的条数要累计进计数器。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "黑盒管理器",
+          "language": "python",
+          "code": "# 三步走:建、喂、读(伪代码)\ncm = ContextManager(budget=TokenBudget(total=900, reserve_output=760))\nfor m in history:\n    cm.add(m)          # 自动称重,溢出自动折叠/淘汰\ncurrent = cm.snapshot()  # 拿到防御性副本\nprint(cm.stats())        # 统计:折叠 x 条,淘汰 y 条",
+          "description": "外部视角只有三个动作,内部处置链自动完成,调用方无需关心窗口账目。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "上下文管理器",
+          "definition": "把称重、折叠、淘汰与恢复链封装成一体的黑盒对象,外部只调用 add / snapshot / stats 三个动作。"
+        },
+        {
+          "name": "快照",
+          "definition": "内部消息列表的防御性副本,返回给调用方后,外部改动不会污染管理器内部状态。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库(dataclasses/re/math)",
+          "role": "数据建模与文本处理",
+          "description": "把称重、折叠、淘汰与恢复链总装成黑盒上下文管理器,无第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 3.9+ 内置,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未完成:请实现 ContextManager 与完整的处置链。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 ContextManager 类。",
+          "astType": "class_def",
+          "name": "ContextManager",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请实现 snapshot 快照方法。",
+          "pattern": "snapshot",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请实现 recover_overflow 溢出恢复函数。",
+          "pattern": "recover_overflow",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出恢复记录与最终统计。",
+          "expectedStdout": "\\[恢复\\][\\s\\S]*统计: 折叠 \\d+ 条,淘汰 \\d+ 条",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ],
+      "taskId": "t41-context-window",
+      "order": 6
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "steps": [
+    {
+      "id": "t22-document-loaders-s1",
+      "taskId": "t22-document-loaders",
+      "order": 1,
+      "title": "使用 TextLoader 加载文本文件",
+      "instruction": "### 目标\n掌握文档加载的第一公里:用 LangChain Loader 把各种格式(PDF/MD/网页)统一成 Document 对象。\n\n### 背景: 统一抽象的力量\n各格式解析方式千差万别,但 LangChain 统一成:\n```python\ndocs = loader.load()   # List[Document], 每个含 page_content + metadata\n```\n- `PyPDFLoader`(\"a.pdf\") → 每页一个 Document,metadata 自带 page\n- `TextLoader` / `DirectoryLoader`(整个目录)\n- `WebBaseLoader`(url) → 网页文本\n\n**Loader 只负责\"读出来\",不管清洗**——PDF 里的页眉页脚、网页的导航栏都会原样进来,脏数据要在后续清洗步骤处理。\n\n### 选型速查\n| 格式 | Loader | 注意 |\n|------|--------|------|\n| 文本型PDF | PyPDFLoader | 扫描件无效(要OCR) |\n| 扫描件PDF | 需 unstructured+OCR | 重, MVP别碰 |\n| Markdown | TextLoader 直接读 | 保留结构靠切分策略 |\n| 网页 | WebBaseLoader | 配合 bs4 解析参数去噪 |\n\n### 操作\n1. 准备一个 md 文件,TextLoader 加载\n2. 打印 Document 的 page_content 和 metadata\n3. 观察原始内容的噪声,思考清洗策略",
+      "starterCode": "from langchain_community.document_loaders import TextLoader\n\n# 创建 TextLoader 实例，加载 'data/sample.txt'\nloader = TextLoader('data/sample.txt')\n\n# 调用 load 方法获取文档列表\ndocs = loader.load()\n\n# 打印文档内容和元数据\nprint(docs[0].page_content)\nprint(docs[0].metadata)",
+      "solutionCode": "from langchain_community.document_loaders import TextLoader\n\nloader = TextLoader('data/sample.txt')\ndocs = loader.load()\n\nprint(docs[0].page_content)\nprint(docs[0].metadata)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "TextLoader 的构造函数只需要一个参数：文件路径。"
+        },
+        {
+          "order": 2,
+          "text": "load 方法返回一个列表，即使只有一个文档。"
+        },
+        {
+          "order": 3,
+          "text": "确保文件路径正确，否则会抛出 FileNotFoundError。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "TextLoader 基本用法",
+          "language": "python",
+          "code": "from langchain_community.document_loaders import TextLoader\nloader = TextLoader('example.txt')\ndocs = loader.load()\nprint(docs[0].page_content[:100])",
+          "description": "加载 example.txt 并打印前100个字符。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "TextLoader",
+          "definition": "LangChain 中用于加载文本文件的文档加载器。"
+        },
+        {
+          "name": "Document",
+          "definition": "LangChain 中的基本数据单元，包含 page_content 和 metadata。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain_community",
+          "role": "文档加载器",
+          "description": "提供 TextLoader 等文档加载器。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/document_loaders/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写所有 TODO 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含文件内容",
+          "text": "sample",
+          "caseSensitive": false,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-document-loaders-s2",
+      "taskId": "t22-document-loaders",
+      "order": 2,
+      "title": "使用 PyPDFLoader 加载 PDF",
+      "instruction": "### 目标\n实现**文档清洗**:去掉页眉页脚、多余空白、无意义符号——脏数据是检索质量的头号杀手。\n\n### 背景: 垃圾进垃圾出(GIGO)\nRAG 效果差,60% 的问题在数据清洗:\n- 每页 PDF 重复页眉(\"XX公司机密文件\")→ 切分后每块都带,**稀释语义还浪费 token**\n- 网页抓的导航/广告 → 噪声文档挤占 top-k 名额\n- 多余空行/特殊字符 → embedding 被干扰\n\n### 清洗三板斧\n1. **去重行**:统计每行出现频率,跨页重复率 >50% 的行(页眉页脚)删除\n2. **空白规范化**:连续空行压成一个,行尾空格清理\n3. **长度过滤**:切分后 <50 字的碎片块(页码/孤行)丢弃——它们没有检索价值\n\n### 清洗的度\n**别过度清洗**:表格/代码的格式就是有意义的,全压成一行反而毁语义。清洗规则要按文档类型配。\n\n### 操作\n1. 统计加载文档的每行频率,找出页眉页脚\n2. 实现 clean() 函数应用三板斧\n3. 对比清洗前后的文本体积变化",
+      "starterCode": "from langchain_community.document_loaders import PyPDFLoader\n\n# 创建 PyPDFLoader 实例，加载 'data/sample.pdf'\nloader = PyPDFLoader('data/sample.pdf')\n\n# 调用 load 方法\ndocs = loader.load()\n\n# 打印页数和第一页内容\nprint(f\"页数: {len(docs)}\")\nprint(docs[0].page_content[:200])",
+      "solutionCode": "from langchain_community.document_loaders import PyPDFLoader\n\nloader = PyPDFLoader('data/sample.pdf')\ndocs = loader.load()\n\nprint(f\"页数: {len(docs)}\")\nprint(docs[0].page_content[:200])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "PyPDFLoader 的构造函数与 TextLoader 类似，只需要文件路径。"
+        },
+        {
+          "order": 2,
+          "text": "load 返回的列表长度等于 PDF 的页数。"
+        },
+        {
+          "order": 3,
+          "text": "如果 PDF 有密码，需要传入 password 参数。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "PyPDFLoader 加载加密 PDF",
+          "language": "python",
+          "code": "from langchain_community.document_loaders import PyPDFLoader\nloader = PyPDFLoader('encrypted.pdf', password='secret')\ndocs = loader.load()",
+          "description": "加载加密 PDF 并指定密码。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "PyPDFLoader",
+          "definition": "LangChain 中用于加载 PDF 文件的文档加载器。"
+        },
+        {
+          "name": "分页",
+          "definition": "将 PDF 按页分割，每页作为一个独立文档。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "pypdf",
+          "role": "PDF 解析库",
+          "description": "PDF 文档解析库,提取 PDF 文本用于 RAG 知识库构建。PyPDFLoader 底层使用 pypdf 库解析 PDF。",
+          "officialUrl": "https://pypdf.readthedocs.io/",
+          "category": "文档处理",
+          "installHint": "pip install pypdf"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写所有 TODO 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含页数信息",
+          "text": "页数:",
+          "caseSensitive": false,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-document-loaders-s3",
+      "taskId": "t22-document-loaders",
+      "order": 3,
+      "title": "使用 RecursiveCharacterTextSplitter 切分文档",
+      "instruction": "### 目标\n学会使用 RecursiveCharacterTextSplitter 将长文档切分成更小的块。\n\n### 概念\n- **RecursiveCharacterTextSplitter**: 递归字符文本分割器，尝试按分隔符（如换行、句号、空格）切分，保持语义完整。\n- **chunk_size**: 每个块的最大字符数。\n- **chunk_overlap**: 块之间的重叠字符数，用于保持上下文连贯。\n\n### 操作指引\n1. 导入 `RecursiveCharacterTextSplitter`。\n2. 创建一个分割器实例，设置 `chunk_size=100`，`chunk_overlap=20`。\n3. 使用 `split_documents` 方法对之前加载的文档列表进行切分。\n4. 打印切分后的块数和每个块的前50个字符。\n\n**为什么这么做？** 大文档需要切分成小段才能放入 LLM 上下文窗口，重叠部分确保边界信息不丢失。",
+      "starterCode": "from langchain_community.document_loaders import TextLoader\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n\n# 加载文档\nloader = TextLoader('data/sample.txt')\ndocs = loader.load()\n\n# 创建 RecursiveCharacterTextSplitter 实例，chunk_size=100, chunk_overlap=20\nsplitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=20)\n\n# 调用 split_documents 方法\nchunks = splitter.split_documents(docs)\n\n# 打印块数和每个块的前50字符\nprint(f\"切分后块数: {len(chunks)}\")\nfor i, chunk in enumerate(chunks):\n    print(f\"块 {i}: {chunk.page_content[:50]}...\")",
+      "solutionCode": "from langchain_community.document_loaders import TextLoader\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n\nloader = TextLoader('data/sample.txt')\ndocs = loader.load()\n\nsplitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=20)\nchunks = splitter.split_documents(docs)\n\nprint(f\"切分后块数: {len(chunks)}\")\nfor i, chunk in enumerate(chunks):\n    print(f\"块 {i}: {chunk.page_content[:50]}...\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "RecursiveCharacterTextSplitter 的默认分隔符列表是 ['\\n\\n', '\\n', ' ', '']。"
+        },
+        {
+          "order": 2,
+          "text": "chunk_size 是最大字符数，不是精确值；分割器会尽量在分隔符处切分。"
+        },
+        {
+          "order": 3,
+          "text": "chunk_overlap 让相邻块共享部分内容，避免上下文断裂。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "自定义分隔符",
+          "language": "python",
+          "code": "from langchain.text_splitter import RecursiveCharacterTextSplitter\nsplitter = RecursiveCharacterTextSplitter(\n    chunk_size=200,\n    chunk_overlap=50,\n    separators=['\\n\\n', '\\n', '.', '!', '?', ' ', '']\n)",
+          "description": "自定义分隔符列表，优先按段落、句子切分。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "chunk_size",
+          "definition": "每个文本块的最大字符数。"
+        },
+        {
+          "name": "chunk_overlap",
+          "definition": "相邻块之间重叠的字符数。"
+        },
+        {
+          "name": "RecursiveCharacterTextSplitter",
+          "definition": "递归字符文本分割器，按优先级尝试不同分隔符。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "文本分割器",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 RecursiveCharacterTextSplitter 等分割工具。",
+          "officialUrl": "https://python.langchain.com/docs/modules/data_connection/document_transformers/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写所有 TODO 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含切分后块数",
+          "text": "切分后块数:",
+          "caseSensitive": false,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-document-loaders-s4",
+      "taskId": "t22-document-loaders",
+      "order": 4,
+      "title": "调参实验：chunk_size 与 chunk_overlap 的影响",
+      "instruction": "### 目标\n通过调整 chunk_size 和 chunk_overlap 观察切分结果的变化，理解参数对切分的影响。\n\n### 概念\n- **参数影响**: chunk_size 越小，块越多，但可能破坏语义；chunk_overlap 越大，上下文连贯性越好，但冗余增加。\n- **实验方法**: 固定一个参数，改变另一个，观察块数和内容。\n\n### 操作指引\n1. 使用 TextLoader 加载 `'data/sample.txt'`。\n2. 创建两个不同的分割器：\n   - splitter1: chunk_size=50, chunk_overlap=10\n   - splitter2: chunk_size=200, chunk_overlap=50\n3. 分别切分文档，打印每个分割器的块数。\n4. 打印 splitter1 的第一个块和 splitter2 的第一个块的前100字符，观察差异。\n\n**为什么这么做？** 调参是 RAG 系统优化的关键，理解参数对切分质量的影响有助于构建更好的检索系统。",
+      "starterCode": "from langchain_community.document_loaders import TextLoader\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n\nloader = TextLoader('data/sample.txt')\ndocs = loader.load()\n\n# 创建两个分割器\nsplitter1 = RecursiveCharacterTextSplitter(chunk_size=50, chunk_overlap=10)\nsplitter2 = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)\n\n# 分别切分文档\nchunks1 = splitter1.split_documents(docs)\nchunks2 = splitter2.split_documents(docs)\n\n# 打印块数\nprint(f\"splitter1 块数: {len(chunks1)}\")\nprint(f\"splitter2 块数: {len(chunks2)}\")\n\n# 打印第一个块的前100字符\nprint(f\"splitter1 第一块: {chunks1[0].page_content[:100]}\")\nprint(f\"splitter2 第一块: {chunks2[0].page_content[:100]}\")",
+      "solutionCode": "from langchain_community.document_loaders import TextLoader\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n\nloader = TextLoader('data/sample.txt')\ndocs = loader.load()\n\nsplitter1 = RecursiveCharacterTextSplitter(chunk_size=50, chunk_overlap=10)\nsplitter2 = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)\n\nchunks1 = splitter1.split_documents(docs)\nchunks2 = splitter2.split_documents(docs)\n\nprint(f\"splitter1 块数: {len(chunks1)}\")\nprint(f\"splitter2 块数: {len(chunks2)}\")\nprint(f\"splitter1 第一块: {chunks1[0].page_content[:100]}\")\nprint(f\"splitter2 第一块: {chunks2[0].page_content[:100]}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "chunk_size 越小，块数越多；chunk_overlap 影响块之间的重复内容。"
+        },
+        {
+          "order": 2,
+          "text": "观察两个分割器第一块的内容，注意长度和是否被截断。"
+        },
+        {
+          "order": 3,
+          "text": "如果 chunk_size 小于某个单词长度，可能会在单词中间切分。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "不同参数对比",
+          "language": "python",
+          "code": "from langchain.text_splitter import RecursiveCharacterTextSplitter\nsplitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=20)\nchunks = splitter.split_text(\"长文本内容...\")\nprint(len(chunks))",
+          "description": "使用 split_text 方法直接切分字符串。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "调参",
+          "definition": "调整模型或算法的超参数以优化性能。"
+        },
+        {
+          "name": "chunk_size",
+          "definition": "每个文本块的最大字符数。"
+        },
+        {
+          "name": "chunk_overlap",
+          "definition": "相邻块之间重叠的字符数。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "文本分割器",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 RecursiveCharacterTextSplitter 等分割工具。",
+          "officialUrl": "https://python.langchain.com/docs/modules/data_connection/document_transformers/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写所有 TODO 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含两个分割器的块数",
+          "text": "splitter1 块数:",
+          "caseSensitive": false,
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含两个分割器的第一块内容",
+          "text": "splitter1 第一块:",
+          "caseSensitive": false,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "steps": [
+    {
+      "id": "t12-chain-composition-s1",
+      "taskId": "t12-chain-composition",
+      "order": 1,
+      "title": "初识 LCEL: 用 | 连接模型与提示",
+      "instruction": "## 目标\n学习使用 LCEL 的 `|` 操作符将提示模板和模型连接成一个简单的链。\n\n## 概念\n- **LCEL (LangChain Expression Language)**: 一种声明式语言,用于组合 LangChain 组件。核心操作符是 `|` (pipe),它将前一个组件的输出作为下一个组件的输入。\n- **Runnable**: 任何实现 `invoke`、`stream` 等方法的对象,如提示模板、模型、输出解析器等。\n\n## 操作指引\n1. 导入 `ChatOpenAI` 和 `ChatPromptTemplate`。\n2. 创建一个提示模板,要求用户用中文回答。\n3. 创建一个 `ChatOpenAI` 模型实例。\n4. 使用 `|` 将提示模板和模型连接成链。\n5. 调用链的 `invoke` 方法,传入一个字典 `{\"topic\": \"人工智能\"}`,并打印结果。\n\n## 为什么\n`|` 操作符让代码更简洁,可读性更强,是 LCEL 的核心模式。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\n\n# 创建提示模板\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个知识渊博的助手,请用中文回答。\"),\n    (\"human\", \"请简要介绍{topic}。\")\n])\n\n# 创建模型\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\n# 使用 | 构建链\nchain = prompt | model\n\n# 调用链\n# 调用 chain.invoke 并打印结果\nresult = chain.invoke({\"topic\": \"人工智能\"})\nprint(result.content)",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个知识渊博的助手,请用中文回答。\"),\n    (\"human\", \"请简要介绍{topic}。\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nchain = prompt | model\n\nresult = chain.invoke({\"topic\": \"人工智能\"})\nprint(result.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "思考: 调用链的哪个方法可以获取输出? 方法名是 invoke。"
+        },
+        {
+          "order": 2,
+          "text": "传入的参数应该是一个字典,包含模板中定义的变量。"
+        },
+        {
+          "order": 3,
+          "text": "invoke 返回的是一个 AIMessage 对象,它的 content 属性包含文本。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "LCEL 基本使用",
+          "language": "python",
+          "code": "chain = prompt | model\nresult = chain.invoke({\"topic\": \"Python\"})",
+          "description": "使用 | 连接提示和模型,并调用 invoke。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "LCEL",
+          "definition": "LangChain Expression Language,一种声明式的链式组合语言。"
+        },
+        {
+          "name": "Runnable",
+          "definition": "可运行对象,实现 invoke、stream 等方法。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "模型集成",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。提供 ChatOpenAI 类以调用 OpenAI 模型。",
+          "officialUrl": "https://pypi.org/project/langchain-openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 TODO 部分,完成 chain.invoke 调用。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要调用 chain.invoke。",
+          "api": "chain.invoke",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-chain-composition-s2",
+      "taskId": "t12-chain-composition",
+      "order": 2,
+      "title": "添加输出解析器: 提取纯文本",
+      "instruction": "## 目标\n学习在链中添加 `StrOutputParser` 以直接获取字符串输出。\n\n## 概念\n- **StrOutputParser**: 一个简单的输出解析器,它从 LLM 的响应中提取文本内容,返回字符串。\n- **链式组合**: 可以将多个 Runnable 用 `|` 连接,形成更长的链。\n\n## 操作指引\n1. 从 `langchain_core.output_parsers` 导入 `StrOutputParser`。\n2. 在之前的链后追加 `| StrOutputParser()`。\n3. 调用 `invoke` 并打印结果,观察输出类型变为字符串。\n\n## 为什么\n输出解析器让链的输出更结构化,方便后续处理。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个知识渊博的助手,请用中文回答。\"),\n    (\"human\", \"请简要介绍{topic}。\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\n# 在 chain 中添加 StrOutputParser\nchain = prompt | model | StrOutputParser()\n\nresult = chain.invoke({\"topic\": \"人工智能\"})\nprint(result)",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个知识渊博的助手,请用中文回答。\"),\n    (\"human\", \"请简要介绍{topic}。\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nchain = prompt | model | StrOutputParser()\n\nresult = chain.invoke({\"topic\": \"人工智能\"})\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "StrOutputParser 不需要参数,直接实例化即可。"
+        },
+        {
+          "order": 2,
+          "text": "注意导入路径: from langchain_core.output_parsers import StrOutputParser。"
+        },
+        {
+          "order": 3,
+          "text": "将 StrOutputParser() 放在链的最后,用 | 连接。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "StrOutputParser 示例",
+          "language": "python",
+          "code": "chain = prompt | model | StrOutputParser()\nresult = chain.invoke({\"topic\": \"AI\"})  # result 是字符串",
+          "description": "使用 StrOutputParser 提取文本。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "StrOutputParser",
+          "definition": "输出解析器,将 LLM 响应转换为字符串。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "核心库",
+          "description": "提供基础组件如输出解析器。",
+          "officialUrl": "https://pypi.org/project/langchain-core/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 TODO 部分。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要导入 StrOutputParser。",
+          "astType": "import_from",
+          "name": "StrOutputParser",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-chain-composition-s3",
+      "taskId": "t12-chain-composition",
+      "order": 3,
+      "title": "链式调用: 用 stream 实现流式输出",
+      "instruction": "## 目标\n学习使用 `stream` 方法从链中获取流式输出。\n\n## 概念\n- **流式输出**: 模型逐步生成 token,链可以逐块返回结果,提升用户体验。\n- **RunnableSequence**: 用 `|` 创建的链实际上是一个 `RunnableSequence` 对象,它支持 `invoke`、`stream`、`batch` 等方法。\n\n## 操作指引\n1. 使用之前创建的链(包含提示、模型和解析器)。\n2. 调用 `chain.stream({\"topic\": \"机器学习\"})` 获取一个迭代器。\n3. 使用 `for` 循环遍历迭代器,打印每个 chunk。\n4. 观察输出是逐个 token 出现的。\n\n## 为什么\n流式输出可以实时显示生成内容,适用于聊天机器人等场景。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个知识渊博的助手,请用中文回答。\"),\n    (\"human\", \"请简要介绍{topic}。\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nchain = prompt | model | StrOutputParser()\n\n# 使用 stream 方法并打印每个 chunk\nfor chunk in chain.stream({\"topic\": \"机器学习\"}):\n    print(chunk, end=\"\", flush=True)",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个知识渊博的助手,请用中文回答。\"),\n    (\"human\", \"请简要介绍{topic}。\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nchain = prompt | model | StrOutputParser()\n\nfor chunk in chain.stream({\"topic\": \"机器学习\"}):\n    print(chunk, end=\"\", flush=True)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "stream 返回一个迭代器,每次迭代产生一个字符串 token。"
+        },
+        {
+          "order": 2,
+          "text": "使用 for 循环遍历迭代器,并用 print 的 end=\"\" 参数让 token 连续输出。"
+        },
+        {
+          "order": 3,
+          "text": "调用 stream 时传入的参数与 invoke 相同,都是字典。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "stream 示例",
+          "language": "python",
+          "code": "for chunk in chain.stream({\"topic\": \"AI\"}):\n    print(chunk, end=\"\")",
+          "description": "流式输出每个 token。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "流式输出",
+          "definition": "逐步生成并返回输出,而非一次性返回。"
+        },
+        {
+          "name": "RunnableSequence",
+          "definition": "由多个 Runnable 组合成的链式对象。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "核心库",
+          "description": "提供 RunnableSequence 等基础类。",
+          "officialUrl": "https://pypi.org/project/langchain-core/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 TODO 部分,使用 stream 方法。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要调用 chain.stream。",
+          "api": "chain.stream",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-chain-composition-s4",
+      "taskId": "t12-chain-composition",
+      "order": 4,
+      "title": "组合多个组件: 构建翻译链",
+      "instruction": "## 目标\n学会将多个组件(提示、模型、解析器)组合成一个完整的翻译链,并调用。\n\n## 概念\n- **链式组合**: 可以连接任意数量的 Runnable 组件,形成复杂的工作流。\n- **模板变量**: 提示模板可以定义多个变量,在调用时传入字典。\n\n## 操作指引\n1. 创建一个翻译提示模板,包含 `source_language`、`target_language` 和 `text` 变量。\n2. 创建模型和输出解析器。\n3. 用 `|` 组合成链。\n4. 调用 `invoke` 翻译一段英文文本到中文。\n5. 打印翻译结果。\n\n## 为什么\n通过组合,我们可以快速构建特定任务的链,如翻译、摘要、问答等。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\n# 创建翻译提示模板,包含 source_language, target_language, text 变量\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个翻译助手,将{source_language}翻译成{target_language}。\"),\n    (\"human\", \"{text}\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nchain = prompt | model | StrOutputParser()\n\n# 调用链翻译一段英文\nresult = chain.invoke({\n    \"source_language\": \"English\",\n    \"target_language\": \"中文\",\n    \"text\": \"Hello, how are you?\"\n})\nprint(result)",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个翻译助手,将{source_language}翻译成{target_language}。\"),\n    (\"human\", \"{text}\")\n])\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nchain = prompt | model | StrOutputParser()\n\nresult = chain.invoke({\n    \"source_language\": \"English\",\n    \"target_language\": \"中文\",\n    \"text\": \"Hello, how are you?\"\n})\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "提示模板使用 from_messages 方法,变量用花括号包裹。"
+        },
+        {
+          "order": 2,
+          "text": "invoke 传入的字典必须包含模板中所有定义的变量,即 source_language, target_language, text。"
+        },
+        {
+          "order": 3,
+          "text": "确保文本变量名为 text,与模板一致。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "翻译链示例",
+          "language": "python",
+          "code": "chain = prompt | model | StrOutputParser()\nresult = chain.invoke({\"source_language\": \"English\", \"target_language\": \"French\", \"text\": \"Good morning\"})",
+          "description": "调用翻译链。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "链式组合",
+          "definition": "通过 | 操作符将多个 Runnable 组件连接成一条处理流水线。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "模型集成",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。提供 ChatOpenAI 类。",
+          "officialUrl": "https://pypi.org/project/langchain-openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 TODO 部分,创建提示模板。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义一个包含三个变量的提示模板。",
+          "astType": "assign",
+          "name": "prompt",
+          "minCount": 1
+        },
+        {
+          "type": "unit_test",
+          "message": "检查输出是否包含中文翻译结果。",
+          "testCode": "import sys\nimport io\nfrom langchain_openai import ChatOpenAI\nfrom langchain.prompts import ChatPromptTemplate\nfrom langchain_core.output_parsers import StrOutputParser\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个翻译助手,将{source_language}翻译成{target_language}。\"),\n    (\"human\", \"{text}\")"
+        }
+      ]
+    }
+  ]
+}

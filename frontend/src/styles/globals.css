@@ -1,0 +1,350 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+    margin: 0;
+    min-height: 100vh;
+    font-family: theme('fontFamily.sans');
+    background-image: theme('backgroundImage.mesh-light');
+    background-attachment: fixed;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+}
+
+@layer components {
+  /* ===== 按钮 ===== */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-brand text-white font-semibold shadow-glow-brand hover:brightness-105 hover:shadow-glow-brand active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply btn border border-slate-200 bg-white text-slate-700 shadow-soft hover:border-brand-300 hover:text-brand-700;
+  }
+  .btn-ghost {
+    @apply btn text-slate-500 hover:bg-slate-100 hover:text-slate-800;
+  }
+  .btn-exp {
+    @apply btn bg-gradient-exp text-white font-semibold shadow-glow-exp hover:brightness-105 active:scale-[0.98];
+  }
+
+  /* ===== 卡片 ===== */
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card transition-all duration-300;
+  }
+  .card-hover {
+    @apply card hover:-translate-y-1 hover:border-brand-200 hover:shadow-card-hover;
+  }
+  .card-glass {
+    @apply rounded-2xl border border-white/60 bg-white/70 p-5 shadow-card backdrop-blur-md;
+  }
+
+  /* ===== 输入 ===== */
+  .input {
+    @apply rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-100;
+  }
+
+  /* ===== 文字渐变 ===== */
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-brand-600 via-brand-500 to-exp-500 bg-clip-text text-transparent;
+  }
+  .text-gradient-exp {
+    @apply bg-gradient-to-r from-exp-500 via-exp-400 to-exp-600 bg-clip-text text-transparent;
+  }
+  .text-gradient-hero {
+    @apply bg-gradient-text-hero bg-clip-text text-transparent;
+  }
+
+  /* ===== 面板 / 标题 ===== */
+  .panel-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-slate-400;
+  }
+  .section-divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-slate-300 to-transparent;
+  }
+}
+
+/* ===== 滚动条 ===== */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-brand-400;
+}
+
+/* ===== 代码块 ===== */
+pre {
+  @apply overflow-x-auto rounded-lg border border-slate-700 bg-slate-900 p-4 text-sm text-slate-100;
+}
+code {
+  font-family: theme('fontFamily.mono');
+}
+
+/* ===== 网格纹理背景工具 ===== */
+.bg-grid {
+  background-image: theme('backgroundImage.grid-light');
+  background-size: theme('backgroundSize.grid');
+}
+
+/* ===== Markdown 排版(InfoPanel 说明 Tab / 课程 instruction) =====
+   解决中文与代码混排"融成一块"的问题:
+   标题分级 + 行内代码高亮卡片化 + 代码块深色 + 段落间距 + 列表缩进。 */
+.markdown-body {
+  @apply text-sm leading-relaxed text-slate-600;
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+/* 标题分级 */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  @apply font-bold text-slate-900;
+  line-height: 1.3;
+}
+.markdown-body h1 {
+  @apply mb-3 mt-5 text-lg;
+}
+.markdown-body h2 {
+  @apply mb-2.5 mt-5 text-base;
+}
+.markdown-body h3 {
+  @apply mb-2 mt-4 text-[15px];
+}
+.markdown-body h4 {
+  @apply mb-1.5 mt-3 text-sm;
+}
+/* 标题与上方内容的间隔(第一个标题除外) */
+.markdown-body > h1:first-child,
+.markdown-body > h2:first-child,
+.markdown-body > h3:first-child,
+.markdown-body > h4:first-child {
+  @apply mt-0;
+}
+/* 标题左侧加一道 brand 竖线, 增强分区感 */
+.markdown-body h2,
+.markdown-body h3 {
+  @apply relative pl-3;
+}
+.markdown-body h2::before,
+.markdown-body h3::before {
+  content: '';
+  @apply absolute left-0 top-1/2 h-4 w-1 -translate-y-1/2 rounded-full bg-gradient-brand;
+}
+
+/* 段落 */
+.markdown-body p {
+  @apply mb-3;
+}
+.markdown-body p:last-child {
+  @apply mb-0;
+}
+
+/* 行内代码: 高亮卡片化(brand 浅底 + 边框 + 加粗), 与中文清晰区分 */
+.markdown-body code:not(pre code) {
+  @apply mx-0.5 rounded-md border border-brand-200/70 bg-brand-50 px-1.5 py-0.5 font-semibold text-brand-700;
+  font-size: 0.88em;
+  white-space: nowrap;
+}
+
+/* 代码块: 深色终端风 + 边框 + 圆角 */
+.markdown-body pre {
+  @apply mb-3 mt-1 overflow-x-auto rounded-lg border border-slate-700 bg-slate-900 p-3.5 text-slate-100;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.markdown-body pre code {
+  @apply bg-transparent p-0 font-normal text-slate-100;
+  border: none;
+}
+
+/* 加粗: 强调深色 */
+.markdown-body strong {
+  @apply font-semibold text-slate-900;
+}
+
+/* 列表: 缩进 + 标记色 */
+.markdown-body ul,
+.markdown-body ol {
+  @apply mb-3 pl-5;
+}
+.markdown-body ul {
+  @apply list-disc;
+}
+.markdown-body ol {
+  @apply list-decimal;
+}
+.markdown-body li {
+  @apply mb-1.5;
+}
+.markdown-body li::marker {
+  @apply text-brand-500;
+}
+.markdown-body li > ul,
+.markdown-body li > ol {
+  @apply mb-0 mt-1.5;
+}
+
+/* 链接 */
+.markdown-body a {
+  @apply font-medium text-brand-600 underline decoration-brand-300 underline-offset-2 hover:text-brand-700;
+}
+
+/* 引用块 */
+.markdown-body blockquote {
+  @apply mb-3 border-l-4 border-brand-300 bg-brand-50/50 py-2 pl-3 pr-2 text-slate-600;
+}
+
+/* 分隔线 */
+.markdown-body hr {
+  @apply my-4 border-slate-200;
+}
+
+/* 表格 */
+.markdown-body table {
+  @apply mb-3 w-full border-collapse text-[13px];
+}
+.markdown-body th,
+.markdown-body td {
+  @apply border border-slate-200 px-2.5 py-1.5 text-left;
+}
+.markdown-body th {
+  @apply bg-slate-100 font-semibold text-slate-700;
+}
+
+/* ===== 无限滚动条带(landing 技术栈) ===== */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 32s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ===== 极光漂移(landing hero 底图) ===== */
+@keyframes aurora {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(42px, -28px) scale(1.15);
+  }
+  66% {
+    transform: translate(-32px, 24px) scale(0.94);
+  }
+}
+.animate-aurora {
+  animation: aurora 12s ease-in-out infinite;
+}
+
+/* ===== 流星(Magic UI 同款):斜向划过 + 渐隐 ===== */
+@keyframes meteor {
+  0% {
+    transform: rotate(215deg) translateX(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(215deg) translateX(-500px);
+    opacity: 0;
+  }
+}
+.animate-meteor {
+  animation: meteor 6s linear infinite;
+}
+
+/* ===== 粒子上升 ===== */
+@keyframes rise {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-140px);
+    opacity: 0;
+  }
+}
+.animate-rise {
+  animation: rise 8s linear infinite;
+}
+
+/* ===== 边框光束(Linear 同款 conic 旋转) ===== */
+@keyframes border-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-border-spin {
+  animation: border-spin 5s linear infinite;
+}
+
+/* ===== 透视网格流动(retro grid 向 viewer 移动) ===== */
+@keyframes grid-flow {
+  from {
+    background-position-y: 0;
+  }
+  to {
+    background-position-y: 44px;
+  }
+}
+.animate-grid-flow {
+  animation: grid-flow 1.6s linear infinite;
+}
+
+/* ===== 3D 玻璃立方体自旋(preserve-3d 六面体) ===== */
+@keyframes cube-spin {
+  from {
+    transform: rotateX(-22deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-22deg) rotateY(360deg);
+  }
+}
+.cube-spin {
+  animation: cube-spin 14s linear infinite;
+  transform-style: preserve-3d;
+}
+

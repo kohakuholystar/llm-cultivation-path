@@ -1,0 +1,257 @@
+{
+  "steps": [
+    {
+      "id": "t25-multi-query-s1",
+      "taskId": "t25-multi-query",
+      "order": 1,
+      "title": "搭建模拟文档库与基础检索器",
+      "instruction": "本步骤目标：创建模拟文档集合并搭建基础向量检索器，为后续多策略检索奠定环境。\n\n### 涉及概念\n- **向量存储（VectorStore）**：将文档嵌入向量化存储，支持相似度搜索。\n- **嵌入模型（Embeddings）**：将文本转换为数值向量，以便进行语义比较。\n- **检索器（Retriever）**：根据查询从向量库中返回相关文档。\n\n### 操作指引\n1. 用 `Document` 类创建 5 篇模拟文档，内容分别关于不同的水果（苹果、香蕉、橙子、葡萄、西瓜）。\n2. 使用 `FakeEmbeddings` 模拟嵌入（无需真实 API），它能生成固定维度（如 10 维）的随机向量，保证检索可重现。\n3. 基于 `InMemoryVectorStore` 构建向量库，并调用 `similarity_search` 方法实现检索。\n\n> **类比**：向量库像按语义排序的图书馆，每本书（文档）都被贴上一个高维标签（向量），查询时找到最相似的标签对应的书。\n\n### 你需要做的\n- 在 `# TODO:` 处补全代码，用提供好的文档列表和嵌入模型创建向量存储，并返回对应的检索器对象。",
+      "starterCode": "from langchain_core.documents import Document\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_community.embeddings import FakeEmbeddings\n\n# 模拟文档列表\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾\"),\n    Document(page_content=\"橙子味道酸甜，可用于榨汁\"),\n    Document(page_content=\"葡萄可以酿成葡萄酒，种类繁多\"),\n    Document(page_content=\"西瓜是夏季消暑佳品，水分充足\"),\n]\n\n# 模拟嵌入模型\nembeddings = FakeEmbeddings(size=10)\n\n# 创建向量存储并返回检索器\ndef create_retriever(documents, embedding_model):\n    # 在此处补全代码\n    # 提示：先创建向量存储，再将其转换为检索器\n    pass\n\nretriever = create_retriever(docs, embeddings)\nresult = retriever.invoke(\"热带水果\")\nprint(\"检索到的文档:\", result[:2])  # 预期输出前两个相关文档",
+      "solutionCode": "from langchain_core.documents import Document\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_community.embeddings import FakeEmbeddings\n\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾\"),\n    Document(page_content=\"橙子味道酸甜，可用于榨汁\"),\n    Document(page_content=\"葡萄可以酿成葡萄酒，种类繁多\"),\n    Document(page_content=\"西瓜是夏季消暑佳品，水分充足\"),\n]\n\nembeddings = FakeEmbeddings(size=10)\n\ndef create_retriever(documents, embedding_model):\n    vectorstore = InMemoryVectorStore.from_documents(\n        documents, embedding_model\n    )\n    return vectorstore.as_retriever(search_kwargs={\"k\": 2})\n\nretriever = create_retriever(docs, embeddings)\nresult = retriever.invoke(\"热带水果\")\nprint(\"检索到的文档:\", result[:2])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "回顾 InMemoryVectorStore 的 from_documents 方法，它可以直接从文档列表和嵌入模型构建向量库。"
+        },
+        {
+          "order": 2,
+          "text": "构建向量库后，调用 .as_retriever() 并设置 search_kwargs 中的 k 参数控制返回数量。"
+        },
+        {
+          "order": 3,
+          "text": "完整代码应为：vectorstore = InMemoryVectorStore.from_documents(documents, embedding_model); return vectorstore.as_retriever(search_kwargs={\"k\": 2})"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "创建文档与向量存储示例",
+          "language": "python",
+          "code": "doc = Document(page_content=\"测试文档\")\nvs = InMemoryVectorStore.from_documents([doc], FakeEmbeddings(size=10))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "向量存储",
+          "definition": "存储文档嵌入向量的数据库，支持相似度搜索。"
+        },
+        {
+          "name": "嵌入模型",
+          "definition": "将文本转换为向量的模型。"
+        },
+        {
+          "name": "检索器",
+          "definition": "根据查询从数据源返回相关文档的组件。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "RAG 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供构架检索增强生成管道的各类组件",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        },
+        {
+          "name": "langchain-community",
+          "role": "模拟嵌入",
+          "description": "无需真实模型即可生成固定尺寸随机向量的测试用嵌入",
+          "officialUrl": "https://python.langchain.com/api_reference/community/embeddings/langchain_community.embeddings.fake.FakeEmbeddings.html"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请完成 # TODO: 标记处的代码",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码运行后输出应包含“检索到的文档”及文档内容",
+          "blocking": false,
+          "expectedStdout": "检索到的文档: [Document"
+        }
+      ]
+    },
+    {
+      "id": "t25-multi-query-s2",
+      "taskId": "t25-multi-query",
+      "order": 2,
+      "title": "利用多查询生成增强检索召回",
+      "instruction": "本步骤目标：使用 `MultiQueryRetriever` 将单个用户查询扩展为多个变体，分别检索后合并结果，以提高召回率。\n\n### 涉及概念\n- **多查询检索器（MultiQueryRetriever）**：自动从原始查询生成若干相似查询（通过 LLM），然后对每个查询独立检索，最后合并去重，目的是捕获多种可能的表述方式。\n- **模拟 LLM（MockLLM）**：用于教学环境，无需调用真实接口。这里我们定制一个返回预测查询变体的假 LLM。\n\n### 操作指引\n1. 沿用 Step1 的模拟文档和嵌入，构建基础检索器。\n2. 定义一个 `MockLLM` 类，重写 `_call` 方法，使其在输入“热带水果”时返回三个变体：“热带水果;热带地区常见水果;热带特产水果”（分号分隔，因为 `MultiQueryRetriever` 默认按换行分割，因此我们返回时每行一个）。\n3. 用 `MultiQueryRetriever.from_llm` 创建多查询检索器，参数 `retriever` 为基础检索器，`llm` 为模拟 LLM。\n4. 调用 `invoke` 观察返回结果。\n\n> **注意**：为避免干扰，我们为模拟 LLM 设计固定的输出，方便测试。",
+      "starterCode": "from langchain.retrievers.multi_query import MultiQueryRetriever\nfrom langchain_core.language_models.llms import LLM\nfrom langchain_community.embeddings import FakeEmbeddings\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_core.documents import Document\n\n# 模拟文档（同前）\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾\"),\n    Document(page_content=\"橙子味道酸甜，可用于榨汁\"),\n    Document(page_content=\"葡萄可以酿成葡萄酒，种类繁多\"),\n    Document(page_content=\"西瓜是夏季消暑佳品，水分充足\"),\n]\n\n# 构建基础检索器\nembeddings = FakeEmbeddings(size=10)\nvectorstore = InMemoryVectorStore.from_documents(docs, embeddings)\nbase_retriever = vectorstore.as_retriever(search_kwargs={\"k\": 2})\n\n# 实现模拟 LLM（MockLLM），并在调用时返回三个查询变体，用换行分隔\nclass MockLLM(LLM):\n    def _call(self, prompt: str, stop=None) -> str:\n        # 提示：当 prompt 中包含“热带水果”时，返回三个变体，每行一个\n        pass\n\n    @property\n    def _llm_type(self) -> str:\n        return \"mock_llm\"\n\n# 使用 MultiQueryRetriever.from_llm 创建多查询检索器\nmulti_retriever = None  # 替换为实际代码\n\n# 测试\nresults = multi_retriever.invoke(\"热带水果\")\nprint(\"多查询检索结果:\")\nfor doc in results:\n    print(doc.page_content)",
+      "solutionCode": "from langchain.retrievers.multi_query import MultiQueryRetriever\nfrom langchain_core.language_models.llms import LLM\nfrom langchain_community.embeddings import FakeEmbeddings\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_core.documents import Document\n\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾\"),\n    Document(page_content=\"橙子味道酸甜，可用于榨汁\"),\n    Document(page_content=\"葡萄可以酿成葡萄酒，种类繁多\"),\n    Document(page_content=\"西瓜是夏季消暑佳品，水分充足\"),\n]\n\nembeddings = FakeEmbeddings(size=10)\nvectorstore = InMemoryVectorStore.from_documents(docs, embeddings)\nbase_retriever = vectorstore.as_retriever(search_kwargs={\"k\": 2})\n\nclass MockLLM(LLM):\n    def _call(self, prompt: str, stop=None) -> str:\n        if \"热带水果\" in prompt:\n            return \"热带水果\\n热带地区常见水果\\n热带特产水果\"\n        else:\n            return \"苹果\\n水果\"\n\n    @property\n    def _llm_type(self) -> str:\n        return \"mock_llm\"\n\nmulti_retriever = MultiQueryRetriever.from_llm(\n    retriever=base_retriever, llm=MockLLM()\n)\n\nresults = multi_retriever.invoke(\"热带水果\")\nprint(\"多查询检索结果:\")\nfor doc in results:\n    print(doc.page_content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "MultiQueryRetriever 需要 LLM 返回的文本按行分割成列表，因此在 _call 中用换行符分隔多个查询。"
+        },
+        {
+          "order": 2,
+          "text": "MockLLM 的 _call 方法应返回固定字符串，例如“热带水果\\n热带地区常见水果\\n热带特产水果”。"
+        },
+        {
+          "order": 3,
+          "text": "用 MultiQueryRetriever.from_llm(retriever=base_retriever, llm=MockLLM()) 即可完成创建。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "自定义简单模拟 LLM",
+          "language": "python",
+          "code": "class SimpleMockLLM(LLM):\n    def _call(self, prompt, stop=None):\n        return \"query1\\nquery2\"\n\n    @property\n    def _llm_type(self):\n        return \"mock\""
+        }
+      ],
+      "terms": [
+        {
+          "name": "多查询检索器",
+          "definition": "一种检索增强技术，通过生成多个查询变体提高召回率。"
+        },
+        {
+          "name": "模拟 LLM",
+          "definition": "用于测试和教学，不执行真实推理的语言模型替代品。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 MultiQueryRetriever 组件",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全两个 # TODO: 处的代码",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码运行后应输出多查询检索结果，至少包含“香蕉”或“热带水果”相关文档",
+          "blocking": false,
+          "expectedStdout": "香蕉"
+        }
+      ]
+    },
+    {
+      "id": "t25-multi-query-s3",
+      "taskId": "t25-multi-query",
+      "order": 3,
+      "title": "采用上下文压缩过滤冗余信息",
+      "instruction": "本步骤目标：在检索管道中加入 `ContextualCompressionRetriever`，利用 LLM 提取文档中与查询最相关的片段，压缩无关内容。\n\n### 涉及概念\n- **上下文压缩检索器（ContextualCompressionRetriever）**：包装一个基础检索器和一个 `DocumentCompressor`，检索后由压缩器处理，只保留和查询相关的部分。\n- **文档压缩器（DocumentCompressor）**：例如 `LLMChainExtractor`，通过 LLM 提取相关句子。\n\n### 操作指引\n1. 沿用上一步的多查询检索器，或直接使用基础检索器。这里为了清晰，我们重新构建一个基础检索器。\n2. 实现一个简单的 `DocumentCompressor`，它不用真实 LLM，而是基于规则“保留包含查询关键词的句子”，借此演示压缩效果。我们将这个压缩器命名为 `SimpleExtractor`。\n3. 用 `ContextualCompressionRetriever` 包装基础检索器和压缩器。\n4. 比较压缩前后的文档长度。\n\n> **思考**：为什么压缩很重要？在实际 RAG 中，文档可能很长，直接送入 LLM 会超过上下文窗口或增加推理成本，所以需要抽取相关片段。",
+      "starterCode": "from langchain.retrievers import ContextualCompressionRetriever\nfrom langchain.retrievers.document_compressors import BaseDocumentCompressor\nfrom langchain_core.documents import Document\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_community.embeddings import FakeEmbeddings\n\n# 模拟文档（内容较长，便于演示压缩）\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C，常被称为“平安果”，适合每天食用。苹果树主要生长在温带地区。\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾元素，能快速补充能量，口感软糯香甜。香蕉采摘时通常是绿色的。\"),\n    Document(page_content=\"橙子味道酸甜，富含维生素C，常用于榨汁或直接食用，果皮可入药。\"),\n]\n\n# 构建基础检索器（固定返回所有文档）\nembeddings = FakeEmbeddings(size=10)\nvectorstore = InMemoryVectorStore.from_documents(docs, embeddings)\nbase_retriever = vectorstore.as_retriever(search_kwargs={\"k\": 2})\n\n# 定义一个简单的压缩器，保留包含查询关键词的句子\nclass SimpleExtractor(BaseDocumentCompressor):\n    def compress_documents(self, documents, query):\n        compressed = []\n        for doc in documents:\n            # 将文档内容按句号分割成句子\n            sentences = doc.page_content.split(\"。\")\n            # 筛选包含查询关键词的句子\n            relevant = [s for s in sentences if query in s]\n            if relevant:\n                compressed.append(Document(page_content=\"。\".join(relevant)))\n        return compressed\n\n# 创建 ContextualCompressionRetriever\ncompression_retriever = None  # 替换成实际代码\n\n# 测试\nquery = \"维生素\"\nresults = compression_retriever.invoke(query)\nprint(\"压缩后的文档:\")\nfor doc in results:\n    print(doc.page_content)\n    print(\"---\")",
+      "solutionCode": "from langchain.retrievers import ContextualCompressionRetriever\nfrom langchain.retrievers.document_compressors import BaseDocumentCompressor\nfrom langchain_core.documents import Document\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_community.embeddings import FakeEmbeddings\n\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C，常被称为“平安果”，适合每天食用。苹果树主要生长在温带地区。\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾元素，能快速补充能量，口感软糯香甜。香蕉采摘时通常是绿色的。\"),\n    Document(page_content=\"橙子味道酸甜，富含维生素C，常用于榨汁或直接食用，果皮可入药。\"),\n]\n\nembeddings = FakeEmbeddings(size=10)\nvectorstore = InMemoryVectorStore.from_documents(docs, embeddings)\nbase_retriever = vectorstore.as_retriever(search_kwargs={\"k\": 2})\n\nclass SimpleExtractor(BaseDocumentCompressor):\n    def compress_documents(self, documents, query):\n        compressed = []\n        for doc in documents:\n            sentences = doc.page_content.split(\"。\")\n            relevant = [s for s in sentences if query in s]\n            if relevant:\n                compressed.append(Document(page_content=\"。\".join(relevant)))\n        return compressed\n\ncompression_retriever = ContextualCompressionRetriever(\n    base_compressor=SimpleExtractor(), base_retriever=base_retriever\n)\n\nquery = \"维生素\"\nresults = compression_retriever.invoke(query)\nprint(\"压缩后的文档:\")\nfor doc in results:\n    print(doc.page_content)\n    print(\"---\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "压缩器需要继承 BaseDocumentCompressor 并实现 compress_documents 方法。"
+        },
+        {
+          "order": 2,
+          "text": "SimpleExtractor 的逻辑应为：对于每个文档，按句号分割，保留包含查询词的句子。"
+        },
+        {
+          "order": 3,
+          "text": "创建 ContextualCompressionRetriever 时需传入 base_compressor 和 base_retriever 两个参数。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "自定义压缩器骨架",
+          "language": "python",
+          "code": "class MyCompressor(BaseDocumentCompressor):\n    def compress_documents(self, docs, query):\n        return [doc for doc in docs if query in doc.page_content]"
+        }
+      ],
+      "terms": [
+        {
+          "name": "上下文压缩检索器",
+          "definition": "在检索后对文档进行压缩，只保留与查询相关的部分。"
+        },
+        {
+          "name": "文档压缩器",
+          "definition": "接收文档列表和查询，返回压缩后的相关文档列表。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 ContextualCompressionRetriever 和 BaseDocumentCompressor",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写压缩器和压缩检索器的相关 # TODO:",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行后应输出压缩文档，只包含提及“维生素”的句子，例如“苹果...富含维生素C”",
+          "blocking": false,
+          "expectedStdout": "维生素C"
+        }
+      ]
+    },
+    {
+      "id": "t25-multi-query-s4",
+      "taskId": "t25-multi-query",
+      "order": 4,
+      "title": "以嵌入相似度过滤低质检索结果",
+      "instruction": "本步骤目标：在压缩之后，使用 `EmbeddingsFilter` 根据文档与查询的相似度进一步过滤，将低于阈值的文档剔除。\n\n### 涉及概念\n- **嵌入过滤器（EmbeddingsFilter）**：利用嵌入模型计算文档与查询的相似度，保留高于设定阈值的文档。它能有效去除语义不相关的结果。\n- **相似度阈值（similarity_threshold）**：介于 0~1 之间的数值，通常结合具体嵌入模型调整。\n\n### 操作指引\n1. 复用上一节的压缩检索器（`compression_retriever`）作为基础。\n2. 从 `langchain.retrievers.document_compressors` 导入 `EmbeddingsFilter`。\n3. 创建嵌入过滤器，设置 `similarity_threshold=0.5`（该阈值可根据需要调整，这里仅为演示）。\n4. 将嵌入过滤器再次包装成 `ContextualCompressionRetriever`（或直接在管道上叠加）。\n5. 比较过滤前后的文档数量。\n\n> **注意**：由于 `FakeEmbeddings` 生成随机向量，不同运行相似度可能波动，但阈值 0.5 应能保留至少一篇文档（若未保留，可适当降低阈值）。",
+      "starterCode": "from langchain.retrievers import ContextualCompressionRetriever\nfrom langchain.retrievers.document_compressors import EmbeddingsFilter\nfrom langchain.retrievers.document_compressors import BaseDocumentCompressor\nfrom langchain_core.documents import Document\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_community.embeddings import FakeEmbeddings\n\n# 模拟文档（同前）\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C，常被称为“平安果”，适合每天食用。苹果树主要生长在温带地区。\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾元素，能快速补充能量，口感软糯香甜。香蕉采摘时通常是绿色的。\"),\n    Document(page_content=\"橙子味道酸甜，富含维生素C，常用于榨汁或直接食用，果皮可入药。\"),\n]\n\n# 构建基础检索器\nembeddings = FakeEmbeddings(size=10)\nvectorstore = InMemoryVectorStore.from_documents(docs, embeddings)\nbase_retriever = vectorstore.as_retriever(search_kwargs={\"k\": 2})\n\n# 上一节的自定义压缩器（可复用）\nclass SimpleExtractor(BaseDocumentCompressor):\n    def compress_documents(self, documents, query):\n        compressed = []\n        for doc in documents:\n            sentences = doc.page_content.split(\"。\")\n            relevant = [s for s in sentences if query in s]\n            if relevant:\n                compressed.append(Document(page_content=\"。\".join(relevant)))\n        return compressed\n\n# 第一步：压缩检索器\ncompression_retriever = ContextualCompressionRetriever(\n    base_compressor=SimpleExtractor(), base_retriever=base_retriever\n)\n\n# 创建嵌入过滤器，设置阈值 0.5，并嵌入模型为 embeddings\nembeddings_filter = None  # 替换\n\n# 将嵌入过滤器与压缩检索器结合，得到最终检索器\nfiltered_retriever = None  # 替换\n\n# 测试\nquery = \"维生素\"\nresults = filtered_retriever.invoke(query)\nprint(\"过滤后的文档:\")\nfor doc in results:\n    print(doc.page_content)\n    print(\"---\")",
+      "solutionCode": "from langchain.retrievers import ContextualCompressionRetriever\nfrom langchain.retrievers.document_compressors import EmbeddingsFilter\nfrom langchain.retrievers.document_compressors import BaseDocumentCompressor\nfrom langchain_core.documents import Document\nfrom langchain_community.vectorstores import InMemoryVectorStore\nfrom langchain_community.embeddings import FakeEmbeddings\n\ndocs = [\n    Document(page_content=\"苹果是一种常见的水果，富含维生素C，常被称为“平安果”，适合每天食用。苹果树主要生长在温带地区。\"),\n    Document(page_content=\"香蕉是热带水果，含有丰富的钾元素，能快速补充能量，口感软糯香甜。香蕉采摘时通常是绿色的。\"),\n    Document(page_content=\"橙子味道酸甜，富含维生素C，常用于榨汁或直接食用，果皮可入药。\"),",
+      "techStack": [
+        {
+          "name": "scikit-learn",
+          "role": "相似度计算",
+          "description": "嵌入相似度过滤",
+          "officialUrl": "https://scikit-learn.org/",
+          "category": "机器学习库",
+          "installHint": "pip install scikit-learn"
+        }
+      ],
+      "validation": [
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "RAG-Fusion 排序融合(RRF)",
+          "language": "python",
+          "code": "def rrf_score(rank_lists: list[list[str]], k: int = 60) -> dict:\n    \"\"\"Reciprocal Rank Fusion: 多路检索结果按排名融合。\n    score = Σ 1/(k+rank), 在多个列表里都靠前的文档得分最高\"\"\"\n    scores = {}\n    for docs in rank_lists:\n        for rank, doc_id in enumerate(docs, 1):\n            scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank)\n    return dict(sorted(scores.items(), key=lambda x: -x[1]))\n\n# 两个查询各自检索的结果\nq1_hits = [\"doc_A\", \"doc_B\", \"doc_C\"]\nq2_hits = [\"doc_B\", \"doc_D\", \"doc_A\"]\nprint(rrf_score([q1_hits, q2_hits]))\n# doc_B 两路都靠前 → 融合后第一"
+        }
+      ],
+      "terms": [
+        {
+          "name": "MultiQueryRetriever",
+          "definition": "LangChain 检索器: 用LLM把一个问题改写成多个变体并行检索, 合并去重结果"
+        },
+        {
+          "name": "RAG-Fusion",
+          "definition": "多查询+RRF排序融合的检索增强技术, 提升召回率"
+        },
+        {
+          "name": "RRF (Reciprocal Rank Fusion)",
+          "definition": "排序融合算法: score=Σ1/(k+rank), 无需相似度绝对值, 只依赖排名"
+        }
+      ]
+    }
+  ],
+  "vectorstore.as_retriever(search_kwargs={\"k\"": 2
+}

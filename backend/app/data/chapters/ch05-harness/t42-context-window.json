@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t42-context-window-s1",
+      "taskId": "t42-context-window",
+      "order": 1,
+      "title": "Token 计数与预算",
+      "instruction": "### 目标\n量化理解**上下文窗口**:它的构成、成本、以及\"塞满\"时会发生什么。\n\n### 背景: 窗口里装的到底是什么\n每次 LLM 调用,token 预算是这样分的:\n```\n总窗口(如 128K) = 系统提示词 + 历史消息 + 检索资料 + 工具输出 + 用户输入 + 模型回复预留\n```\n**回复预留最容易被忽略**:max_tokens 设 4000,可用输入就少了 4000。很多人算漏这笔账导致输入被静默截断。\n\n### 超窗的三种后果(按危害排序)\n1. **API 直接报错**(最好):明确失败,立刻知道\n2. **中间信息被静默截断**(最坏):模型看不到被切掉的内容,回答质量劣化但**不报错**——你以为它在看全文,其实它只看了后半\n3. **\"中间遗忘\"现象**:即使没超窗,模型对长上下文**中间部分**的注意力天然偏弱(Lost in the Middle 研究),关键资料要放开头或结尾\n\n### 操作\n1. 用 tiktoken 统计一段混合内容各部分 token 数\n2. 画\"token 预算分配\"表,标出预留回复后剩余可用\n3. 模拟超窗截断,对比截断前后模型的\"视野\"",
+      "starterCode": "import tiktoken\n\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\n\ndef count_tokens(text: str) -> int:\n    return len(enc.encode(text))\n\ndef count_messages_tokens(messages: list) -> int:\n    # 统计 messages 总 token\n    total = 0\n    for msg in messages:\n        # 每条消息加 4 token 开销 + content token\n        total += \n    return total\n\nmessages = [{'role':'system','content':'你是助手'*100}, {'role':'user','content':'你好'*50}]\ntokens = count_messages_tokens(messages)\nprint(f'总 token: {tokens}')\nprint(f'预算 4096, {\"超限\" if tokens > 4096 else \"OK\"}')",
+      "solutionCode": "import tiktoken\n\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\n\ndef count_tokens(text: str) -> int:\n    return len(enc.encode(text))\n\ndef count_messages_tokens(messages: list) -> int:\n    total = 0\n    for msg in messages:\n        total += 4 + count_tokens(msg['content'])\n    return total\n\nmessages = [{'role':'system','content':'你是助手'*100}, {'role':'user','content':'你好'*50}]\ntokens = count_messages_tokens(messages)\nprint(f'总 token: {tokens}')\nprint(f'预算 4096, {\"超限\" if tokens > 4096 else \"OK\"}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "tiktoken.encoding_for_model 获取编码器。"
+        },
+        {
+          "order": 2,
+          "text": "enc.encode(text) 返回 token 列表,len 是数量。"
+        },
+        {
+          "order": 3,
+          "text": "每条消息约加 4 token 开销(角色标记)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "import tiktoken\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\nlen(enc.encode('hello'))  # token 数"
+        }
+      ],
+      "terms": [
+        {
+          "name": "tiktoken",
+          "definition": "OpenAI token 计数库"
+        },
+        {
+          "name": "上下文预算",
+          "definition": "为对话预留的 token 上限"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "Token 计数",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于估算 API 调用成本、控制上下文长度。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "count_messages_tokens",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t42-context-window-s2",
+      "taskId": "t42-context-window",
+      "order": 2,
+      "title": "消息截断策略",
+      "instruction": "### 目标\n实现**滑动窗口**策略:对话变长时自动丢弃最老消息,控制 token 总量。\n\n### 背景: 三种窗口管理策略对比\n| 策略 | 做法 | 优点 | 缺点 |\n|------|------|------|------|\n| 滑动窗口 | 只留最近 N 轮 | 简单、token 可预测 | 老信息永久丢失 |\n| 摘要压缩 | 老消息让 LLM 压缩成摘要 | 保留长程信息 | 摘要损失细节、额外调用成本 |\n| 向量检索 | 老消息入库,按相关度检索召回 | 理论上无限记忆 | 实现复杂、可能召回错 |\n\n**工程标配:滑动窗口 + 系统提示常驻**。系统提示(角色设定)每轮都发,不参与丢弃;只丢 user/assistant 历史。\n\n### 按 token 还是按轮数?\n- 按轮数(如留 10 轮):简单,但单轮长度差异大时 token 不稳定\n- **按 token 预算(推荐)**:从新到旧累加,超过预算就停——成本可预测\n\n### 操作\n1. 实现 `trim_history(messages, max_tokens)`:从后往前保留,超预算截断\n2. 系统消息永远保留在第一位\n3. 用 tiktoken 验证截断后总 token 不超预算",
+      "starterCode": "import tiktoken\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\n\ndef count_tokens(messages):\n    return sum(4 + len(enc.encode(m['content'])) for m in messages)\n\ndef trim_messages(messages, max_tokens=4096):\n    # 超限时删除最旧消息(保留 system)\n    while count_tokens(messages) > max_tokens and len(messages) > 1:\n        # TODO: 找最旧的非 system 消息删除\n# 提示: enc = tiktoken.encoding_for_model('deepseek-v4-pro')\n        pass\n    return messages\n\nmessages = [{'role':'system','content':'你是助手'}]\nfor i in range(20):\n    messages.append({'role':'user','content':f'第{i}条消息'*10})\n    messages.append({'role':'assistant','content':f'回复{i}'*10})\n\nprint(f'截断前: {count_tokens(messages)} tokens, {len(messages)} 条')\nmessages = trim_messages(messages, 500)\nprint(f'截断后: {count_tokens(messages)} tokens, {len(messages)} 条')",
+      "solutionCode": "import tiktoken\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\n\ndef count_tokens(messages):\n    return sum(4 + len(enc.encode(m['content'])) for m in messages)\n\ndef trim_messages(messages, max_tokens=4096):\n    while count_tokens(messages) > max_tokens and len(messages) > 1:\n        for i in range(1, len(messages)):\n            if messages[i]['role'] != 'system':\n                messages.pop(i)\n                break\n        else:\n            break\n    return messages\n\nmessages = [{'role':'system','content':'你是助手'}]\nfor i in range(20):\n    messages.append({'role':'user','content':f'第{i}条消息'*10})\n    messages.append({'role':'assistant','content':f'回复{i}'*10})\n\nprint(f'截断前: {count_tokens(messages)} tokens, {len(messages)} 条')\nmessages = trim_messages(messages, 500)\nprint(f'截断后: {count_tokens(messages)} tokens, {len(messages)} 条')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "while 超 token 且消息>1,循环删除。"
+        },
+        {
+          "order": 2,
+          "text": "保留 system 消息(从 index 1 开始找删除)。"
+        },
+        {
+          "order": 3,
+          "text": "删除最旧的非 system 消息。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "while count_tokens(msgs) > limit:\n    msgs.pop(1)  # 删最旧非system"
+        }
+      ],
+      "terms": [
+        {
+          "name": "截断策略",
+          "definition": "超限时删除旧消息保留近期"
+        },
+        {
+          "name": "滑动窗口",
+          "definition": "只保留最近N轮对话"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "Token 管理",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于估算 API 调用成本、控制上下文长度。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "trim_messages",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t42-context-window-s3",
+      "taskId": "t42-context-window",
+      "order": 3,
+      "title": "对话摘要压缩",
+      "instruction": "### 目标\n实现**上下文压缩**:把长历史交给 LLM 压缩成摘要,腾出空间继续对话。\n\n### 背景: 摘要记忆(ConversationSummaryMemory)\n滑动窗口的硬伤是\"遗忘\"——用户 20 轮前说的偏好被丢了。摘要记忆的思路:\n1. 历史超过阈值时,把**最老的一段**发给 LLM:\"把以下对话压缩成 200 字摘要\"\n2. 用摘要替换原始历史,新消息继续全量追加\n3. 下次再超阈值,把**旧摘要+新增老消息**再压缩(滚动摘要)\n\n### 滚动摘要的 prompt 设计\n```\n当前摘要: {old_summary}\n新增对话: {new_lines}\n请把新对话的关键信息合并进摘要, 保留: 用户偏好/已确认的事实/未完成的任务。\n输出更新后的摘要, 不超过 200 字。\n```\n**关键:明确告诉 LLM 保留什么**(偏好/事实/待办),否则它会按\"文学性\"总结,丢掉工程上重要的信息。\n\n### 操作\n1. 实现 `SummaryMemory`:`add()` 消息,超阈值自动压缩\n2. 压缩函数(模拟 LLM):提取关键信息生成摘要\n3. 模拟 10 轮对话,观察摘要如何滚动更新",
+      "starterCode": "import tiktoken\nfrom openai import OpenAI\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\nclient = OpenAI()\n\ndef count_tokens(messages):\n    return sum(4 + len(enc.encode(m['content'])) for m in messages)\n\ndef summarize_messages(messages):\n    text = '\\n'.join(f'{m[\"role\"]}: {m[\"content\"]}' for m in messages)\n    resp = client.chat.completions.create(\n        model='deepseek-v4-pro',\n        messages=[{'role':'user','content':f'用50字摘要这段对话:\\n{text}'}]\n    )\n    return resp.choices[0].message.content\n\ndef compress_messages(messages, max_tokens=500):\n    # 超限时, 把旧消息摘要成一条\n    while count_tokens(messages) > max_tokens:\n        if len(messages) <= 2:\n            break\n        old = messages[1:5]  # 取4条旧消息\n        summary = summarize_messages(old)\n        # 用摘要替换旧消息\n        \n    return messages\n\nmessages = [{'role':'system','content':'你是助手'}]\nfor i in range(10):\n    messages.append({'role':'user','content':f'第{i}条'*20})\n    messages.append({'role':'assistant','content':f'回复'*20})\n\nprint(f'压缩前: {count_tokens(messages)} tokens')\n# messages = compress_messages(messages)\nprint(f'压缩后: {count_tokens(messages)} tokens')",
+      "solutionCode": "import tiktoken\nfrom openai import OpenAI\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\nclient = OpenAI()\n\ndef count_tokens(messages):\n    return sum(4 + len(enc.encode(m['content'])) for m in messages)\n\ndef summarize_messages(messages):\n    text = '\\n'.join(f'{m[\"role\"]}: {m[\"content\"]}' for m in messages)\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':f'用50字摘要:\\n{text}'}])\n    return resp.choices[0].message.content\n\ndef compress_messages(messages, max_tokens=500):\n    while count_tokens(messages) > max_tokens:\n        if len(messages) <= 2:\n            break\n        old = messages[1:5]\n        summary = summarize_messages(old)\n        messages = [messages[0], {'role':'system','content':f'历史摘要: {summary}'}] + messages[5:]\n    return messages\n\nmessages = [{'role':'system','content':'你是助手'}]\nfor i in range(10):\n    messages.append({'role':'user','content':f'第{i}条'*20})\n    messages.append({'role':'assistant','content':f'回复'*20})\n\nprint(f'压缩前: {count_tokens(messages)} tokens')\nmessages = compress_messages(messages)\nprint(f'压缩后: {count_tokens(messages)} tokens')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "超限时取旧消息,用 LLM 摘要。"
+        },
+        {
+          "order": 2,
+          "text": "摘要替换旧消息,保留信息。"
+        },
+        {
+          "order": 3,
+          "text": "比截断保留更多上下文,但耗 token。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 摘要 vs 截断\n# 截断: 直接删, 丢信息, 快\n# 摘要: LLM 压缩, 保留要点, 慢"
+        }
+      ],
+      "terms": [
+        {
+          "name": "对话摘要",
+          "definition": "用 LLM 压缩旧对话保留要点"
+        },
+        {
+          "name": "压缩策略",
+          "definition": "摘要替代删除,信息保留更好"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "compress_messages",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,500 @@
+{
+  "steps": [
+    {
+      "id": "t31-react-from-scratch-s1",
+      "taskId": "t31-react-from-scratch",
+      "order": 1,
+      "title": "格式契约:让模型按 Thought/Action 说话",
+      "instruction": "### 目标\n为「百宝囊」Agent 立下**格式契约**:设计一份 ReAct 提示词,让 DeepSeek 严格按 `Thought / Action / Action Input` 的格式输出,并完成第一次真实调用,亲眼看到模型的\"思考\"原文。t30 打造的招牌法宝 `calculate`(AST 白名单安全求值)已装入 `TOOLBOX` 注册表,本步先把它的\"说明书\"喂给模型。\n\n### 原理\nReAct(Reasoning + Acting,2022 年由 Google 在论文中提出)是几乎所有现代 Agent 的共同祖先。它的核心洞察是:大模型天生就会\"喃喃自语\"式推理(Chain-of-Thought),只要把**思考**与**行动**交替排列,模型就能边想边干。但请记住一个关键事实:**模型自己不会调用任何函数,它只能输出文本**。所以 ReAct 的本质是一份文本协议——我们在系统提示里规定\"想的时候写 `Thought:`,要动手就写 `Action:` 工具名加 `Action Input:` 参数\",模型按协议输出文本,程序负责解析、代为执行、把结果(Observation)拼回上下文,再进入下一轮。LangChain 的 AgentExecutor、各家框架的 function calling,底层都是这套循环,只是解析手段从正则换成了结构化输出。手写一遍,你就会明白 Agent 不是魔法,而是\"一个 while 循环 + 一份提示词契约\"。本步先做第一环:把契约和法宝图鉴写进提示词,发一次请求,验证模型是否遵守。\n\n### 操作\n1. 通读 `REACT_INSTRUCTION` 与 `TOOLBOX`,理解契约每一行为什么必须存在\n2. 实现 `build_prompt(question)`:把 `TOOL_MANUAL`(由注册表自动生成的法宝图鉴)与用户问题拼成完整提示词\n3. 实现 `call_llm(prompt)`:用 openai SDK 调 deepseek-v4-pro,`MOCK_LLM=1` 时返回假回复以便离线演示\n4. 运行程序,对照契约检查模型原始输出的格式\n\n### 常见坑\n- **契约里没写\"不要输出任何其他内容\"**:模型会在 `Thought:` 前加客套话(\"好的,我来帮你分析\"),导致下一步的正则解析直接失败——契约必须强调严格输出。\n- **忘记把 `temperature` 压到 0**:Agent 场景需要格式稳定,温度一高,输出格式每次漂移,解析器时好时坏,排查极其痛苦。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:build_prompt 只是字符串拼接——TOOL_MANUAL、问题、一句开场引导,用 f-string 串起来即可。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:client.chat.completions.create(model=..., messages=[...], temperature=0);system 消息放 REACT_INSTRUCTION,user 消息放 prompt;取文本用 resp.choices[0].message.content。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return f\"{TOOL_MANUAL}\\n\\n问题: {question}\\n\\n请开始你的第一轮输出:\";call_llm 里注意 message.content 可能是 None,用 or \"\" 兜底。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "一段符合契约的模型输出",
+          "language": "text",
+          "code": "Thought: 我先算 (3 + 4) * 5。\nAction: calculate\nAction Input: {\"expression\": \"(3 + 4) * 5\"}",
+          "description": "模型不会执行任何代码,它只是按契约「说出」自己想调什么工具、传什么参数。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ReAct",
+          "definition": "Reasoning + Acting 的缩写,2022 年提出的 Agent 范式:让模型交替输出思考(Thought)与行动(Action),由程序执行行动并把观察(Observation)喂回,形成闭环。"
+        },
+        {
+          "name": "Chain-of-Thought",
+          "definition": "思维链,引导模型把推理过程显式写出来的提示技巧;ReAct 把它扩展为「边推理边调用工具」。"
+        },
+        {
+          "name": "格式契约",
+          "definition": "在提示词中与模型约定的严格输出格式(如 Thought:/Action:/Action Input:),是程序能够可靠解析模型输出的前提。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK,通过 base_url 指向 https://api.deepseek.com 即可调用 DeepSeek;本任务用它完成 chat.completions.create 调用。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "大模型服务",
+          "description": "本课程默认模型 deepseek-v4-pro,OpenAI 兼容接口;Agent 场景建议 temperature=0 保证格式稳定。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "placeholder": "# TODO:",
+          "message": "还有 TODO 未填写:请实现 build_prompt 与 call_llm。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请用 client.chat.completions.create 完成真实调用。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "build_prompt",
+          "message": "请保留并实现 build_prompt 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "Action Input",
+          "message": "提示词契约中必须包含 Action Input 的格式约定。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t31-react-from-scratch-s2",
+      "taskId": "t31-react-from-scratch",
+      "order": 2,
+      "title": "动作解析器:从文本到结构化意图",
+      "instruction": "### 目标\n给「百宝囊」装上\"耳朵\":写一个解析器 `parse_llm_output`,用正则把模型的自由文本解析成结构化的 `AgentAction`(要调工具)或 `AgentFinish`(宣布收尾),解析失败时抛出明确的 `ParseError` 而不是让程序莫名崩溃。\n\n### 原理\n上一步说过,模型只会输出文本。文本对人类友好,对程序却是灾难:多一个空格、少一个换行,`split(\"\\n\")` 这类土办法就会错位。正则表达式是解析\"半结构化文本\"的利器——它允许空白浮动(`\\s*`)、只锚定关键字(`Action:`),把格式的\"刚性\"与内容的\"弹性\"分开。这里有两个工程细节值得琢磨:其一,**为什么先匹配 Final Answer 再匹配 Action**?因为最终答案的正文里完全可能出现\"Action\"字样,先判收尾能避免误判;其二,**为什么解析失败要抛异常而不是返回 None**?因为\"看不懂模型在说什么\"是一个必须被上层显式处理的事件——静默返回 None 会让 bug 潜伏到循环深处才爆发,而异常让失败立刻可见、可捕获、可兜底(第 6 步我们甚至会把解析错误喂回给模型让它自我纠正)。解析结果用 namedtuple 承载:轻量、不可变、字段名清晰,比裸字典更适合这种\"小记录\"。LangChain 的 ReAct 输出解析器干的就是这件事,只是封装得更厚。\n\n### 操作\n1. 定义 `ACTION_RE`:匹配 `Thought:` / `Action:` / `Action Input:` 三段,组间允许空白浮动\n2. 实现 `parse_llm_output`:先 `FINAL_RE` 后 `ACTION_RE`,分组值 `.strip()` 后装入 namedtuple\n3. 跑 `run_parser_tests` 的三组样本:行动、收尾、无法解析各一,确认行为符合预期\n4. 再用 MOCK 或真实模型输出验证解析器\n\n### 常见坑\n- **贪婪匹配吞掉跨行内容**:用 `(.*)` 而不是 `(.*?)` 时,`Thought:` 的内容可能一路吃到文本末尾;配合 `re.S` 更要小心,`.` 会匹配换行。\n- **忘记 `.strip()` 分组结果**:模型输出的工具名常带尾部空格,`\"calculate \"` 与注册表里的 `\"calculate\"` 不相等,下一步查表直接扑空。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:两条正则就够了——FINAL_RE 已给出,照着它的样子写 ACTION_RE,多匹配 Action 与 Action Input 两段。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:re.compile(pattern, re.S) 让 . 匹配换行;m = ACTION_RE.search(text) 后取 m.group(1/2/3);非贪婪写作 (.*?)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:ACTION_RE = re.compile(r\"Thought:\\s*(.*?)\\s*\\nAction:\\s*(.*?)\\s*\\nAction Input:\\s*(.*)\", re.S);parse 时先判 FINAL 再判 ACTION,都不命中 raise ParseError。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "解析器的输入与输出",
+          "language": "python",
+          "code": "text = 'Thought: 先算 (3 + 4) * 5\\nAction: calculate\\nAction Input: {\"expression\": \"(3 + 4) * 5\"}'\naction = parse_llm_output(text)\n# AgentAction(thought='先算 (3 + 4) * 5', tool='calculate', tool_input='{\"expression\": \"(3 + 4) * 5\"}')",
+          "description": "自由文本进,结构化对象出——从此程序可以可靠地「理解」模型的意图。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "解析器(Parser)",
+          "definition": "把非结构化文本转换为结构化数据结构的组件;在 Agent 中负责把模型输出翻译为可执行的动作意图。"
+        },
+        {
+          "name": "非贪婪匹配",
+          "definition": "正则中 (.*?) 的写法,尽可能少地匹配字符,防止一个分组吞掉后续字段;解析多字段文本时的必备技巧。"
+        },
+        {
+          "name": "ParseError",
+          "definition": "自定义异常类型,表示模型输出不遵守格式契约;让解析失败成为显式、可捕获、可兜底的事件。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "re",
+          "role": "正则表达式引擎",
+          "description": "Python 标准库正则模块;本步用 re.compile + re.S 标志解析 ReAct 半结构化文本。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/re.html",
+          "category": "库"
+        },
+        {
+          "name": "collections.namedtuple",
+          "role": "轻量结构化记录",
+          "description": "Python 标准库;用 namedtuple 定义 AgentAction/AgentFinish,轻量、不可变、字段名清晰。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/collections.html",
+          "category": "库"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "placeholder": "# TODO:",
+          "message": "还有 TODO 未填写:请定义 ACTION_RE 并实现 parse_llm_output。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "parse_llm_output",
+          "message": "请保留并实现 parse_llm_output 函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "assign",
+          "name": "AgentAction",
+          "message": "请保留 AgentAction 结构定义。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "Action:\\\\s\\*",
+          "message": "请用带空白浮动的正则(如 Action:\\s*)匹配动作行。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t31-react-from-scratch-s3",
+      "taskId": "t31-react-from-scratch",
+      "order": 3,
+      "title": "工具执行:把 Action 变成 Observation",
+      "instruction": "### 目标\n打通\"模型想做\"到\"程序真做\"的最后一公里:实现 `run_action`,把解析出的工具名和 JSON 参数文本,分发给 `TOOLBOX` 注册表执行,并把执行结果——无论成功还是失败——都变成一段 Observation 文本。\n\n### 原理\nReAct 循环里,程序扮演的是模型的\"手\"。模型说 `Action: calculate / Action Input: {\"expression\": \"(3 + 4) * 5\"}`,程序要做三件事:**解析参数**(JSON 文本 → Python kwargs)、**分发执行**(按名字从 `TOOLBOX` 查表调用,这正是 t30 `dispatch` 的设计)、**封装结果**(返回值转成文本)。最容易被忽视的是第三点里的错误处理哲学:**错误也是 Observation**。新手写 Agent 时习惯让异常直接炸掉程序,但工程实践恰恰相反——工具不存在、参数不是合法 JSON、工具内部抛异常,都应该浓缩成一句\"错误:...\"文本,因为下一步我们要把它喂回给模型。LLM 读到\"错误:没有工具 'fly_to_moon'\"后,大概率会在下一轮换一个合法工具,这就是 Agent 的**自我纠错**能力:错误不是终点,而是推理的输入。这也解释了为什么 t30 把工具调用入口设计成\"永远返回字符串\"——它就是为这一刻准备的。\n\n### 操作\n1. 实现 `run_action(name, raw_input)`:`json.loads` 解析参数(空串按 `{}` 处理),非 dict 报错\n2. 工具不存在、解析失败、执行异常三种情况都必须返回\"错误:\"开头的文本,不许抛异常\n3. 运行 main:MOCK 模式下模型会请求 `calculate`,观察 Observation 里的真实计算结果\n\n### 常见坑\n- **把 JSON 解析异常抛给上层**:模型写参数时手滑是常态(少个引号、多个逗号),`json.loads` 直接炸掉等于让 Agent 死于一次笔误——必须 try/except 转成文本。\n- **Action Input 是 JSON 数组或裸字符串**:`json.loads(\"[1,2]\")` 能解析成功但 `**kwargs` 会爆 TypeError,所以要显式检查 `isinstance(kwargs, dict)`。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:run_action 是个「翻译层」——JSON 文本翻译为 kwargs,然后按名查 TOOLBOX 执行,自己不做任何计算。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:json.loads(raw_input or \"{}\") 解析文本;isinstance(kwargs, dict) 校验类型;str(func(**kwargs)) 把结果统一成字符串。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:try 里 kwargs = json.loads(...) + dict 校验 + return str(func(**kwargs)),except Exception as exc 返回 f\"错误:执行失败({type(exc).__name__}: {exc})\",三种错误共用一个出口。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "错误即 Observation 的三种形态",
+          "language": "text",
+          "code": "错误:没有工具 'fly_to_moon',可用: calculate\n错误:执行失败(JSONDecodeError: Expecting value: line 1 column 1 (char 0))\n错误:执行失败(TypeError: calculate() got an unexpected keyword argument 'expr')",
+          "description": "三种失败都被翻译成模型能读懂的文本,下一轮模型看到后会自我纠正。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Observation",
+          "definition": "ReAct 循环中工具执行结果的文本表示,会被拼回提示词供模型下一轮阅读;成功结果与错误信息都是合法的 Observation。"
+        },
+        {
+          "name": "工具分发(dispatch)",
+          "definition": "按工具名从注册表查表并调用的统一入口;Agent 主循环只跟它打交道,不关心具体工具实现。"
+        },
+        {
+          "name": "自我纠错(self-correction)",
+          "definition": "把错误信息作为 Observation 喂回模型,让模型在下一轮调整行为的机制;是 Agent 鲁棒性的关键来源。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "json",
+          "role": "参数解析",
+          "description": "Python 标准库;把模型输出的 Action Input JSON 文本解析为 dict,作为 kwargs 传给工具函数。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/json.html",
+          "category": "库"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "placeholder": "# TODO:",
+          "message": "还有 TODO 未填写:请实现 run_action。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "run_action",
+          "message": "请保留并实现 run_action 函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "assign",
+          "name": "TOOLBOX",
+          "message": "请保留 t30 的 TOOLBOX 工具注册表。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "json\\.loads",
+          "message": "请用 json.loads 解析 Action Input。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t31-react-from-scratch-s4",
+      "taskId": "t31-react-from-scratch",
+      "order": 4,
+      "title": "闭环:Thought-Action-Observation 主循环",
+      "instruction": "### 目标\n把前三步的零件——契约提示词、解析器、工具执行——组装成一个会自己转的 Agent:实现 `run_react` 主循环,模型思考 → 程序执行 → 结果回填 → 模型再思考,直到模型给出 `Final Answer` 或触及 `max_steps` 循环上限。\n\n### 原理\nReAct 循环的本质是**上下文接力**。每一轮,我们都要把此前的全部历史(Thought/Action/Observation 三元组,业内叫 **scratchpad**)原样拼回提示词——因为 LLM 是无状态的,它所谓的\"记得刚才算出 35\",纯粹是因为\"35\"这个数字出现在了新一轮请求的文本里。scratchpad 就是 Agent 的短期记忆,这是本任务最重要的一个认知。循环的终止条件有两个:其一,模型输出 `Final Answer`,任务完成;其二,**达到 `max_steps` 强制收尾**——后者不是可有可无的保险丝,而是生产级 Agent 的标配:模型可能陷入\"反复调同一个工具\"的死循环,每转一圈都在烧 API 额度,没有上限的循环就是一个敞口的钱包。另外请注意我们把 `Observation:` 前缀也写进了 scratchpad——固定的标记让模型清楚知道哪段是工具返回的事实、哪段是自己的想法,角色分明才不幻觉。\n\n### 操作\n1. 实现 `run_react(question, max_steps=6)` 的循环体:拼提示词 → 调模型 → 解析 → 分支\n2. `AgentFinish`:打印并返回答案;`AgentAction`:执行、打印、把四元组追加进 `trajectory`\n3. 用 MOCK_LLM=1 离线跑一遍(剧本模型会先算 (3+4)*5 再乘以 2),确认两轮后收尾\n4. 配好 Key 后跑真实模型,对比真实推理轨迹与剧本的异同\n\n### 常见坑\n- **忘记把 Observation 拼回提示词**:模型看不到工具结果,下一轮只能再调一次同样的工具——典型的死循环,这就是 scratchpad 存在的意义。\n- **把 max_steps 写成 while True**:调试阶段也许没事,一旦模型卡住,循环会连夜刷你的 API 账单;上限保护和超时一样,是底线不是优化。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:循环体是一条流水线——build_prompt(带 scratchpad)→ call_llm → parse_llm_output,然后按解析结果的类型分两条路走。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:isinstance(parsed, AgentFinish) 判收尾;run_action(parsed.tool, parsed.tool_input) 执行;trajectory.append((parsed.thought, parsed.tool, parsed.tool_input, observation)) 记录历史。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:parsed = parse_llm_output(call_llm(build_prompt(question, format_scratchpad(trajectory))));若 AgentFinish 则 return parsed.answer,否则执行并把四元组 append 进 trajectory;for 耗尽后返回强制收尾文案。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "第二轮请求里的 scratchpad 长这样",
+          "language": "text",
+          "code": "已完成的步骤:\nThought: 先算 (3 + 4) * 5。\nAction: calculate\nAction Input: {\"expression\": \"(3 + 4) * 5\"}\nObservation: 35\n\n请输出下一轮(以 Thought 开头):",
+          "description": "模型第二轮能「记得」35,只是因为 35 作为 Observation 出现在了提示词里——LLM 本身无状态。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Scratchpad",
+          "definition": "记录历史 Thought/Action/Observation 的文本,每轮拼回提示词充当 Agent 的短期记忆;LLM 无状态,记忆全靠上下文接力。"
+        },
+        {
+          "name": "Agent Loop",
+          "definition": "思考→行动→观察→再思考的循环结构,是 ReAct 及一切 Agent 框架的运行核心。"
+        },
+        {
+          "name": "max_steps",
+          "definition": "循环上限保险丝:到达上限强制收尾,防止模型死循环耗尽 API 额度,生产级 Agent 的标配。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "每轮循环调一次 chat.completions.create;循环几轮就调几次,这也是要设 max_steps 控制成本的原因。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "placeholder": "# TODO:",
+          "message": "还有 TODO 未填写:请实现 run_react 的循环体。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "run_react",
+          "message": "请保留并实现 run_react 主循环。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "循环内必须通过 chat.completions.create 调用模型。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "max_steps",
+          "message": "请保留 max_steps 循环上限参数。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t31-react-from-scratch-s5",
+      "taskId": "t31-react-from-scratch",
+      "order": 5,
+      "title": "执行轨迹:记录、存盘与回放",
+      "instruction": "### 目标\n给 Agent 装上\"飞行记录仪\":把 s4 里散落在 print 和元组中的过程数据,收敛为一个 `Trajectory` 类——结构化记录每一轮的 Thought/Action/Observation,支持 `save` 存盘为 JSON、`replay` 从文件原样回放整段推理。\n\n### 原理\nprint 出来的调试信息是**易逝品**:程序一退出就没了,没法 diff、没法检索、没法复盘。而把轨迹**结构化**地记录下来,就打开了三扇门:其一,**调试复盘**——Agent 答错了,你能精确定位是哪一轮的思考跑偏、哪一次的 Observation 被误读,而不是对着黑盒干瞪眼;其二,**评测**——把一批问题的轨迹存下来,就能统计\"平均几轮收敛\"\"哪个工具最容易被误用\",这是 LangSmith 等可观测性平台的核心数据模型;其三,**数据资产**——优质轨迹可以蒸馏成微调语料,教小模型学会推理(这正是很多 Agent 数据集的生产方式)。注意本步的一个设计细节:`as_scratchpad` 变成了 Trajectory 的方法——短期记忆与飞行记录仪本就是同一份数据的两种视图,一份数据两处使用,消除了 s4 里元组与打印两套格式并存的问题。还要提醒:`replay` 只是读取 JSON 重播记录,**不会重新调用模型、也不会重新执行工具**,它是只读的回放,不是重新执行。\n\n### 操作\n1. 阅读 `Trajectory` 的 `add / as_scratchpad / save` 三个方法,理解数据如何流转\n2. 实现 `replay(path)`:从 JSON 读回轨迹,逐条打印每轮的思考、动作与观察,最后打印最终答案\n3. `run_react` 已改为返回 Trajectory;运行后打开生成的 `baibaonang_trajectory.json` 检查内容\n4. 对比终端回放与 JSON 文件,确认存盘无损\n\n### 常见坑\n- **把不可序列化的对象塞进 records**:datetime、异常对象等直接 `json.dump` 会 TypeError,所以入库前一律转成字符串——本步所有字段在 `run_action` 出口处就已是 str。\n- **误把回放当重跑**:`replay(path)` 只是读文件重播,若以为结果是\"新鲜\"的,在时敏场景(如查时间类工具)会拿到过期答案。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:replay 是「读 JSON + 打印」的纯展示逻辑——json.load 读回 dict,遍历 records 按固定格式输出。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:data = json.load(open(path, encoding=\"utf-8\"));for i, r in enumerate(data[\"records\"], 1) 后取 r['thought']、r['action']、r['action_input']、r['observation']。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:print(f\"[第 {i} 轮] {r['thought']}\\n  Action: {r['action']}  Input: {r['action_input']}\\n  Observation: {r['observation']}\") 一条语句打完一轮,循环外 print(\"最终答案:\", data[\"answer\"])。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "存盘后的轨迹 JSON(节选)",
+          "language": "text",
+          "code": "{\n  \"question\": \"帮我算 (3 + 4) * 5,再把结果乘以 2。\",\n  \"answer\": \"...最终答案是 5。\",\n  \"records\": [\n    {\"thought\": \"先算 (3 + 4) * 5。\", \"action\": \"calculate\",\n     \"action_input\": \"{\\\"expression\\\": \\\"(3 + 4) * 5\\\"}\", \"observation\": \"35\"}\n  ]\n}",
+          "description": "结构化轨迹是调试、评测、微调三重用途的共同数据底座。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "执行轨迹(Trajectory)",
+          "definition": "Agent 一次任务中全部 Thought/Action/Observation 的结构化记录,是调试、评测与数据蒸馏的底座。"
+        },
+        {
+          "name": "可观测性(Observability)",
+          "definition": "让系统内部过程可见、可查、可度量的工程实践;LangSmith 等平台的核心就是把 Agent 轨迹持久化并可视化。"
+        },
+        {
+          "name": "回放(Replay)",
+          "definition": "把保存的轨迹原样重播用于复盘;只读记录,不重新调用模型或工具。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "json",
+          "role": "轨迹持久化",
+          "description": "Python 标准库;ensure_ascii=False 保留中文,indent=2 让轨迹文件人类可读。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/json.html",
+          "category": "库"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "placeholder": "# TODO:",
+          "message": "还有 TODO 未填写:请实现 replay。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "Trajectory",
+          "message": "请保留 Trajectory 轨迹类。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "replay",
+          "message": "请实现 replay 回放函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "json\\.dump",
+          "message": "请用 json.dump 把轨迹存盘为 JSON。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t31-react-from-scratch-s6",
+      "taskId": "t31-react-from-scratch",
+      "order": 6,
+      "title": "上限保护与健壮性:生产级收尾",
+      "instruction": "### 目标\n把能跑的玩具循环打磨成扛造的生产级 Agent:给 `run_react` 装上三道保险——**循环上限保护**、**重复动作检测**、**解析失败自我纠错**,外加 API 异常的体面兜底。至此,「百宝囊」从一个想法变成一个有契约、有工具、有记忆、有护栏的完整 ReAct Agent。\n\n### 原理\n课堂 Demo 与生产 Agent 的差距,几乎全在\"出事的时候怎么办\"。第一类事故是**死循环**:模型对某些问题会反复调用同一个工具、传同样的参数,轨迹原地踏步。成本最低的检测法是比对\"工具名|参数\"指纹——连续两轮指纹相同,基本可以判定卡死,强制收尾并如实告知用户,这比默默跑满 max_steps 更省 token、也更诚实。第二类事故是**格式漂移**:模型偶尔不遵守契约,正则解析失败。低水平做法是报错退出;高水平做法是把 `ParseError` 包装成一条\"系统 Observation\"喂回去——\"你的输出不符合契约,请重新输出\"——模型读到后大多能自我纠正,等于给循环加了自动愈合能力。第三类事故是**调用异常**:网络抖动、限流、Key 失效,这些与推理无关的故障不应污染轨迹,捕获后设置一句失败说明体面收尾即可。这三道保险共同体现一条原则:**Agent 的每一种失败,都应该有预先设计好的出口**——这也是 LangChain AgentExecutor 里 max_iterations、handle_parsing_errors 等参数存在的理由,而现在你理解它们守护的是什么了。\n\n### 操作\n1. 在循环体外初始化 `last_signature`,循环内比对 `工具|参数` 指纹实现重复检测\n2. `try/except` 包住\"调模型+解析\":`ParseError` → 记录纠错提示后 `continue`;其他异常 → 设置失败说明后 `return`\n3. 正常路径保持 s5 逻辑:`AgentFinish` 收尾,否则执行工具并记录\n4. 用 `MOCK_LLM=stuck` 跑一遍,观察死循环保护如何触发并收尾\n\n### 常见坑\n- **指纹比较前不做归一化**:`{\"a\":1}` 与 `{ \"a\" : 1 }` 文本不同但语义相同,严格场景应解析 JSON 后再比较;本步为保持简单用原文比较,知道边界即可。\n- **纠错循环没有计数**:把 ParseError 喂回去后若模型执迷不悟,`continue` 空转会烧掉剩余步数——好在 max_steps 仍然兜底,两道保险要配合用。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:在 s5 的 run_react 外面包三层防护——try/except 管解析与调用异常,if 指纹比对管重复动作,for 耗尽管上限。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:signature = f\"{parsed.tool}|{parsed.tool_input}\";except ParseError 与 except Exception 分两支:纠错 continue / 兜底 return。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:重复检测分支设置 traj.final_answer = \"模型在重复同一个动作,判定陷入死循环,强制收尾。\" 并 return traj;正常分支别忘了 last_signature = signature 再 traj.add(...)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "死循环保护触发时的轨迹回放(节选)",
+          "language": "text",
+          "code": "[第 1 轮] 我再算一次。\n  Action: calculate  Input: {\"expression\": \"(3 + 4) * 5\"}\n  Observation: 35\n最终答案: 模型在重复同一个动作,判定陷入死循环,强制收尾。",
+          "description": "MOCK_LLM=stuck 下的真实输出:指纹比对在第 2 轮命中,循环被终止,而不是空转 6 轮。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "循环上限(max_steps)",
+          "definition": "ReAct 循环的最大轮数,到达后强制收尾;控制 API 成本、防止无限循环的基础保险丝。"
+        },
+        {
+          "name": "重复动作检测",
+          "definition": "通过比对连续两轮的工具名与参数指纹,识别模型卡死的保护机制;命中即终止循环并如实告知用户。"
+        },
+        {
+          "name": "优雅降级",
+          "definition": "故障发生时给出预先设计的兜底响应(如失败说明、强制收尾),而不是向用户抛出 traceback。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "DeepSeek",
+          "role": "大模型服务",
+          "description": "真实运行时每轮循环调一次 deepseek-v4-pro;三道保险本质上都是在约束「模型不可靠」带来的风险。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "placeholder": "# TODO:",
+          "message": "还有 TODO 未填写:请补全带保险的 run_react。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "run_react",
+          "message": "请保留并实现 run_react 主循环。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "重复",
+          "message": "请实现重复动作检测(代码或文案中应出现「重复」)。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "循环内必须通过 chat.completions.create 调用模型。",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

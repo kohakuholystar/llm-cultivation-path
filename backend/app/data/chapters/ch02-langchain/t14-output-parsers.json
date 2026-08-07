@@ -1,0 +1,209 @@
+{
+  "steps": [
+    {
+      "id": "t14-output-parsers-s1",
+      "taskId": "t14-output-parsers",
+      "order": 1,
+      "title": "使用 StrOutputParser 提取字符串",
+      "instruction": "### 目标\n用输出解析器把 LLM 的文本输出**自动转成 Python 对象**,消灭手写解析代码。\n\n### 背景: 解析的痛点\n让模型输出 JSON 只是第一步,你还得:提取 JSON 子串→json.loads→校验字段→转对象。每处都可能炸。LangChain 解析器把这套标准化:\n- `StrOutputParser`:原样返回文本(最常用,配合 invoke 链)\n- `JsonOutputParser`:自动提取并解析 JSON\n- `PydanticOutputParser`:JSON + pydantic 校验(下两步重点)\n\n### 解析器的杀手锏: format_instructions\n解析器能生成\"格式说明书\"插入提示词:\n```python\nparser = JsonOutputParser()\nprompt = template + \"\\n\" + parser.get_format_instructions()\n```\n**让解析器自己告诉模型要什么格式**——提示词和解析逻辑永远一致,不会\"提示词改了忘了改解析\"。\n\n### 操作\n1. 用 StrOutputParser 把 AIMessage 转成纯文本\n2. 用 JsonOutputParser 解析模型的 JSON 输出\n3. 打印 get_format_instructions() 看看它长什么样",
+      "starterCode": "from langchain_core.messages import AIMessage\nfrom langchain_core.output_parsers import StrOutputParser\n\ndef fake_model(messages):\n    # 模拟模型返回 AIMessage\n    return AIMessage(content=\"你好，世界！\")\n\n# 创建解析器\nparser = StrOutputParser()\n\n# 构建链\nchain = fake_model | parser\n\n# 调用链\nresult = chain.invoke(\"你好\")\nprint(result)\n\n# 确认输出是否为字符串类型\nprint(type(result))",
+      "solutionCode": "from langchain_core.messages import AIMessage\nfrom langchain_core.output_parsers import StrOutputParser\n\ndef fake_model(messages):\n    return AIMessage(content=\"你好，世界！\")\n\nparser = StrOutputParser()\nchain = fake_model | parser\nresult = chain.invoke(\"你好\")\nprint(result)\nprint(type(result))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "思考 `fake_model` 返回的是什么类型？`StrOutputParser` 会如何处理它？"
+        },
+        {
+          "order": 2,
+          "text": "`StrOutputParser` 的 `parse` 方法接收 `AIMessage` 并返回其 `content`。"
+        },
+        {
+          "order": 3,
+          "text": "检查代码中 `chain.invoke` 的返回值，确保它被正确打印。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "StrOutputParser 用法",
+          "language": "python",
+          "code": "parser = StrOutputParser()\nresult = parser.invoke(ai_message)\nprint(result)  # 字符串",
+          "description": "直接调用解析器的 invoke 方法"
+        }
+      ],
+      "terms": [
+        {
+          "name": "StrOutputParser",
+          "definition": "将模型输出（AIMessage）转换为字符串的解析器。"
+        },
+        {
+          "name": "链式调用",
+          "definition": "使用 `|` 操作符将多个组件串联，形成数据处理流水线。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "output_contains",
+          "message": "输出必须包含 '你好，世界！'",
+          "text": "你好，世界！",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出必须包含 '<class 'str'>'",
+          "text": "<class 'str'>",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t14-output-parsers-s2",
+      "taskId": "t14-output-parsers",
+      "order": 2,
+      "title": "使用 PydanticOutputParser 解析结构化数据",
+      "instruction": "### 目标\n掌握 **PydanticOutputParser**:输出直接变成带类型的 pydantic 对象,字段错了一目了然。\n\n### 背景: 类型安全的最后一公里\n```python\nclass Person(BaseModel):\n    name: str\n    age: int\n\nparser = PydanticOutputParser(pydantic_object=Person)\nresult = parser.parse(llm_output)   # → Person(name=\"张三\", age=28)\nresult.age + 1                       # 是真 int, 能直接运算\n```\n对比裸 JSON:字段类型靠运气(`age` 可能是 \"28\" 字符串)、缺字段到用的时候才发现。pydantic **解析即校验**:类型错/缺字段当场报错,错误信息还带字段名。\n\n### 与 Agent 的关联\n第 4 章工具调用的参数、第 8 章 API 契约,本质都是\"LLM 输出→强类型对象\"——这一步是地基。\n\n### 操作\n1. 定义 2-3 个字段的 pydantic 模型\n2. PydanticOutputParser 解析模型输出为对象\n3. 制造一个类型不符的输出,看校验报错",
+      "starterCode": "from langchain_core.output_parsers import PydanticOutputParser\nfrom pydantic import BaseModel\n\n# 定义 Person 模型，包含 name (str) 和 age (int)\n\n# 创建解析器\nparser = PydanticOutputParser(pydantic_object=Person)\n\n# 模拟模型输出\nfake_output = '{\"name\": \"Alice\", \"age\": 30}'\n\n# 解析\nperson = parser.parse(fake_output)\nprint(person.name)\nprint(person.age)",
+      "solutionCode": "from langchain_core.output_parsers import PydanticOutputParser\nfrom pydantic import BaseModel\n\nclass Person(BaseModel):\n    name: str\n    age: int\n\nparser = PydanticOutputParser(pydantic_object=Person)\nfake_output = '{\"name\": \"Alice\", \"age\": 30}'\nperson = parser.parse(fake_output)\nprint(person.name)\nprint(person.age)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Pydantic 模型使用 `class` 定义，继承 `BaseModel`，字段用类型注解。"
+        },
+        {
+          "order": 2,
+          "text": "确保 `Person` 类在创建解析器之前定义。"
+        },
+        {
+          "order": 3,
+          "text": "检查 JSON 字符串的键名是否与模型字段名一致。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Pydantic 模型定义",
+          "language": "python",
+          "code": "class Person(BaseModel):\n    name: str\n    age: int",
+          "description": "定义包含 name 和 age 的模型"
+        }
+      ],
+      "terms": [
+        {
+          "name": "PydanticOutputParser",
+          "definition": "根据 Pydantic 模型解析 JSON 字符串为结构化对象的解析器。"
+        },
+        {
+          "name": "Pydantic BaseModel",
+          "definition": "用于数据验证和序列化的基类。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 PydanticOutputParser",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        },
+        {
+          "name": "Pydantic",
+          "role": "数据验证",
+          "description": "Python 数据校验与序列化库,用类型注解定义数据模型并自动校验。LLM 应用中常用于定义结构化输出 schema、工具参数、配置等。",
+          "officialUrl": "https://docs.pydantic.dev",
+          "category": "数据校验",
+          "installHint": "pip install pydantic"
+        }
+      ],
+      "validation": [
+        {
+          "type": "ast_structure",
+          "message": "必须定义 Person 类",
+          "astType": "class_def",
+          "name": "Person",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出必须包含 'Alice'",
+          "text": "Alice",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t14-output-parsers-s3",
+      "taskId": "t14-output-parsers",
+      "order": 3,
+      "title": "使用 JsonOutputParser 并处理解析失败",
+      "instruction": "### 目标\n实现**解析失败的容错重试**:模型输出不合法时,自动让它\"再改一次\"。\n\n### 背景: 生产环境的现实\n哪怕提示词写得再好,模型仍有 1-5% 概率输出不合法(尤其长输出)。生产系统不能让它直接崩:\n1. **OutputFixingParser**:解析失败→把原始输出+错误信息发回模型\"请修正\"→再解析\n2. **重试上限**:最多 2-3 次,防止无限循环烧钱\n3. **兜底**:重试耗尽返回默认值/标记失败,由上层决定\n\n### 自愈循环的本质\n这就是最小的\"Agent 自我纠错\"循环:执行→验证→失败反馈→重试。第 4 章的 Agent 反思(Reflection)、第 5 章的错误处理,都是这个模式的放大版。\n\n### 操作\n1. 模拟一次不合法输出(缺字段的 JSON)\n2. 实现修正循环:失败后构造\"修正提示\"再调一次\n3. 统计:直接解析 vs 修正后解析的成功率差异",
+      "starterCode": "from langchain_core.output_parsers import JsonOutputParser, OutputParserException\n\nparser = JsonOutputParser()\n\n# 模拟模型输出（无效 JSON）\nfake_output = '{name: Alice}'\n\n# 使用 try-except 捕获解析异常\nresult = parser.parse(fake_output)\nprint(result)",
+      "solutionCode": "from langchain_core.output_parsers import JsonOutputParser, OutputParserException\n\nparser = JsonOutputParser()\nfake_output = '{name: Alice}'\n\ntry:\n    result = parser.parse(fake_output)\n    print(result)\nexcept OutputParserException as e:\n    print(\"解析失败\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "`JsonOutputParser.parse` 在遇到无效 JSON 时会抛出异常。"
+        },
+        {
+          "order": 2,
+          "text": "使用 `except OutputParserException` 捕获特定异常。"
+        },
+        {
+          "order": 3,
+          "text": "在 except 块中打印 \"解析失败\"。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "捕获异常",
+          "language": "python",
+          "code": "try:\n    parser.parse(invalid_json)\nexcept OutputParserException as e:\n    print(f\"Error: {e}\")",
+          "description": "捕获解析异常"
+        }
+      ],
+      "terms": [
+        {
+          "name": "JsonOutputParser",
+          "definition": "将模型输出解析为 JSON 字典的解析器。"
+        },
+        {
+          "name": "OutputParserException",
+          "definition": "解析失败时抛出的异常。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 JsonOutputParser 和异常类",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "output_contains",
+          "message": "输出必须包含 '解析失败'",
+          "text": "解析失败",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "必须使用 try-except 结构",
+          "astType": "function_def",
+          "minCount": 1,
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

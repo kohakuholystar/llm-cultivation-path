@@ -1,0 +1,193 @@
+{
+  "steps": [
+    {
+      "id": "t44-observability-s1",
+      "taskId": "t44-observability",
+      "order": 1,
+      "title": "结构化日志",
+      "instruction": "### 目标\n给 Agent 加**结构化追踪(tracing)**:记录每次 LLM 调用的输入/输出/耗时/token,让黑盒变透明。\n\n### 背景: Agent 为什么必须可观测\n普通程序出错看堆栈;Agent 出错要看\"**它当时为什么这么决定**\"。没有 trace,你面对\"Agent 给出了错误答案\"完全无从下手——是检索错了?prompt 拼错了?还是模型理解错了?\n\n### trace 的黄金字段\n每次 LLM 调用记录:\n- `span_id` / `parent_span_id`:调用链关系(一次问答可能触发多次 LLM 调用,要能串成树)\n- `input_messages` / `output`:完整输入输出(调试时无价)\n- `latency_ms` / `prompt_tokens` / `completion_tokens`:性能与成本\n- `metadata`:业务标签(哪个用户/哪个任务)\n\n### 业界方案\nLangSmith / Langfuse / OpenTelemetry GenAI 语义约定——都是这个思路。自己实现一遍,你就理解它们在干什么。\n\n### 操作\n1. 实现 `Tracer` 类:`start_span()` / `end_span()` 记录字段\n2. 支持 span 嵌套(父子关系)\n3. 模拟一次 RAG 问答(检索 span + 生成 span),输出完整 trace",
+      "starterCode": "import logging\nimport json\nimport time\nfrom datetime import datetime\n\n# 配置 JSON 日志\nlogging.basicConfig(level=logging.INFO, format='%(message)s')\nlogger = logging.getLogger('harness')\n\ndef log_step(step: int, action: str, result: str, duration_ms: int):\n    # 输出结构化 JSON 日志\n    log_entry = {\n        'timestamp': datetime.now().isoformat(),\n        'step': step,\n        'action': action,\n        'result': result[:100],\n        'duration_ms': duration_ms,\n    }\n    \n\n# 模拟 Harness 步骤\nfor i in range(3):\n    start = time.time()\n    time.sleep(0.1)\n    log_step(i, f'action_{i}', f'result_{i}', int((time.time()-start)*1000))",
+      "solutionCode": "import logging\nimport json\nimport time\nfrom datetime import datetime\n\nlogging.basicConfig(level=logging.INFO, format='%(message)s')\nlogger = logging.getLogger('harness')\n\ndef log_step(step: int, action: str, result: str, duration_ms: int):\n    log_entry = {\n        'timestamp': datetime.now().isoformat(),\n        'step': step,\n        'action': action,\n        'result': result[:100],\n        'duration_ms': duration_ms,\n    }\n    logger.info(json.dumps(log_entry, ensure_ascii=False))\n\nfor i in range(3):\n    start = time.time()\n    time.sleep(0.1)\n    log_step(i, f'action_{i}', f'result_{i}', int((time.time()-start)*1000))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "json.dumps 输出结构化日志。"
+        },
+        {
+          "order": 2,
+          "text": "记录 timestamp/step/action/result/duration。"
+        },
+        {
+          "order": 3,
+          "text": "logger.info 输出,便于收集分析。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "import json, logging\nlogger.info(json.dumps({'step': 1, 'action': 'search'}))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "结构化日志",
+          "definition": "JSON 格式日志,便于检索"
+        },
+        {
+          "name": "可追溯性",
+          "definition": "日志能还原执行过程"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "logging",
+          "role": "Python 标准库",
+          "description": "Python 标准库日志模块,用于记录 LLM 应用的调用链/错误/性能,是可观测性的基础。",
+          "officialUrl": "https://docs.python.org/3/library/logging.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "log_step",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t44-observability-s2",
+      "taskId": "t44-observability",
+      "order": 2,
+      "title": "Token 与成本追踪",
+      "instruction": "### 目标\n实现**成本追踪**:按 token 单价累计每次调用成本,实时掌握\"这个 Agent 在烧多少钱\"。\n\n### 背景: LLM 成本结构\n成本 = prompt_tokens × 输入单价 + completion_tokens × 输出单价。**输出通常比输入贵 3-5 倍**(如 deepseek 输出约为输入 2 倍,GPT-4o 输出是输入 4 倍)——所以让模型\"少说废话\"直接省钱。\n\n### 成本优化的四个杠杆(按 ROI 排序)\n1. **缓存**:相同/相似请求命中缓存不调用——省 100%\n2. **换小模型**:简单任务(分类/提取)用小模型,复杂推理才用大模型\n3. **压缩 prompt**:删掉示例和指令里的废话,输入 token 立减\n4. **限制输出**:max_tokens 给够但别浪费;要 JSON 就别说\"请详细回答\"\n\n### 成本追踪的实现\n给每次调用算钱并累计到会话/用户维度。配合报警:单次任务成本超阈值就熔断——防止 bug 导致的循环调用烧穿余额(真实事故频发)。\n\n### 操作\n1. 定义价格表(输入/输出单价)\n2. `CostTracker.record(usage)` 累计成本\n3. 模拟多次调用,输出成本报表;实现超预算熔断",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\n# 成本表(每百万token价格)\nCOST = {'deepseek-v4-pro': {'input': 0.15, 'output': 0.6}}\n\nclass TokenTracker:\n    def __init__(self):\n        self.total_input = 0\n        self.total_output = 0\n    \n    def record(self, usage):\n        # 累计 token\n        \n    def cost(self, model):\n        c = COST[model]\n        return self.total_input / 1e6 * c['input'] + self.total_output / 1e6 * c['output']\n\ntracker = TokenTracker()\nresp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':'你好'}])\ntracker.record(resp.usage)\nprint(f'输入: {tracker.total_input}, 输出: {tracker.total_output}')\nprint(f'成本: ${tracker.cost(\"deepseek-v4-pro\"):.6f}')",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\nCOST = {'deepseek-v4-pro': {'input': 0.15, 'output': 0.6}}\n\nclass TokenTracker:\n    def __init__(self):\n        self.total_input = 0\n        self.total_output = 0\n    \n    def record(self, usage):\n        self.total_input += usage.prompt_tokens\n        self.total_output += usage.completion_tokens\n    \n    def cost(self, model):\n        c = COST[model]\n        return self.total_input / 1e6 * c['input'] + self.total_output / 1e6 * c['output']\n\ntracker = TokenTracker()\nresp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':'你好'}])\ntracker.record(resp.usage)\nprint(f'输入: {tracker.total_input}, 输出: {tracker.total_output}')\nprint(f'成本: ${tracker.cost(\"deepseek-v4-pro\"):.6f}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "response.usage 含 prompt_tokens/completion_tokens。"
+        },
+        {
+          "order": 2,
+          "text": "tracker 累计,最后算成本。"
+        },
+        {
+          "order": 3,
+          "text": "成本 = input/1e6 * 单价 + output/1e6 * 单价。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "resp.usage.prompt_tokens  # 输入token\nresp.usage.completion_tokens  # 输出token"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Token 追踪",
+          "definition": "累计 LLM 调用的 token 消耗"
+        },
+        {
+          "name": "成本计算",
+          "definition": "根据 token 和单价算费用"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。usage 字段追踪 token",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "TokenTracker",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t44-observability-s3",
+      "taskId": "t44-observability",
+      "order": 3,
+      "title": "Callbacks 与追踪",
+      "instruction": "### 目标\n实现**评估指标看板**:统计 Agent 的成功率/平均步数/平均成本,用数据驱动优化。\n\n### 背景: 没有度量就没有优化\n\"感觉 Agent 变笨了\"是玄学;\"上周成功率 92%,这周 78%,变化点在周三的 prompt 修改\"是工程。Agent 的核心指标:\n\n| 指标 | 计算 | 健康基准 |\n|------|------|----------|\n| 任务成功率 | 成功数/总数 | >90%(低于此说明设计有问题) |\n| 平均步数 | 总步数/任务数 | 越接近理论最小步数越好 |\n| 单任务成本 | 总成本/任务数 | 设定预算线,超了报警 |\n| 工具失败率 | 工具错误数/调用数 | <5% |\n\n### 归因分析\n指标异动了怎么查?**按维度下钻**:按任务类型/按工具/按时间段分组。比如发现\"成功率降了\"→下钻发现\"只有需要计算的任务降了\"→定位到计算器工具改动。这就是为什么 trace 时要打 metadata 标签。\n\n### 操作\n1. `MetricsBoard.record(task_result)` 收集每次任务结果\n2. 计算四项核心指标\n3. 模拟 20 个任务(含部分失败),输出看板并做简单的按任务类型下钻",
+      "starterCode": "import os\nfrom langchain_core.callbacks import BaseCallbackHandler\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain_core.prompts import ChatPromptTemplate\n\nclass TraceCallback(BaseCallbackHandler):\n    def on_llm_start(self, serialized, prompts, **kwargs):\n        print(f'[LLM开始] {serialized.get(\"name\", \"\")}')\n    def on_tool_start(self, serialized, input_str, **kwargs):\n        print(f'[工具开始] {serialized.get(\"name\", \"\")}: {input_str}')\n    def on_tool_end(self, output, **kwargs):\n        print(f'[工具结束] {output}')\n\n@tool\ndef calculate(expr: str) -> str:\n    \"\"\"计算表达式\"\"\"\n    return str(eval(expr))\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\nprompt = ChatPromptTemplate.from_messages([('system','你是助手'), ('human','{input}'), ('placeholder','{agent_scratchpad}')])\nagent = create_tool_calling_agent(llm, [calculate], prompt)\n# 注入 callback\nexecutor = AgentExecutor(agent=agent, tools=[calculate], callbacks=[TraceCallback()])\nprint(executor.invoke({'input': '计算 2+3'})['output'])",
+      "solutionCode": "import os\nfrom langchain_core.callbacks import BaseCallbackHandler\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain_core.prompts import ChatPromptTemplate\n\nclass TraceCallback(BaseCallbackHandler):\n    def on_llm_start(self, serialized, prompts, **kwargs):\n        print(f'[LLM开始] {serialized.get(\"name\", \"\")}')\n    def on_tool_start(self, serialized, input_str, **kwargs):\n        print(f'[工具开始] {serialized.get(\"name\", \"\")}: {input_str}')\n    def on_tool_end(self, output, **kwargs):\n        print(f'[工具结束] {output}')\n\n@tool\ndef calculate(expr: str) -> str:\n    \"\"\"计算表达式\"\"\"\n    return str(eval(expr))\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\nprompt = ChatPromptTemplate.from_messages([('system','你是助手'), ('human','{input}'), ('placeholder','{agent_scratchpad}')])\nagent = create_tool_calling_agent(llm, [calculate], prompt)\nexecutor = AgentExecutor(agent=agent, tools=[calculate], callbacks=[TraceCallback()])\nprint(executor.invoke({'input': '计算 2+3'})['output'])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "继承 BaseCallbackHandler,重写 on_* 方法。"
+        },
+        {
+          "order": 2,
+          "text": "on_tool_start/on_tool_end 追踪工具调用。"
+        },
+        {
+          "order": 3,
+          "text": "AgentExecutor 的 callbacks 参数注入。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "class MyCallback(BaseCallbackHandler):\n    def on_tool_end(self, output):\n        print(output)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Callbacks",
+          "definition": "LangChain 追踪机制,钩子函数"
+        },
+        {
+          "name": "Trace",
+          "definition": "记录 Agent 每步执行过程"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "TraceCallback",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

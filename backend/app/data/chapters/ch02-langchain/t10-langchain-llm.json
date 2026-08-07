@@ -1,0 +1,213 @@
+{
+  "steps": [
+    {
+      "id": "t10-langchain-llm-s1",
+      "taskId": "t10-langchain-llm",
+      "order": 1,
+      "title": "安装与导入 LangChain",
+      "instruction": "### 目标\n用 LangChain 的 `ChatOpenAI` 封装调用 LLM,理解\"为什么要在 SDK 上再套一层框架\"。\n\n### 背景: LangChain 解决什么问题\n原生 openai SDK 已经能调模型了,LangChain 加的价值:\n1. **统一接口**:`ChatOpenAI` / `ChatAnthropic` / `ChatOllama` 都是同一个 `.invoke()`——换厂商不改业务代码\n2. **消息对象**:`SystemMessage` / `HumanMessage` 替代裸 dict,类型安全+跨厂商归一化\n3. **可组合**:模型是\"可运行组件(Runnable)\",能和提示词模板、解析器用 `|` 管道串联(下一章的核心)\n\n### 与裸 SDK 的关系\n`ChatOpenAI` 内部还是调 openai SDK(同样支持 base_url 换国产模型)。LangChain 不替代 SDK,是**标准化 + 组合能力**。\n\n### 操作\n1. `ChatOpenAI(model=..., api_key=..., base_url=...)` 创建模型\n2. `.invoke([HumanMessage(content=\"...\")])` 调用\n3. 打印返回的 AIMessage 对象,观察它的结构(content/response_metadata)",
+      "starterCode": "# 导入 ChatOpenAI 和 HumanMessage\n# 你的代码:\n\n# 创建模型实例（假设环境变量 OPENAI_API_KEY 已设置）\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\n# 构造消息\nmessages = [HumanMessage(content=\"你好！\")]\n\n# 调用模型\nresponse = llm.invoke(messages)\nprint(response.content)",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\nmessages = [HumanMessage(content=\"你好！\")]\nresponse = llm.invoke(messages)\nprint(response.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "导入语句通常放在文件开头，使用 `from ... import ...` 语法。"
+        },
+        {
+          "order": 2,
+          "text": "ChatOpenAI 位于 langchain_openai 包中，HumanMessage 位于 langchain_core.messages 中。"
+        },
+        {
+          "order": 3,
+          "text": "参考以下导入格式：`from langchain_openai import ChatOpenAI` 和 `from langchain_core.messages import HumanMessage`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "导入示例",
+          "language": "python",
+          "code": "from langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ChatOpenAI",
+          "definition": "LangChain 中用于调用 OpenAI 聊天模型的类。"
+        },
+        {
+          "name": "HumanMessage",
+          "definition": "表示用户输入的消息类型。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "集成包",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。提供 ChatOpenAI 模型封装。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写导入语句，替换 TODO 占位符。",
+          "placeholder": "# TODO: 导入 ChatOpenAI 和 HumanMessage"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须包含 from langchain_openai import ChatOpenAI",
+          "pattern": "from langchain_openai import ChatOpenAI",
+          "flags": ""
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须包含 from langchain_core.messages import HumanMessage",
+          "pattern": "from langchain_core.messages import HumanMessage",
+          "flags": ""
+        }
+      ]
+    },
+    {
+      "id": "t10-langchain-llm-s2",
+      "taskId": "t10-langchain-llm",
+      "order": 2,
+      "title": "使用 invoke 方法调用模型",
+      "instruction": "### 目标\n掌握 LangChain 的调用三兄弟:**invoke / batch / stream**,按场景选对的。\n\n### 背景: 三种调用方式\n| 方法 | 场景 | 特点 |\n|------|------|------|\n| `.invoke()` | 单次问答 | 一问一答,最常用 |\n| `.batch()` | 批量独立任务 | 并行发多个请求(如同时翻译 10 句),**总耗时≈单次而非累加** |\n| `.stream()` | 长文本生成 | 边生成边返回(打字机效果),用户不用干等 |\n\n### batch 的隐藏价值\n批量任务新手爱写 for 循环串行调 invoke——10 个请求等 10 倍时间。batch 并行发出,**延迟不叠加**。注意各家 API 有 RPM(每分钟请求数)限制,批量别超。\n\n### stream 的正确姿势\n```python\nfor chunk in model.stream(messages):\n    print(chunk.content, end=\"\")  # chunk 是 AIMessageChunk\n```\n流式对后端还有个大好处:**首 token 延迟(TTFT)短**,用户感知快——哪怕总时长一样。\n\n### 操作\n1. invoke 调一次记录耗时\n2. batch 并行调 3 次记录总耗时(对比串行的 3 倍)\n3. stream 打印每个 chunk,观察打字机效果",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\nmessages = [HumanMessage(content=\"用一句话解释什么是 LangChain。\")]\n\n# 调用 invoke 方法并打印响应内容\nresponse = None  # 替换这行\nprint(response.content)",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\nmessages = [HumanMessage(content=\"用一句话解释什么是 LangChain。\")]\n\nresponse = llm.invoke(messages)\nprint(response.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "invoke 方法接收一个消息列表参数。"
+        },
+        {
+          "order": 2,
+          "text": "将 llm.invoke(messages) 赋值给 response 变量。"
+        },
+        {
+          "order": 3,
+          "text": "代码应为 `response = llm.invoke(messages)`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "invoke 示例",
+          "language": "python",
+          "code": "response = llm.invoke([HumanMessage(content=\"你好\")])\nprint(response.content)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "invoke",
+          "definition": "LangChain 模型的同步调用方法，返回 AIMessage。"
+        },
+        {
+          "name": "AIMessage",
+          "definition": "模型返回的响应消息对象，包含 content 等属性。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "模型封装",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。提供 ChatOpenAI 类。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 invoke 调用代码，替换 TODO 占位符。",
+          "placeholder": "# TODO: 调用 invoke 方法并打印响应内容"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须包含 llm.invoke(messages)",
+          "pattern": "llm\\.invoke\\(messages\\)",
+          "flags": ""
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 LangChain 相关描述。",
+          "text": "LangChain",
+          "caseSensitive": false
+        }
+      ]
+    },
+    {
+      "id": "t10-langchain-llm-s3",
+      "taskId": "t10-langchain-llm",
+      "order": 3,
+      "title": "批量调用与对比原生 SDK",
+      "instruction": "### 目标\n给 LangChain 调用配置参数(model/temperature/max_tokens)并理解配置的**三层优先级**。\n\n### 背景: 参数在哪生效\nLangChain 的参数传递有三层,优先级从低到高:\n1. **构造时**:`ChatOpenAI(temperature=0.7)`——默认值\n2. **调用时**:`model.invoke(msgs, temperature=0)`——单次覆盖\n3. **绑定**:`model.bind(temperature=0)` 生成新实例——适合\"这个 Agent 全程用确定性输出\"\n\n### 常见参数清单\n- `temperature`:随机性(0 最确定)\n- `max_tokens`:输出上限\n- `top_p`:核采样(与 temperature 二选一调,别同时乱调)\n- `stop`:停止序列,遇到即停(控制输出边界神器)\n- `timeout` / `max_retries`:网络健壮性\n\n### 操作\n1. 构造时设 temperature=0.8,调用观察输出\n2. 同一实例 invoke 时传 temperature=0,对比差异\n3. 用 bind 创建一个\"永远确定性\"的模型变体",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nmessages1 = [HumanMessage(content=\"法国的首都是什么？\")]\nmessages2 = [HumanMessage(content=\"Python 的作者是谁？\")]\n\n# 使用 batch 方法同时调用两个问题，并打印每个回答\n# 提示：batch 返回一个列表，每个元素是一个 AIMessage\nresponses = None  # 替换这行\nfor i, response in enumerate(responses):\n    print(f\"问题 {i+1}: {response.content}\")",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nmessages1 = [HumanMessage(content=\"法国的首都是什么？\")]\nmessages2 = [HumanMessage(content=\"Python 的作者是谁？\")]\n\nresponses = llm.batch([messages1, messages2])\nfor i, response in enumerate(responses):\n    print(f\"问题 {i+1}: {response.content}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "batch 方法接受一个列表，列表的每个元素是一个消息列表（即多个对话）。"
+        },
+        {
+          "order": 2,
+          "text": "调用形式为 `llm.batch([messages1, messages2])`。"
+        },
+        {
+          "order": 3,
+          "text": "将 batch 返回的列表赋值给 responses，然后遍历打印。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "batch 示例",
+          "language": "python",
+          "code": "responses = llm.batch([\n    [HumanMessage(content=\"问题1\")],\n    [HumanMessage(content=\"问题2\")]\n])\nfor r in responses:\n    print(r.content)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "batch",
+          "definition": "LangChain 模型的批量调用方法，并发处理多个输入。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "模型封装",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。提供 ChatOpenAI 类。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 batch 调用代码，替换 TODO 占位符。",
+          "placeholder": "# TODO: 使用 batch 方法同时调用两个问题，并打印每个回答"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须包含 llm.batch(",
+          "pattern": "llm\\.batch\\(",
+          "flags": ""
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含'法国'或'巴黎'。",
+          "text": "巴黎",
+          "caseSensitive": false
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含'Python'或'Guido'。",
+          "text": "Python",
+          "caseSensitive": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,206 @@
+{
+  "steps": [
+    {
+      "id": "t40-harness-basics-s1",
+      "taskId": "t40-harness-basics",
+      "order": 1,
+      "title": "Harness 概念与最小循环",
+      "instruction": "### 目标\n理解 Agent Harness,手写最小 observe-think-act 循环。\n\n### 概念\n- **Harness**:驱动 Agent 长期自主运行的工程骨架。\n- **observe-think-act 循环**:观察环境→LLM思考→执行动作→循环。\n- 与 LangChain Agent 区别:Harness 更底层,自己控制循环/状态/中断。\n\n### 操作\n1. 定义 tools 字典(函数名→函数)\n2. 写 while 循环:调 LLM→解析动作→执行→反馈\n3. LLM 说'done'时退出",
+      "starterCode": "from openai import OpenAI\n\nclient = OpenAI()\n\ndef get_time():\n    return '14:30'\n\ndef get_weather(city):\n    return f'{city}: 晴'\n\ntools = {'get_time': get_time, 'get_weather': get_weather}\n\n# 写最小 harness 循环\nmessages = [{'role': 'system', 'content': '你可以调用工具。回复格式: ACTION: 工具名 参数, 或 DONE: 最终答案'}]\nmessages.append({'role': 'user', 'content': '现在几点?天气怎么样?'})\n\nfor i in range(5):  # 最多5轮\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=messages)\n    reply = resp.choices[0].message.content\n    messages.append({'role': 'assistant', 'content': reply})\n    print(f'[{i}] LLM: {reply}')\n    # TODO: 解析 reply, 执行工具, 把结果加入 messages\n# 提示: messages.append({'role': 'user', 'content': '现在几点?北京天气怎么样?'})\n    # 如果 reply 以 DONE 开头, break",
+      "solutionCode": "from openai import OpenAI\n\nclient = OpenAI()\n\ndef get_time():\n    return '14:30'\n\ndef get_weather(city):\n    return f'{city}: 晴'\n\ntools = {'get_time': get_time, 'get_weather': get_weather}\n\nmessages = [{'role': 'system', 'content': '你可以调用工具。回复格式: ACTION: 工具名 参数, 或 DONE: 最终答案'}]\nmessages.append({'role': 'user', 'content': '现在几点?北京天气怎么样?'})\n\nfor i in range(5):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=messages)\n    reply = resp.choices[0].message.content\n    messages.append({'role': 'assistant', 'content': reply})\n    print(f'[{i}] LLM: {reply}')\n    if reply.startswith('DONE'):\n        break\n    if reply.startswith('ACTION'):\n        parts = reply.replace('ACTION:', '').strip().split(maxsplit=1)\n        tool_name = parts[0]\n        arg = parts[1] if len(parts) > 1 else ''\n        if tool_name in tools:\n            result = tools[tool_name](arg) if arg else tools[tool_name]()\n            messages.append({'role': 'user', 'content': f'结果: {result}'})\n        else:\n            messages.append({'role': 'user', 'content': f'未知工具: {tool_name}'})",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Harness 循环:调LLM→解析→执行→反馈→再调LLM。"
+        },
+        {
+          "order": 2,
+          "text": "用 ACTION: 工具名 参数 格式让 LLM 表达动作。"
+        },
+        {
+          "order": 3,
+          "text": "LLM 回 DONE 时退出循环。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# observe-think-act\nwhile True:\n    reply = call_llm()\n    if 'DONE' in reply: break\n    result = execute(reply)\n    feedback(result)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Harness",
+          "definition": "驱动 Agent 自主运行的工程骨架"
+        },
+        {
+          "name": "observe-think-act",
+          "definition": "观察-思考-行动循环"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-basics-s2",
+      "taskId": "t40-harness-basics",
+      "order": 2,
+      "title": "状态管理与循环控制",
+      "instruction": "### 目标\n给 Harness 加**状态机**:循环每一步更新状态,根据状态决定继续还是终止。\n\n### 背景: 为什么状态管理是 Harness 的核心\n裸循环 `while True: llm()` 迟早失控——死循环、重复劳动、出错无法恢复。工程化的 Harness 把循环的每一步都**显式记录到状态对象**,带来三个能力:\n1. **可终止**:检查 `step_count > max_steps` 就退出,防止无限烧钱\n2. **可恢复**:状态可序列化落盘,崩溃后从断点继续(checkpoint)\n3. **可观测**:随时 dump 状态,知道 Agent 此刻\"在想什么\"\n\n### 终止条件的四种设计\n| 条件 | 说明 | 例子 |\n|------|------|------|\n| 目标达成 | LLM 输出完成标记 | 输出含 `FINAL_ANSWER:` |\n| 步数上限 | 兜底防死循环 | `max_steps=10` |\n| 超时 | 墙钟时间限制 | 单任务最多 5 分钟 |\n| 错误熔断 | 连续失败 N 次放弃 | LLM 连续报错 3 次 |\n\n**生产系统四条全上**,缺一不可。步数上限是最后一道保险——即使目标判断写错了,也不会烧穿余额。\n\n### 操作\n1. 用 dict 设计状态(step_count / last_action / results / status)\n2. 每轮循环更新状态并检查四种终止条件\n3. 终止时打印状态摘要(走了几步,为何终止)",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef search(q): return f'结果: {q}'\ntools = {'search': search}\n\nstate = {'step': 0, 'results': [], 'done': False}\nmessages = [{'role':'system','content':'回复 ACTION: search 查询 或 DONE: 答案'}, {'role':'user','content':'搜索python'}]\n\n# 带状态的循环\nwhile not state['done'] and state['step'] < 5:\n    state['step'] += 1\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=messages)\n    reply = resp.choices[0].message.content\n    messages.append({'role':'assistant','content': reply})\n    print(f'step {state[\"step\"]}: {reply}')\n    if reply.startswith('DONE'):\n        state['done'] = True\n        state['results'].append(reply)\n    elif reply.startswith('ACTION'):\n        # TODO: 执行工具, 更新 state\n# 提示: client = OpenAI()\n        pass\n\nprint('最终状态:', state)",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef search(q): return f'结果: {q}'\ntools = {'search': search}\n\nstate = {'step': 0, 'results': [], 'done': False}\nmessages = [{'role':'system','content':'回复 ACTION: search 查询 或 DONE: 答案'}, {'role':'user','content':'搜索python'}]\n\nwhile not state['done'] and state['step'] < 5:\n    state['step'] += 1\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=messages)\n    reply = resp.choices[0].message.content\n    messages.append({'role':'assistant','content': reply})\n    print(f'step {state[\"step\"]}: {reply}')\n    if reply.startswith('DONE'):\n        state['done'] = True\n        state['results'].append(reply)\n    elif reply.startswith('ACTION'):\n        parts = reply.replace('ACTION:', '').strip().split(maxsplit=1)\n        result = tools[parts[0]](parts[1] if len(parts) > 1 else '')\n        state['results'].append(result)\n        messages.append({'role':'user','content': f'结果: {result}'})\n\nprint('最终状态:', state)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "state 字典存 step/results/done。"
+        },
+        {
+          "order": 2,
+          "text": "循环条件: not done 且 step < 上限。"
+        },
+        {
+          "order": 3,
+          "text": "每步更新 state,记录结果。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "state = {'step': 0, 'results': [], 'done': False}\nwhile not state['done'] and state['step'] < 5:"
+        }
+      ],
+      "terms": [
+        {
+          "name": "状态管理",
+          "definition": "Harness 用 dict/对象维护运行状态"
+        },
+        {
+          "name": "终止条件",
+          "definition": "完成/超时/错误时退出循环"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-basics-s3",
+      "taskId": "t40-harness-basics",
+      "order": 3,
+      "title": "对比 LangChain Agent",
+      "instruction": "### 目标\n亲手对比**手写 Harness** 与 **LangChain AgentExecutor** 的差异,理解\"自己造轮子\"和\"用框架\"的边界在哪。\n\n### 背景: 抽象层次的取舍\n```\nLangChain AgentExecutor  ← 高层抽象: 给你现成的 ReAct 循环+工具调用+记忆\n        ↓ 底层都是\nobserve → think → act 循环  ← 你手写的 Harness: 完全可控但要自己处理一切\n```\n\n**用框架的场景**:标准 ReAct 模式、快速验证想法、团队都熟 LangChain。\n**手写 Harness 的场景**:\n- 需要非标准循环(如多轮规划-执行分离、人在回路审批)\n- 要精确控制每次 LLM 调用的 prompt/参数(框架封装太深改不动)\n- 要极致可观测(框架回调不够细)\n- 性能敏感(框架每层抽象都有开销)\n\n### 工程现实\n大厂生产系统的 Agent 大多是**手写 Harness + 少量框架组件**(比如只用 LangChain 的文档加载器,循环自己写)。原因:Agent 的核心竞争力在循环逻辑,把它交给框架等于把命脉交给别人。\n\n### 操作\n1. 用同一个任务(查天气→写报告),分别用手写 Harness 和(模拟的)框架方式实现\n2. 代码量、可控点、可观测点三个维度对比\n3. 输出对比结论",
+      "starterCode": "# t40-s3: 手写Harness vs 框架 对比实验\n# 任务: 查天气 → 写穿衣建议报告\n\ndef mock_llm(prompt: str) -> str:\n    return \"北京今天晴, 25°C, 适合短袖\"\n\n# ===== 方式1: 手写 Harness(可控每步) =====\ndef harness_approach(task: str):\n    state = {\"steps\": 0, \"observations\": []}\n    # TODO: 手写 observe→think→act 循环, 记录每步到 state\n    # 提示: 循环内调 mock_llm, 把结果存 state[\"observations\"], steps+1\n    return state\n\n# ===== 方式2: 框架方式(模拟: 一个黑盒函数全包) =====\ndef framework_approach(task: str):\n    \"\"\"模拟 AgentExecutor: 一行调用, 内部循环不可见。\"\"\"\n    result = mock_llm(task)  # 框架内部干了什么? 你不知道\n    return {\"result\": result}\n\n# ===== 对比 =====\nh = harness_approach(\"北京天气\")\nf = framework_approach(\"北京天气\")\n# TODO: 打印两种方式在 代码行数/可控点/可观测点 上的差异\n",
+      "solutionCode": "# t40-s3: 手写Harness vs 框架 对比实验\ndef mock_llm(prompt: str) -> str:\n    return \"北京今天晴, 25°C, 适合短袖\"\n\n# ===== 方式1: 手写 Harness(每步可见可控) =====\ndef harness_approach(task: str):\n    state = {\"steps\": 0, \"observations\": [], \"log\": []}\n    # observe\n    state[\"log\"].append(f\"observe: 收到任务 {task}\")\n    # think\n    plan = \"先查天气, 再写建议\"\n    state[\"log\"].append(f\"think: 制定计划 '{plan}'\")\n    # act\n    weather = mock_llm(task)\n    state[\"observations\"].append(weather)\n    state[\"steps\"] += 1\n    state[\"log\"].append(f\"act: 获得天气 '{weather}'\")\n    # 再think出报告\n    report = f\"穿衣报告: {weather} → 建议短袖+防晒\"\n    state[\"steps\"] += 1\n    state[\"result\"] = report\n    return state\n\n# ===== 方式2: 框架方式(黑盒) =====\ndef framework_approach(task: str):\n    result = mock_llm(task)  # 框架内部循环不可见, 你只拿到最终结果\n    return {\"result\": f\"穿衣报告: {result} → 建议短袖+防晒\"}\n\nh = harness_approach(\"北京天气\")\nf = framework_approach(\"北京天气\")\n\nprint(\"=== 手写 Harness ===\")\nfor line in h[\"log\"]:\n    print(\" \", line)\nprint(f\"  步数: {h['steps']}, 中间观察: {len(h['observations'])} 条\")\nprint()\nprint(\"=== 框架方式 ===\")\nprint(\"  (内部过程不可见)\")\nprint(f\"  结果: {f['result']}\")\nprint()\nprint(\"=== 对比结论 ===\")\nprint(f\"可控点: 手写 {3 + len(h['log'])} 处 vs 框架 1 处(入参)\")\nprint(f\"可观测: 手写每步有日志 vs 框架只有最终结果\")\nprint(\"取舍: 快速验证用框架, 生产核心循环手写\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "AgentExecutor 封装了 Harness 的循环。"
+        },
+        {
+          "order": 2,
+          "text": "手写 Harness 能理解 Agent 底层原理。"
+        },
+        {
+          "order": 3,
+          "text": "生产环境:简单用 AgentExecutor,复杂定制 Harness。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# AgentExecutor = Harness + 工具调用 + 记忆 + 错误处理\n# 手写 Harness 理解底层"
+        }
+      ],
+      "terms": [
+        {
+          "name": "AgentExecutor",
+          "definition": "LangChain 封装的 Agent 运行时"
+        },
+        {
+          "name": "Harness",
+          "definition": "更底层的 Agent 循环骨架"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 harness_approach。",
+          "astType": "function_def",
+          "name": "harness_approach",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

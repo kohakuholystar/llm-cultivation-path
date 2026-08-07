@@ -1,0 +1,206 @@
+{
+  "steps": [
+    {
+      "id": "t60-llm-internals-s1",
+      "taskId": "t60-llm-internals",
+      "order": 1,
+      "title": "Transformer 架构概览",
+      "instruction": "### 目标\n用 numpy 手写一个**迷你前向传播**:输入 embedding → 注意力 → 输出,亲眼看到\"LLM 内部就是矩阵乘法\"。\n\n### 背景: Transformer 一层干什么\n抛开所有术语,一层 Transformer 只做两件事:\n1. **注意力(混合信息)**:每个位置决定\"看\"其他位置多少。`Attention = softmax(QK^T/√d)·V`\n   - Q(查询):\"我在找什么\";K(键):\"我有什么\";V(值):\"我实际提供的信息\"\n   - QK^T 算两两相关度 → softmax 转成权重(行和为1) → 乘 V 加权求和\n2. **前馈网络(加工信息)**:`FFN(x) = max(0, xW1+b1)W2+b2`,对每个位置独立做非线性变换\n\n**为什么除以 √d**:维度 d 大时,点积的方差随 d 线性增长,softmax 会饱和(梯度消失)。除以 √d 把方差归一——这是 2017 原论文的关键细节。\n\n### 本步实现\n手写 `scaled_dot_product_attention(Q, K, V)`,用 3 个 token 的玩具数据跑一遍,打印注意力权重矩阵——你会看到每个 token \"关注\"其他 token 的程度。",
+      "starterCode": "# t60-s1: 手写缩放点积注意力\nimport numpy as np\n\n\ndef softmax(x: np.ndarray) -> np.ndarray:\n    \"\"\"按行softmax(已给全): 减最大值防溢出。\"\"\"\n    e = np.exp(x - x.max(axis=-1, keepdims=True))\n    return e / e.sum(axis=-1, keepdims=True)\n\n\ndef scaled_dot_product_attention(Q, K, V):\n    \"\"\"Attention = softmax(QK^T / √d) · V\n    返回: (输出, 注意力权重矩阵)\"\"\"\n    d = Q.shape[-1]\n    # TODO: 1. scores = Q @ K.T / np.sqrt(d)\n    # TODO: 2. weights = softmax(scores)\n    # TODO: 3. output = weights @ V\n    # TODO: return output, weights\n    return None, None\n\n\nif __name__ == \"__main__\":\n    np.random.seed(42)\n    # 3个token, 每个4维\n    tokens = [\"注意力\", \"机制\", \"很妙\"]\n    X = np.random.randn(3, 4)\n    # 简化: Q=K=V=X(自注意力)\n    out, weights = scaled_dot_product_attention(X, X, X)\n    print(\"注意力权重矩阵(行=查询者, 列=被关注者):\")\n    print(f\"{'':>8}\", \"\".join(f\"{t:>8}\" for t in tokens))\n    for i, t in enumerate(tokens):\n        print(f\"{t:>8}\", \"\".join(f\"{w:>8.2f}\" for w in weights[i]))\n    print()\n    print(\"每行和为1:\", weights.sum(axis=1).round(2))\n    print(\"输出形状:\", out.shape, \"(3个token各自'混合后'的新表示)\")\n",
+      "solutionCode": "# t60-s1: 手写缩放点积注意力\nimport numpy as np\n\n\ndef softmax(x: np.ndarray) -> np.ndarray:\n    \"\"\"按行softmax: 减最大值防溢出。\"\"\"\n    e = np.exp(x - x.max(axis=-1, keepdims=True))\n    return e / e.sum(axis=-1, keepdims=True)\n\n\ndef scaled_dot_product_attention(Q, K, V):\n    \"\"\"Attention = softmax(QK^T / √d) · V\"\"\"\n    d = Q.shape[-1]\n    scores = Q @ K.T / np.sqrt(d)   # 两两相关度, 除√d防softmax饱和\n    weights = softmax(scores)        # 相关度→权重(行和为1)\n    output = weights @ V             # 加权求和V → 新表示\n    return output, weights\n\n\nif __name__ == \"__main__\":\n    np.random.seed(42)\n    tokens = [\"注意力\", \"机制\", \"很妙\"]\n    X = np.random.randn(3, 4)\n    out, weights = scaled_dot_product_attention(X, X, X)\n\n    print(\"注意力权重矩阵(行=查询者, 列=被关注者):\")\n    print(f\"{'':>8}\", \"\".join(f\"{t:>8}\" for t in tokens))\n    for i, t in enumerate(tokens):\n        print(f\"{t:>8}\", \"\".join(f\"{w:>8.2f}\" for w in weights[i]))\n    print()\n    print(\"每行和为1:\", weights.sum(axis=1).round(2))\n    print(\"输出形状:\", out.shape, \"(3个token各自'混合后'的新表示)\")\n    print()\n    print(\"这就是LLM的核心: 每个词的新含义 = 对所有词按相关度加权求和\")\n    print(\"GPT/DeepSeek 就是把这一步(加FFN)重复几十到上百层\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Transformer = 嵌入 + 多层Block + 输出。"
+        },
+        {
+          "order": 2,
+          "text": "每个 Block: 自注意力 + 前馈 + 归一化。"
+        },
+        {
+          "order": 3,
+          "text": "GPT 只用解码器(自回归生成)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 数据流\ntokens → embed → [attention + ffn]×N → logits"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Transformer",
+          "definition": "LLM 基础架构"
+        },
+        {
+          "name": "解码器",
+          "definition": "GPT 用的自回归结构"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "transformers",
+          "role": "模型库",
+          "description": "Hugging Face 出品的预训练模型库,提供海量模型加载/微调/推理接口。用于加载 GPT/BERT 等模型做下游任务。",
+          "officialUrl": "https://huggingface.co/docs/transformers",
+          "category": "模型库",
+          "installHint": "pip install transformers"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 scaled_dot_product_attention。",
+          "astType": "function_def",
+          "name": "scaled_dot_product_attention",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t60-llm-internals-s2",
+      "taskId": "t60-llm-internals",
+      "order": 2,
+      "title": "自注意力机制",
+      "instruction": "### 目标\n理解**因果掩码(causal mask)**:为什么生成式 LLM 的注意力\"只能看左边\",并实现它。\n\n### 背景: 训练与推理的一致性\nGPT 类模型是**自回归**的:预测第 t 个词时,只能看到 1..t-1。如果训练时不用掩码,模型会\"偷看答案\"(看到后面的词),学不到真正的预测能力。\n\n实现方式极其优雅:在 `QK^T` 的右上角(未来位置)填 `-inf`,softmax 后这些位置权重变 0:\n```\n原始scores:        加掩码后:           softmax后:\n[[a b c]          [[a -inf -inf]      [[1.0  0    0  ]\n [d e f]    →      [d  e   -inf]  →   [0.3  0.7  0  ]\n [g h i]]          [g  h    i  ]]      [0.2  0.3  0.5]]\n第i行 = 第i个词的关注分布, 右上的0 = 看不到未来\n```\n\n### BERT vs GPT 的分野就在这一行\n- BERT:无掩码(双向),适合理解任务(分类/抽取)\n- GPT:因果掩码(单向),适合生成\n- T5:编码器双向+解码器单向,理解和生成都要\n\n### 操作\n1. 给上一步的注意力加 `apply_causal_mask(scores)`\n2. 对比加掩码前后的权重矩阵\n3. 验证:掩码后右上角全 0",
+      "starterCode": "import numpy as np\n\n# 模拟 3 个 token 的嵌入(4维)\nembeddings = np.random.randn(3, 4)\nprint('嵌入:', embeddings.shape)\n\n# Q, K, V (简化: 用线性变换)\nW_q = np.random.randn(4, 4)\nW_k = np.random.randn(4, 4)\nW_v = np.random.randn(4, 4)\n\n# 计算 Q, K, V\nQ = embeddings @ W_q\nK = \nV = \n\n# 计算注意力分数\nscores = Q @ K.T / np.sqrt(4)  # 缩放点积\nweights = __import__('scipy.special').softmax(scores, axis=-1)  # softmax\noutput = weights @ V\nprint('注意力输出:', output.shape)\nprint('权重:', weights.round(2))",
+      "solutionCode": "import numpy as np\n\nembeddings = np.random.randn(3, 4)\nprint('嵌入:', embeddings.shape)\n\nW_q = np.random.randn(4, 4)\nW_k = np.random.randn(4, 4)\nW_v = np.random.randn(4, 4)\n\nQ = embeddings @ W_q\nK = embeddings @ W_k\nV = embeddings @ W_v\n\nscores = Q @ K.T / np.sqrt(4)\nweights = np.exp(scores) / np.exp(scores).sum(axis=-1, keepdims=True)  # softmax\noutput = weights @ V\nprint('注意力输出:', output.shape)\nprint('权重:', weights.round(2))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Q=embed@W_q, K=embed@W_k, V=embed@W_v。"
+        },
+        {
+          "order": 2,
+          "text": "scores = Q@K^T / √d。"
+        },
+        {
+          "order": 3,
+          "text": "weights = softmax(scores),output = weights@V。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 自注意力\nQ, K, V = embed@Wq, embed@Wk, embed@Wv\nattn = softmax(Q@K.T/sqrt(d)) @ V"
+        }
+      ],
+      "terms": [
+        {
+          "name": "自注意力",
+          "definition": "token 间加权交互"
+        },
+        {
+          "name": "Q/K/V",
+          "definition": "Query/Key/Value 变换"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy",
+          "role": "数值计算",
+          "description": "Python 科学计算基础库,提供高效的多维数组与矩阵运算。几乎所有数据/AI 库的底层依赖。",
+          "officialUrl": "https://numpy.org",
+          "category": "数值计算",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t60-llm-internals-s3",
+      "taskId": "t60-llm-internals",
+      "order": 3,
+      "title": "生成式解码",
+      "instruction": "### 目标\n理解**采样的随机性**:temperature/top-p 如何影响生成,并用代码复现。\n\n### 背景: 从概率分布到具体 token\n模型输出的是词表上的概率分布(如 5 万个词各一个概率)。怎么从中选一个?\n- **贪心(argmax)**:永远选概率最高的。结果确定但死板,容易陷入复读(\"好的好的好的...\")\n- **temperature 采样**:`p' = softmax(logits / T)`。T<1 分布变尖(更保守),T>1 变平(更发散),T→0 退化成贪心\n- **top-p(核采样)**:只从累计概率达 p(如 0.9)的最小候选集里采。**动态截断**:分布尖时候选少(稳),分布平时候选多(活)\n\n### 工程搭配建议\n| 场景 | temperature | top-p | 理由 |\n|------|------------|-------|------|\n| 代码/数学/JSON | 0 ~ 0.2 | 1.0 | 要确定性, 错一个字符就废 |\n| 问答/客服 | 0.3 ~ 0.7 | 0.9 | 稳定中带点自然 |\n| 创意写作 | 0.8 ~ 1.2 | 0.95 | 要多样性 |\n\n### 操作\n1. 实现 `sample_with_temperature(logits, T)`\n2. 固定随机种子,同一分布分别用 T=0.1/1.0/2.0 各采 20 次,统计分布\n3. 观察:T 越小越集中在高概率词",
+      "starterCode": "import numpy as np\n\n# 模拟词表(10个词)的概率\nvocab = ['我', '爱', 'Python', 'AI', '是', '未来', '的', '语言', '!', '好']\n\n# 模拟每步的 logits(模型输出)\nnp.random.seed(42)\n\ndef generate(prompt_tokens, max_new=5, temperature=1.0):\n    tokens = list(prompt_tokens)\n    for _ in range(max_new):\n        # 模拟模型预测下一个词的概率\n        logits = np.random.randn(len(vocab)) / temperature\n        probs = np.exp(logits) / np.exp(logits).sum()\n        # 采样下一个词\n        next_idx = np.random.choice(len(vocab), p=probs)\n        tokens.append(vocab[next_idx])\n    return ''.join(tokens)\n\nprint(generate(['我', '爱'], temperature=0.5))\nprint(generate(['我', '爱'], temperature=2.0))",
+      "solutionCode": "import numpy as np\n\nvocab = ['我', '爱', 'Python', 'AI', '是', '未来', '的', '语言', '!', '好']\nnp.random.seed(42)\n\ndef generate(prompt_tokens, max_new=5, temperature=1.0):\n    tokens = list(prompt_tokens)\n    for _ in range(max_new):\n        logits = np.random.randn(len(vocab)) / temperature\n        probs = np.exp(logits) / np.exp(logits).sum()\n        next_idx = np.random.choice(len(vocab), p=probs)\n        tokens.append(vocab[next_idx])\n    return ''.join(tokens)\n\nprint('低温度(保守):', generate(['我', '爱'], temperature=0.5))\nprint('高温度(随机):', generate(['我', '爱'], temperature=2.0))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "自回归:预测→加入→再预测。"
+        },
+        {
+          "order": 2,
+          "text": "temperature 高→随机,低→保守。"
+        },
+        {
+          "order": 3,
+          "text": "np.random.choice 按概率采样。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "for _ in range(n):\n    probs = softmax(logits/temp)\n    next = sample(probs)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "自回归",
+          "definition": "逐 token 生成"
+        },
+        {
+          "name": "temperature",
+          "definition": "控制随机性"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy",
+          "role": "数值计算",
+          "description": "Python 科学计算基础库,提供高效的多维数组与矩阵运算。几乎所有数据/AI 库的底层依赖。",
+          "officialUrl": "https://numpy.org",
+          "category": "数值计算",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "generate",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

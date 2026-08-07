@@ -1,0 +1,241 @@
+{
+  "steps": [
+    {
+      "id": "t73-capstone-agent-s1",
+      "taskId": "t73-capstone-agent",
+      "order": 1,
+      "title": "Agent 自主决策",
+      "instruction": "### 目标\n给知识库 Agent 加上**工具调用能力**——它不再只会查文档,还能算数、查时间、执行动作。\n\n### 背景: 工具(Tool)的三要素\n一个 LLM 可调用的工具必须定义清楚:\n1. **name**:工具名,LLM 靠它选择调用哪个\n2. **description**:自然语言描述\"这个工具干什么、什么时候用\"。**这是给 LLM 看的,写得越清楚,LLM 选得越准**\n3. **func**:真正执行的 Python 函数\n\n### 路由的两种实现\n- **LLM 自主路由**(Function Calling):把工具描述发给 LLM,让它返回要调用的工具名+参数。灵活但要多一轮 LLM 调用\n- **规则路由**(关键词匹配):如本步实现,简单快速零成本。**生产系统常用混合:规则兜住高频意图,LLM 处理长尾**\n\n### 本步实现\n实现一个 `ToolRegistry`:注册工具 → 根据用户输入路由到工具 → 执行并返回结果。工具集:知识库查询(复用 t72 的 RAG)、计算器、当前时间。",
+      "starterCode": "# 毕业设计 Step10: Agent 工具系统\nfrom datetime import datetime\n\n\nclass Tool:\n    def __init__(self, name: str, description: str, func, keywords: list):\n        self.name = name\n        self.description = description  # 给LLM看的: 干什么+什么时候用\n        self.func = func\n        self.keywords = keywords        # 规则路由触发词\n\n\nclass ToolRegistry:\n    def __init__(self):\n        self.tools = []\n\n    def register(self, tool: Tool):\n        # TODO: 加入 self.tools\n        pass\n\n    def route(self, query: str) -> str:\n        # TODO: 遍历工具, 命中keywords的执行; 都没命中走kb_search兜底\n        return \"\"\n\n\ndef kb_search(q: str) -> str:\n    return \"知识库回答: 注意力机制是对输入加权关注的机制(来源: transformer.pdf p3)\"\n\ndef calculator(q: str) -> str:\n    expr = \"\".join(c for c in q if c in \"0123456789+-*/.() \")\n    return f\"计算结果: {eval(expr)}\"  # 教学环境; 生产用ast白名单!\n\ndef current_time(q: str) -> str:\n    return f\"当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\"\n\n\nif __name__ == \"__main__\":\n    registry = ToolRegistry()\n    # TODO: 注册 kb_search / calculator / get_time 三个工具\n    for q in [\"什么是注意力机制?\", \"帮我计算 128 * 46\", \"现在几点了?\"]:\n        print(f\"Q: {q} → {registry.route(q)}\")\n",
+      "solutionCode": "# 毕业设计 Step10: Agent 工具系统\nfrom datetime import datetime\n\n\nclass Tool:\n    def __init__(self, name: str, description: str, func, keywords: list):\n        self.name = name\n        self.description = description  # 给LLM看的: 干什么+什么时候用\n        self.func = func\n        self.keywords = keywords        # 规则路由用的触发词\n\n\nclass ToolRegistry:\n    def __init__(self):\n        self.tools = []\n\n    def register(self, tool: Tool):\n        self.tools.append(tool)\n\n    def route(self, query: str) -> str:\n        \"\"\"规则路由: 命中关键词走对应工具, 否则走知识库。\"\"\"\n        for tool in self.tools:\n            if tool.name != \"kb_search\" and any(kw in query for kw in tool.keywords):\n                return f\"[{tool.name}] {tool.func(query)}\"\n        kb = next(t for t in self.tools if t.name == \"kb_search\")\n        return f\"[{kb.name}] {kb.func(query)}\"\n\n\n# ===== 定义三个工具 =====\ndef kb_search(q: str) -> str:\n    return f\"知识库回答: 注意力机制是对输入加权关注的机制(来源: transformer.pdf p3)\"\n\ndef calculator(q: str) -> str:\n    expr = \"\".join(c for c in q if c in \"0123456789+-*/.() \")\n    try:\n        return f\"计算结果: {eval(expr)}\"  # 教学环境; 生产用 ast 白名单解析!\n    except Exception as e:\n        return f\"无法计算: {e}\"\n\ndef current_time(q: str) -> str:\n    return f\"当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\"\n\n\nregistry = ToolRegistry()\nregistry.register(Tool(\"kb_search\", \"查询知识库回答专业问题\", kb_search, []))\nregistry.register(Tool(\"calculator\", \"数学计算\", calculator, [\"计算\", \"多少\", \"等于\", \"+\", \"*\"]))\nregistry.register(Tool(\"get_time\", \"查询当前时间\", current_time, [\"时间\", \"几点\", \"现在\"]))\n\nfor q in [\"什么是注意力机制?\", \"帮我计算 128 * 46\", \"现在几点了?\"]:\n    print(f\"Q: {q}\\n  → {registry.route(q)}\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Agent 有 search_docs 工具。"
+        },
+        {
+          "order": 2,
+          "text": "RAG 问题→Agent 调检索。"
+        },
+        {
+          "order": 3,
+          "text": "简单问题(1+1)→Agent 直接答。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# Agent 自主决策\n@tool\ndef search(q): ...\nagent = create_tool_calling_agent(llm, [search], prompt)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Agent 决策",
+          "definition": "LLM 决定何时调工具"
+        },
+        {
+          "name": "检索工具",
+          "definition": "Agent 可调用的搜索"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 ToolRegistry。",
+          "astType": "class_def",
+          "name": "ToolRegistry",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 route。",
+          "astType": "function_def",
+          "name": "route",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t73-capstone-agent-s2",
+      "taskId": "t73-capstone-agent",
+      "order": 2,
+      "title": "多轮对话与记忆",
+      "instruction": "### 目标\n实现 **ReAct(Reasoning + Acting)循环**——让 Agent 能\"思考→行动→观察→再思考\"多步推理,处理需要多次工具调用的复杂问题。\n\n### 背景: 单步路由 vs ReAct\n上一步的路由只能\"一问一答一次调用\"。但真实问题如\"对比 A 文档和 B 文档对注意力的描述,总结差异\"需要:\n1. Thought:我需要先查 A 文档 → Action:kb_search(A) → Observation:结果\n2. Thought:再查 B 文档 → Action:kb_search(B) → Observation:结果\n3. Thought:信息够了 → Final Answer:综合两段给出对比\n\n**ReAct 的本质**:把\"思考过程\"显式化为文本,让 LLM 在每一步都能看到之前的推理和观察,从而规划下一步。这是 Agent 区别于\"一次性问答\"的核心能力。\n\n### 本步实现\n手写一个简化 ReAct 循环(mock LLM 的决策):\n- 状态:`thought / action / observation` 历史\n- 每轮:LLM(模拟)根据历史决定 Action 或 Final Answer\n- 循环上限:`max_iterations` 防止死循环(第5章学过的护栏!)",
+      "starterCode": "# 毕业设计 Step11: ReAct 推理循环\nclass ReActAgent:\n    \"\"\"简化ReAct: 显式记录 Thought/Action/Observation, 多步推理直到Final Answer。\"\"\"\n\n    def __init__(self, tools: dict, max_iterations: int = 5):\n        self.tools = tools\n        self.max_iterations = max_iterations  # 护栏: 防死循环\n\n    def _decide(self, question: str, history: list) -> tuple:\n        \"\"\"模拟LLM决策(已给全): 查两次再总结。真实环境把history发给LLM。\"\"\"\n        n = len(history)\n        if \"对比\" in question and n == 0:\n            return (\"action\", \"kb_search\", \"A文档对注意力的描述\")\n        if \"对比\" in question and n == 1:\n            return (\"action\", \"kb_search\", \"B文档对注意力的描述\")\n        return (\"final\", None, \"综合两份资料: A侧重数学定义, B侧重工程实现\")\n\n    def run(self, question: str) -> str:\n        # TODO: 循环 max_iterations 次:\n        #   1. _decide 决定 action/final\n        #   2. final → 返回答案\n        #   3. action → 执行工具得 observation, 打印 Thought/Action/Observation, 记入 history\n        # TODO: 循环耗尽 → 返回兜底文案\n        return \"\"\n\n\ndef kb_search(q: str) -> str:\n    data = {\"A文档\": \"注意力是QKV点积加权的数学运算\", \"B文档\": \"注意力在工程上用flash-attention优化显存\"}\n    for k, v in data.items():\n        if k[0] in q:\n            return f\"{k}: {v}\"\n    return \"未找到\"\n\n\nif __name__ == \"__main__\":\n    agent = ReActAgent(tools={\"kb_search\": kb_search}, max_iterations=5)\n    print(\"最终答案:\", agent.run(\"对比A文档和B文档对注意力的描述\"))\n",
+      "solutionCode": "# 毕业设计 Step11: ReAct 推理循环\nclass ReActAgent:\n    \"\"\"简化ReAct: 显式记录 Thought/Action/Observation, 多步推理直到Final Answer。\"\"\"\n\n    def __init__(self, tools: dict, max_iterations: int = 5):\n        self.tools = tools\n        self.max_iterations = max_iterations  # 护栏: 防死循环\n\n    def _decide(self, question: str, history: list) -> tuple:\n        \"\"\"模拟LLM决策: 真实环境把history发给DeepSeek让它输出Action。\n        这里用规则模拟一个'查两次再总结'的决策序列。\"\"\"\n        n = len(history)\n        if \"对比\" in question and n == 0:\n            return (\"action\", \"kb_search\", \"A文档对注意力的描述\")\n        if \"对比\" in question and n == 1:\n            return (\"action\", \"kb_search\", \"B文档对注意力的描述\")\n        return (\"final\", None, \"综合两份资料: A侧重数学定义, B侧重工程实现, 二者互补\")\n\n    def run(self, question: str) -> str:\n        history = []\n        for step in range(self.max_iterations):\n            kind, action, payload = self._decide(question, history)\n            if kind == \"final\":\n                print(f\"Step {step+1} Thought: 信息足够, 给出最终答案\")\n                return payload\n            print(f\"Step {step+1} Thought: 需要调用 {action}\")\n            print(f\"         Action: {action}(\\\"{payload}\\\")\")\n            observation = self.tools[action](payload)\n            print(f\"         Observation: {observation}\")\n            history.append({\"action\": action, \"observation\": observation})\n        return \"达到最大推理步数, 基于已有信息回答(兜底)\"\n\n\ndef kb_search(q: str) -> str:\n    data = {\"A文档\": \"注意力是QKV点积加权的数学运算\", \"B文档\": \"注意力在工程上用flash-attention优化显存\"}\n    for k, v in data.items():\n        if k[0] in q:\n            return f\"{k}: {v}\"\n    return \"未找到\"\n\n\nagent = ReActAgent(tools={\"kb_search\": kb_search}, max_iterations=5)\nprint(\"最终答案:\", agent.run(\"对比A文档和B文档对注意力的描述\"))\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "memory 让 Agent 记住历史。"
+        },
+        {
+          "order": 2,
+          "text": "prompt 加 {history} 占位。"
+        },
+        {
+          "order": 3,
+          "text": "第二轮'它'指代 Transformer。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "memory = ConversationBufferMemory(memory_key='history')\nexecutor = AgentExecutor(..., memory=memory)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "多轮对话",
+          "definition": "带记忆的连续问答"
+        },
+        {
+          "name": "ConversationBufferMemory",
+          "definition": "对话记忆"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 ReActAgent。",
+          "astType": "class_def",
+          "name": "ReActAgent",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 run。",
+          "astType": "function_def",
+          "name": "run",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t73-capstone-agent-s3",
+      "taskId": "t73-capstone-agent",
+      "order": 3,
+      "title": "错误恢复与可观测",
+      "instruction": "### 目标\n给 Agent 加**对话记忆**——让它记住上下文,支持多轮对话(\"它的作者呢?\"知道\"它\"指什么)。\n\n### 背景: 记忆策略的三种境界\n1. **全量记忆**:把所有历史塞进 prompt。简单但 token 爆炸,超过上下文窗口就崩\n2. **滑动窗口**:只保留最近 N 轮。丢老信息但 token 可控,**最常用**\n3. **摘要记忆**:老对话让 LLM 压缩成摘要,新对话全量保留。兼顾长程记忆与成本,实现复杂\n\n### 指代消解问题\n多轮对话的难点是\"它/这个/那篇\"这类指代。工程上的解法:把历史一起发给 LLM,让它自己理解指代——所以**记忆的本质就是上下文管理**,决定哪些历史进入下一次调用的 prompt。\n\n### 本步实现\n实现 `ConversationMemory`:滑动窗口存最近 N 轮 → 构造带历史的 prompt。模拟三轮对话验证\"它\"能被正确理解。",
+      "starterCode": "# 毕业设计 Step12: Agent 对话记忆(滑动窗口)\nclass ConversationMemory:\n    \"\"\"滑动窗口记忆: 只保留最近 window 轮, 防止token爆炸。\"\"\"\n\n    def __init__(self, window: int = 3):\n        self.window = window\n        self.history = []\n\n    def add(self, role: str, content: str):\n        # TODO: 追加 {role, content}; 超出 window*2 条时丢弃最老的\n        pass\n\n    def build_context(self) -> str:\n        # TODO: 把 history 渲染成 \"role: content\" 多行文本\n        return \"\"\n\n\ndef mock_llm_with_memory(question: str, context: str) -> str:\n    \"\"\"模拟LLM(已给全): 有上下文就能解指代。\"\"\"\n    if \"它\" in question and \"Transformer\" in context:\n        return \"Transformer 由 Google 在 2017 年论文《Attention Is All You Need》中提出\"\n    if \"注意力\" in question:\n        return \"Transformer 的核心是注意力机制\"\n    return \"我需要更多上下文\"\n\n\nif __name__ == \"__main__\":\n    memory = ConversationMemory(window=3)\n    for q in [\"什么是 Transformer 的核心?\", \"它的作者是谁?\", \"那篇论文哪年发的?\"]:\n        ctx = memory.build_context()\n        answer = mock_llm_with_memory(q, ctx)\n        print(f\"用户: {q}\\nAgent: {answer}\")\n        memory.add(\"user\", q)\n        memory.add(\"assistant\", answer)\n",
+      "solutionCode": "# 毕业设计 Step12: Agent 对话记忆(滑动窗口)\nclass ConversationMemory:\n    \"\"\"滑动窗口记忆: 只保留最近 window 轮, 防止token爆炸。\"\"\"\n\n    def __init__(self, window: int = 3):\n        self.window = window\n        self.history = []  # [{\"role\": \"user\"/\"assistant\", \"content\": str}]\n\n    def add(self, role: str, content: str):\n        self.history.append({\"role\": role, \"content\": content})\n        # 超出窗口丢弃最老的(一轮=user+assistant两条, 所以乘2)\n        if len(self.history) > self.window * 2:\n            self.history = self.history[-self.window * 2:]\n\n    def build_context(self) -> str:\n        \"\"\"把历史渲染成prompt上下文, LLM靠它理解'它'这类指代。\"\"\"\n        return \"\\n\".join(f\"{m['role']}: {m['content']}\" for m in self.history)\n\n\ndef mock_llm_with_memory(question: str, context: str) -> str:\n    \"\"\"模拟LLM: 有上下文就能解指代。真实环境把context+question发给DeepSeek。\"\"\"\n    if \"它\" in question and \"Transformer\" in context:\n        return \"Transformer 由 Google 在 2017 年论文《Attention Is All You Need》中提出\"\n    if \"注意力\" in question:\n        return \"Transformer 的核心是注意力机制\"\n    return \"我需要更多上下文\"\n\n\nmemory = ConversationMemory(window=3)\ndialog = [\n    \"什么是 Transformer 的核心?\",\n    \"它的作者是谁?\",      # 指代消解: 靠memory知道\"它\"=Transformer\n    \"那篇论文哪年发的?\",    # 又换了个指代\n]\nfor q in dialog:\n    ctx = memory.build_context()\n    answer = mock_llm_with_memory(q, ctx)\n    print(f\"用户: {q}\")\n    print(f\"Agent: {answer}\")\n    memory.add(\"user\", q)\n    memory.add(\"assistant\", answer)\n    print(f\"  (记忆窗口现有 {len(memory.history)} 条)\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "handle_tool_error=True 工具出错不崩。"
+        },
+        {
+          "order": 2,
+          "text": "LogCallback 追踪工具调用。"
+        },
+        {
+          "order": 3,
+          "text": "max_iterations 防死循环。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "executor = AgentExecutor(\n    ..., handle_tool_error=True,\n    callbacks=[LogCallback()])"
+        }
+      ],
+      "terms": [
+        {
+          "name": "错误恢复",
+          "definition": "工具出错不崩溃"
+        },
+        {
+          "name": "可观测性",
+          "definition": "callback 追踪执行"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 ConversationMemory。",
+          "astType": "class_def",
+          "name": "ConversationMemory",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 build_context。",
+          "astType": "function_def",
+          "name": "build_context",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

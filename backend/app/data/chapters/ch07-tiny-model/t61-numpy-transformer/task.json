@@ -1,0 +1,668 @@
+{
+  "steps": [
+    {
+      "id": "t61-numpy-transformer-s1",
+      "taskId": "t61-numpy-transformer",
+      "order": 1,
+      "title": "词表与词嵌入:给字符编码,再打上位置坐标",
+      "instruction": "### 目标\n\n开启章项目「参悟袖里乾坤」:用 numpy 从零炼出一个微型 GPT。本步先打地基——字符词表、可训练的词嵌入层,以及给每个位置打上「坐标」的正弦位置编码。完成之后,你手头的 h 矩阵形状是 (seq_len, embed_dim),这是后续所有层的通用语言。\n\n### 原理\n\n大模型不能直接吃字符。第一步是把文本变成数字:建立字符级词表 VOCAB,每个字符一个唯一下标(char_to_id);再为每个字符准备一个可学习的稠密向量——这就是词嵌入。用下标去 weight 矩阵「查表」,得到形状 (seq_len, embed_dim) 的向量序列。相比 one-hot,词嵌入维度低得多,而且向量本身会在训练中带上语义。注意「照」字不在词表里,char_to_id 把它降级映射到 0,保证管线不断。\n\nTransformer 本身没有顺序概念:把「山河」和「河山」喂进去,结果一模一样。所以要在嵌入上叠加位置编码。正弦位置编码用不同频率的 sin/cos 组合给每个位置生成唯一坐标:偶数维走 sin,奇数维走 cos,第 i 维的频率由 10000 的 2i/embed_dim 次方控制——低频维编码远距离,高频维编码近距离。\n\n### 操作\n\n1. 补全 TokenEmbedding.__init__:用 np.random.default_rng(0) 固定随机种子,再用 rng.normal(0.0, 0.02, (vocab_size, embed_dim)) 初始化 self.weight;\n2. 补全 SinusoidalPositionalEncoding.__init__:准备好 pe 矩阵后,偶数维填 np.sin(angle[:, 0::2]),奇数维填 np.cos(angle[:, 1::2]),最后存入 self.pe;\n3. 运行 main,观察三个形状:词嵌入、位置编码、相加后都是 (4, 32)——4 是「月照山河」的长度,32 是嵌入维度。\n\n### 常见坑\n\n- embed_dim 必须为偶数,否则 0::2 与 1::2 两列长度不齐,sin/cos 填不满矩阵;\n- 固定随机种子很关键:default_rng(0) 保证你每次运行的结果与教程一致;\n- 位置编码与词嵌入要「相加」而不是拼接,这是经典做法,后面注意力层才能同时看到内容与位置。\n",
+      "todoItems": [
+        {
+          "title": "补全 TokenEmbedding.__init__:固定随机种子并初始化词嵌入权重",
+          "target": "TokenEmbedding.__init__() 方法",
+          "code": "rng = np.random.default_rng(0)\nself.weight = rng.normal(0.0, 0.02, (vocab_size, embed_dim))",
+          "expect": "self.weight 形状为 (vocab_size, embed_dim)"
+        },
+        {
+          "title": "补全 SinusoidalPositionalEncoding.__init__:填充正弦位置编码",
+          "target": "SinusoidalPositionalEncoding.__init__() 方法",
+          "code": "pe[:, 0::2] = np.sin(angle[:, 0::2])\npe[:, 1::2] = np.cos(angle[:, 1::2])\nself.pe = pe",
+          "expect": "self.pe 形状为 (max_len, embed_dim)"
+        },
+        {
+          "title": "运行 main,确认形状输出",
+          "target": "main 运行输出",
+          "expect": "词嵌入、位置编码、相加后形状均为 (4, 32)"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "词嵌入就是查表:初始化用 np.random.default_rng(0) 拿随机源,再 self.weight = rng.normal(0.0, 0.02, (vocab_size, embed_dim));前向时 self.weight[np.asarray(ids)]。"
+        },
+        {
+          "order": 2,
+          "text": "位置编码公式:angle = pos / (10000.0 ** (2 * (dims // 2) / embed_dim)),其中 pos 是 (max_len, 1) 的列向量,dims 是 (embed_dim,) 的行向量。"
+        },
+        {
+          "order": 3,
+          "text": "填充口诀「偶 sin 奇 cos」:pe[:, 0::2] = np.sin(angle[:, 0::2]),pe[:, 1::2] = np.cos(angle[:, 1::2]),最后 self.pe = pe。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "位置编码的前 3 个位置、前 4 维",
+          "language": "python",
+          "code": "# pe 前 4 维(节选,embed_dim=32 时的数值风格):\n# 位置 0: [ 0.000,  1.000,  0.000,  1.000]\n# 位置 1: [ 0.842,  0.540,  0.999,  0.036]\n# 位置 2: [ 0.909, -0.416,  0.996,  0.071]\n# 偶数维走 sin,奇数维走 cos,每个位置都拿到独一无二的坐标",
+          "description": "正弦位置编码:同一维度上不同位置的值不同,同一位置上不同维度的波长不同。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "词嵌入(Word Embedding)",
+          "definition": "把离散的字符下标映射为稠密向量,可训练矩阵 weight 的每一行对应一个词;相比 one-hot 维度低,且能在训练中承载语义。"
+        },
+        {
+          "name": "位置编码(Positional Encoding)",
+          "definition": "给序列中的每个位置附加唯一的正弦坐标,让没有顺序概念的注意力机制感知先后关系。"
+        },
+        {
+          "name": "查表(Lookup)",
+          "definition": "用下标数组直接索引权重矩阵,得到形状 (seq_len, embed_dim) 的向量序列。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "提供多维数组、矩阵乘法与随机采样,支撑整个微缩 GPT 的前向与生成。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 TokenEmbedding 词嵌入类。",
+          "astType": "class_def",
+          "name": "TokenEmbedding",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 SinusoidalPositionalEncoding 位置编码类。",
+          "astType": "class_def",
+          "name": "SinusoidalPositionalEncoding",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 rng.normal 初始化词嵌入权重。",
+          "pattern": "rng\\.normal\\(0\\.0, 0\\.02",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "位置编码必须同时使用 sin 与 cos。",
+          "pattern": "np\\.sin|np\\.cos",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印词嵌入与相加后的形状。",
+          "expectedStdout": "词嵌入 x 形状: \\(4, 32\\)[\\s\\S]*相加后 h 形状: \\(4, 32\\)",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-numpy-transformer-s2",
+      "taskId": "t61-numpy-transformer",
+      "order": 2,
+      "title": "缩放点积注意力:让每个位置看见其他位置",
+      "instruction": "### 目标\n\n地基已打好,本步为迷你 GPT 装上心脏——缩放点积注意力。完成本步后,你会看到注意力权重矩阵:每个位置对其他位置的关注度之和恰好为 1。这是「模型如何看见彼此」的第一课。\n\n### 原理\n\n注意力让序列里的每个位置都能「看」其他位置。做法是给每个输入向量准备三个分身:查询 Q、键 K、值 V,分别由输入乘三个可训练投影矩阵得到。用 Q 与所有位置的 K 做点积,得到相似度矩阵 scores——分数越高,说明这个位置「越关心」对方;再除以维度平方根 √d 做缩放,防止维度过大时点积值域失控、softmax 直接饱和;随后逐行做 softmax,把分数归一成和为 1 的注意力权重;最后用权重对 V 加权求和,得到融合了全局信息的上下文向量。整个过程就是一句话:按相关度把别人的信息加权「搬」到自己身上。\n\n### 操作\n\n1. 补全 ScaledDotProductAttention.__init__:用 np.random.default_rng(1) 创建随机源,初始化 self.wq / self.wk / self.wv,三个矩阵形状都是 (dim, dim);\n2. 补全 _softmax:先减去每行最大值保证数值稳定,再求 exp,最后按行归一化(exp / exp.sum(axis=-1, keepdims=True));\n3. 在 main 里观察:注意力权重每行之和应为 1(用 np.allclose 验证),out 形状为 (4, 32)。\n\n### 常见坑\n\n- 点积方向别搞反:scores = (q @ k.T),把 k 转置后 q 才能与每个位置的键两两点积;\n- 缩放系数一定是 np.sqrt(dim) 而不是 dim——除以的是维度平方根;\n- softmax 前不减最大值,exp 一上来就溢出成 inf,整行权重全部报废。\n",
+      "todoItems": [
+        {
+          "title": "补全 ScaledDotProductAttention.__init__:初始化 Q/K/V 三个投影矩阵",
+          "target": "ScaledDotProductAttention.__init__() 方法",
+          "code": "rng = np.random.default_rng(1)\nself.wq = rng.normal(0.0, 0.02, (dim, dim))\nself.wk = rng.normal(0.0, 0.02, (dim, dim))\nself.wv = rng.normal(0.0, 0.02, (dim, dim))",
+          "expect": "三个投影矩阵形状均为 (dim, dim)"
+        },
+        {
+          "title": "补全 _softmax:数值稳定的按行归一化",
+          "target": "ScaledDotProductAttention._softmax() 方法",
+          "code": "scores = scores - scores.max(axis=-1, keepdims=True)\nexp = np.exp(scores)\nreturn exp / exp.sum(axis=-1, keepdims=True)",
+          "expect": "注意力权重每行之和为 1"
+        },
+        {
+          "title": "运行 main,验证注意力行和为 1",
+          "target": "main 运行输出",
+          "expect": "打印「注意力行和为 1: True」与 out 形状 (4, 32)"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "Q/K/V 都是 x 乘投影矩阵:q = x @ self.wq,形状 (seq_len, dim) × (dim, dim) → (seq_len, dim)。"
+        },
+        {
+          "order": 2,
+          "text": "分数公式:scores = (q @ k.T) / np.sqrt(self.wq.shape[0]),k.T 把 (seq_len, dim) 转成 (dim, seq_len),点积得到 (seq_len, seq_len)。"
+        },
+        {
+          "order": 3,
+          "text": "数值稳定 softmax:scores = scores - scores.max(axis=-1, keepdims=True),再 exp = np.exp(scores),返回 exp / exp.sum(axis=-1, keepdims=True)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "一句话里的注意力权重矩阵",
+          "language": "python",
+          "code": "# 每个字对其他字的注意力权重(每行和为 1):\n#        日    月    星    辰\n# 日   [0.52, 0.18, 0.15, 0.15]\n# 月   [0.21, 0.44, 0.19, 0.16]\n# 星   [0.17, 0.20, 0.41, 0.22]\n# 辰   [0.16, 0.17, 0.23, 0.44]",
+          "description": "注意力权重矩阵:行是「我」,列是「我看谁」,每行归一化和为 1。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "注意力分数(Attention Scores)",
+          "definition": "Q 与 K 的点积矩阵,形状 (seq_len, seq_len),表示每个位置与其他位置的相似度;除以 √d 防止 softmax 饱和。"
+        },
+        {
+          "name": "softmax",
+          "definition": "把一行分数转成和为 1 的概率分布;先减每行最大值可保证数值稳定。"
+        },
+        {
+          "name": "上下文向量(Context Vector)",
+          "definition": "注意力权重对 V 的加权求和,每个位置融合了它关注到的其他位置的信息。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "提供多维数组、矩阵乘法与随机采样,支撑整个微缩 GPT 的前向与生成。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 ScaledDotProductAttention 注意力类。",
+          "astType": "class_def",
+          "name": "ScaledDotProductAttention",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现数值稳定的 _softmax 方法。",
+          "astType": "function_def",
+          "name": "_softmax",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "注意力分数必须是缩放后的点积 q@k.T。",
+          "pattern": "q @ k\\.T",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应验证注意力权重行和为 1。",
+          "expectedStdout": "注意力行和为 1: True[\\s\\S]*out 形状: \\(4, 32\\)",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-numpy-transformer-s3",
+      "taskId": "t61-numpy-transformer",
+      "order": 3,
+      "title": "多头注意力:并行子空间,一次看见多类关系",
+      "instruction": "### 目标\n\n单头注意力只有一套 Q/K/V 投影,视角单一——就像一个人只能从一个角度看问题。本步把它升级为多头注意力:把 32 维输入切成 4 个 8 维子空间,每个头在自己的子空间里独立做注意力,最后把 4 个头的输出拼回 32 维,再乘一个输出投影做融合。多头让模型能在多个子空间里同时捕捉不同类型的关系,是 GPT 里「注意力」一词被写为「Multi-Head」的原因。\n\n### 原理\n\n多头注意力 = 并行子空间 + 拼接投影。核心动作是「切」与「拼」:切——把最后一维按 head_dim 等分,第 i 块是 x[:, i*head_dim:(i+1)*head_dim];拼——每个头算完 (seq_len, head_dim) 的输出后,用 np.concatenate 沿 axis=-1 拼回 (seq_len, embed_dim),再乘输出矩阵 wo 做一次线性融合。每个头有独立的 Q/K/V 投影(复用 ScaledDotProductAttention,只是维度换成 head_dim),看到的是输入的不同切片,互不干扰,最后合并。单头是「一个视角看全局」,多头是「几个视角各看一摊,再汇总」。\n\n### 操作\n\n1. 确认文件头已定义 NUM_HEADS = 4 与 HEAD_DIM = 8 两个常量,后续切块与打印都要用;\n2. 补全 MultiHeadAttention.__init__:用 np.random.default_rng(2) 创建随机源,记录头数与头维度,用列表推导创建 num_heads 个 ScaledDotProductAttention(head_dim),再用 rng 初始化输出投影 wo,形状 (embed_dim, embed_dim);\n3. 补全 MultiHeadAttention.forward:把 x 按 head_dim 切成 num_heads 块,各头分别 forward,用 np.concatenate(..., axis=-1) 拼接,最后乘 wo;\n4. 运行 main,看到「多头输出形状: (4, 32)」——形状没变,信息却经过了 4 个独立视角的加工。\n\n### 常见坑\n\n- 切块切片写错:第 i 块是 x[:, i*head_dim:(i+1)*head_dim],别写成 (i+2);\n- 拼接轴用错:必须 axis=-1(特征维),用 axis=0 会把 4 个 (4, 8) 拼成 (16, 8);\n- zip 配对搞错:zip(self.heads, chunks) 是头与块一一对应并行计算,不是串行前向。\n",
+      "todoItems": [
+        {
+          "title": "确认文件头的 NUM_HEADS 与 HEAD_DIM 常量",
+          "target": "文件头常量定义",
+          "expect": "NUM_HEADS = 4、HEAD_DIM = 8,后续切块与打印都要用"
+        },
+        {
+          "title": "补全 MultiHeadAttention.__init__:创建注意力头并初始化输出投影",
+          "target": "MultiHeadAttention.__init__() 方法",
+          "code": "self.heads = [ScaledDotProductAttention(head_dim) for _ in range(num_heads)]\nself.wo = rng.normal(0.0, 0.02, (embed_dim, embed_dim))",
+          "expect": "self.heads 含 4 个注意力头,self.wo 形状为 (embed_dim, embed_dim)"
+        },
+        {
+          "title": "补全 MultiHeadAttention.forward:切块、并行、拼接、投影",
+          "target": "MultiHeadAttention.forward() 方法",
+          "code": "chunks = [x[:, i * self.head_dim:(i + 1) * self.head_dim] for i in range(self.num_heads)]\nheads = np.concatenate([h.forward(c) for h, c in zip(self.heads, chunks)], axis=-1)\nreturn heads @ self.wo",
+          "expect": "输出形状为 (seq_len, embed_dim)"
+        },
+        {
+          "title": "运行 main,确认多头输出形状",
+          "target": "main 运行输出",
+          "expect": "打印「多头输出形状: (4, 32)」"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "多头 = 把输入切成多个子空间并行处理。切块:x[:, i*head_dim:(i+1)*head_dim],共 num_heads 块,每块 head_dim 维。"
+        },
+        {
+          "order": 2,
+          "text": "初始化三件事:记录 self.num_heads 与 self.head_dim;用列表推导建头 self.heads = [ScaledDotProductAttention(head_dim) for _ in range(num_heads)];再用 rng 初始化 self.wo,形状 (embed_dim, embed_dim)。"
+        },
+        {
+          "order": 3,
+          "text": "前向三步:chunks 切块 → np.concatenate([h.forward(c) for h, c in zip(self.heads, chunks)], axis=-1) 拼接 → 结果乘 self.wo。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "多头切块与拼接的视图",
+          "language": "python",
+          "code": "# 输入 (seq_len=4, embed_dim=32),num_heads=4,head_dim=8:\n# [头0: 0:8] [头1: 8:16] [头2: 16:24] [头3: 24:32]\n# 每个头独立输出 (4, 8),拼接回 (4, 32),再乘 wo (32, 32)",
+          "description": "多头把特征维分成若干段并行处理,输出拼接后投影,等价于在多个子空间同时做注意力。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "多头注意力(Multi-Head Attention)",
+          "definition": "把输入切成多个子空间并行做注意力,再拼接投影;每个头捕捉不同类型的关系,是 Transformer 的标准配置。"
+        },
+        {
+          "name": "头维度(Head Dimension)",
+          "definition": "每个注意力头处理的子空间大小,head_dim = embed_dim // num_heads,决定切块的宽度。"
+        },
+        {
+          "name": "拼接与投影(Concatenate & Project)",
+          "definition": "多头输出沿特征维拼接后用 wo 线性融合,是「先并行、后汇总」的关键一步。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "提供多维数组、矩阵乘法与随机采样,支撑整个微缩 GPT 的前向与生成。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 MultiHeadAttention 多头注意力类。",
+          "astType": "class_def",
+          "name": "MultiHeadAttention",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "多头结果需要用 np.concatenate 拼接。",
+          "pattern": "np\\.concatenate",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印多头输出形状 (4, 32)。",
+          "expectedStdout": "多头输出形状: \\(4, 32\\)",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-numpy-transformer-s4",
+      "taskId": "t61-numpy-transformer",
+      "order": 4,
+      "title": "层归一化与前馈网络:拼出完整 Transformer 块",
+      "instruction": "### 目标\n\n注意力本身是线性变换:加权求和不会带来新的表达能力。本步给它装上两个「肌肉」——层归一化 LayerNorm 与前馈网络 FeedForward,再拼成一个完整的 Transformer 块。块 = 多头注意力 + 前馈网络 + 两层归一化,采用 Pre-LN 顺序(先归一化,再计算,最后残差相加),这是当代大模型的标配结构。\n\n### 原理\n\nLayerNorm 沿最后一维对每个位置做标准化:减均值、除标准差(加 1e-5 防除零),再用可学习参数 gamma/beta 做缩放平移,把数据拉回合适尺度,训练更稳。FeedForward 是两层线性夹一层 ReLU:先把 embed_dim 升维到 hidden_dim(这里 32→64),过 np.maximum(x, 0) 的 ReLU 激活,再降维回 embed_dim,给模型非线性。TransformerBlock 按 Pre-LN 顺序组织:先 norm 再 attn/ffn,结果与输入残差相加;梯度路径更短,深层堆叠也不易退化。\n\n### 操作\n\n1. 补全 LayerNorm.forward:沿 axis=-1 算 mean 与 var,返回 (x - mean) / np.sqrt(var + 1e-5) * gamma + beta;\n2. 补全 FeedForward.forward:np.maximum(x @ w1 + b1, 0.0) @ w2 + b2;\n3. 补全 TransformerBlock.forward:Pre-LN 两次残差——x = x + attn(norm1(x)),再 x = x + ffn(norm2(x));\n4. 运行 main,观察「块输出形状: (4, 32)」与输出均值:形状保持不变,残差让数值保持在小范围。\n\n### 常见坑\n\n- 归一化轴错:LayerNorm 沿特征维 axis=-1,不是沿序列维;\n- 忘记加 1e-5:某个维度方差为 0 时除零得到 inf;\n- Pre-LN 顺序搞反:先归一化再进注意力/前馈,最后残差相加;顺序反了就是 Post-LN,深层容易炸。\n",
+      "todoItems": [
+        {
+          "title": "补全 LayerNorm.forward:沿最后一维标准化并缩放平移",
+          "target": "LayerNorm.forward() 方法",
+          "code": "mean = x.mean(axis=-1, keepdims=True)\nvar = x.var(axis=-1, keepdims=True)\nreturn (x - mean) / np.sqrt(var + 1e-5) * self.gamma + self.beta",
+          "expect": "输出与输入形状一致,数值保持小范围"
+        },
+        {
+          "title": "补全 FeedForward.forward:升维 → ReLU → 降维",
+          "target": "FeedForward.forward() 方法",
+          "code": "return np.maximum(x @ self.w1 + self.b1, 0.0) @ self.w2 + self.b2",
+          "expect": "输出形状为 (seq_len, embed_dim)"
+        },
+        {
+          "title": "补全 TransformerBlock.forward:Pre-LN 两次残差",
+          "target": "TransformerBlock.forward() 方法",
+          "code": "x = x + self.attn.forward(self.norm1.forward(x))\nx = x + self.ffn.forward(self.norm2.forward(x))\nreturn x",
+          "expect": "块输出形状为 (4, 32)"
+        },
+        {
+          "title": "运行 main,确认块输出形状与均值",
+          "target": "main 运行输出",
+          "expect": "打印「块输出形状: (4, 32)」与输出均值"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "LayerNorm 公式:(x - mean) / np.sqrt(var + 1e-5) * gamma + beta;mean 与 var 都要 keepdims=True,才能与 x 广播。"
+        },
+        {
+          "order": 2,
+          "text": "FeedForward 就是两层线性夹一层 ReLU:np.maximum(x @ self.w1 + self.b1, 0.0) @ self.w2 + self.b2。"
+        },
+        {
+          "order": 3,
+          "text": "Pre-LN 残差:x = x + self.attn.forward(self.norm1.forward(x));x = x + self.ffn.forward(self.norm2.forward(x))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Pre-LN 残差块的结构示意",
+          "language": "python",
+          "code": "# x ──► norm1 ──► attn ─┐\n#      │                   ├─(+)─► norm2 ──► ffn ─┐\n#      └───────────────────┘                      ├─(+)─► 输出\n#                                             x ──┘\n# 每个子层都是 y = f(norm(x)) + x,Pre-LN 顺序",
+          "description": "Transformer 块由注意力与前馈两个子层组成,每个子层都先归一化、再变换、最后残差相加。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "层归一化(Layer Normalization)",
+          "definition": "沿特征维标准化再缩放平移,把数据拉回合适尺度,让深层网络训练更稳定。"
+        },
+        {
+          "name": "前馈网络(Feed-Forward Network)",
+          "definition": "升维 → ReLU → 降维的两层线性变换,是模型唯一的非线性来源。"
+        },
+        {
+          "name": "残差连接(Residual Connection)",
+          "definition": "输出 = 变换(x) + x,让梯度直通,深层堆叠更稳。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "提供多维数组、矩阵乘法与随机采样,支撑整个微缩 GPT 的前向与生成。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 TransformerBlock 块类。",
+          "astType": "class_def",
+          "name": "TransformerBlock",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "前馈网络需要使用 ReLU 激活。",
+          "pattern": "np\\.maximum",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印块输出形状与输出均值。",
+          "expectedStdout": "块输出形状: \\(4, 32\\)[\\s\\S]*输出均值",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-numpy-transformer-s5",
+      "taskId": "t61-numpy-transformer",
+      "order": 5,
+      "title": "组装 TinyGPT:logits 与「下一个字」预测",
+      "instruction": "### 目标\n\n前面的步骤把零件一件件造齐:词嵌入、位置编码、单头注意力、多头注意力、层归一化、前馈网络、完整 Transformer 块。本步把它们组装成完整的 TinyGPT——嵌入层 + 位置编码 + 两层 Transformer 块 + 顶层归一化 + 输出头,并实现 predict 方法:输入一串字符,预测下一个最可能的字。这是整个微缩模型的「封箱」:从此不再手工拼接模块,而是像使用真实模型一样调用 model.forward 与 model.predict。\n\n### 原理\n\n前向管道是一条直线:ids 先过词嵌入与位置编码相加,再依次经过每个 Transformer 块,然后过顶层 LayerNorm,最后乘输出头 self.head,得到 logits,形状为 (seq_len, vocab_size),这里即 (4, 18)。predict 只看最后一个位置的 logits[-1]:先减去它的最大值(数值稳定),再 exp 得到未归一化的概率,除以总和得到和为 1 的分布,argmax 取最大概率的下标,对应词表中概率最高的「下一个字」。输出头权重随机初始化(0 均值、0.02 标准差),模型没有经过训练,预测带有随机性,但完整的结构已经跑通——这是后面一切的基础。\n\n### 操作\n\n1. 在 __init__ 里用列表推导创建 num_layers 个 TransformerBlock(embed_dim, num_heads, hidden_dim) 存入 self.blocks,再建顶层 self.norm 与输出头 self.head(形状 embed_dim × vocab_size,用 np.random.default_rng(7).normal 初始化);\n2. 实现 forward:x = 嵌入 + 位置编码,for 循环依次过每个块,最后返回 x @ self.head 的 logits;\n3. 实现 predict:取 logits[-1],先减最大值再 exp,归一化后 argmax 得到下标,返回下标与对应概率;\n4. 运行 main,观察「logits 形状: (4, 18)」与预测输出:logits 每行长度 18(词表大小),预测下标在 0 到 17 之间。\n\n### 常见坑\n\n- 位置编码长度:pos_enc.forward 要用 len(ids),不要写死 MAX_SEQ,否则形状对不上;\n- 预测只看最后一步:predict 必须取 logits[-1],而不是整个序列;\n- softmax 前先减最大值:不稳定的 exp 可能溢出成 inf,分布就全坏了。\n",
+      "todoItems": [
+        {
+          "title": "在 __init__ 中装配 blocks、顶层归一化与输出头",
+          "target": "TinyGPT.__init__() 方法",
+          "code": "self.blocks = [TransformerBlock(embed_dim, num_heads, hidden_dim) for _ in range(num_layers)]\nself.norm = LayerNorm(embed_dim)\nself.head = np.random.default_rng(7).normal(0.0, 0.02, (embed_dim, vocab_size))",
+          "expect": "self.blocks 含 2 个 TransformerBlock,self.head 形状为 (embed_dim, vocab_size)"
+        },
+        {
+          "title": "实现 forward:嵌入 + 位置编码 → 逐块 → 输出头",
+          "target": "TinyGPT.forward() 方法",
+          "code": "x = self.embed.forward(ids) + self.pos_enc.forward(len(ids))\nfor block in self.blocks:\n    x = block.forward(x)\nreturn x @ self.head",
+          "expect": "logits 形状为 (4, 18)"
+        },
+        {
+          "title": "实现 predict:取 logits[-1] 归一化后 argmax",
+          "target": "TinyGPT.predict() 方法",
+          "code": "logits = self.forward(ids)[-1]\nexp = np.exp(logits - logits.max())\nprobs = exp / exp.sum()\nidx = int(np.argmax(probs))\nreturn idx, float(probs[idx])",
+          "expect": "返回 (下标, 概率),下标在 0~17 之间"
+        },
+        {
+          "title": "运行 main,确认 logits 形状与预测输出",
+          "target": "main 运行输出",
+          "expect": "打印「logits 形状: (4, 18)」与预测下标、概率"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "五件套装配:embed 与 pos_enc 已给出;self.blocks 用列表推导创建 num_layers 个 TransformerBlock(embed_dim, num_heads, hidden_dim);self.norm = LayerNorm(embed_dim);self.head = np.random.default_rng(7).normal(0.0, 0.02, (embed_dim, vocab_size))。"
+        },
+        {
+          "order": 2,
+          "text": "前向管线:x = self.embed.forward(ids) + self.pos_enc.forward(len(ids));for block in self.blocks: x = block.forward(x);最后 return x @ self.head。"
+        },
+        {
+          "order": 3,
+          "text": "predict 四行:logits = self.forward(ids)[-1];exp = np.exp(logits - logits.max());probs = exp / exp.sum();idx = int(np.argmax(probs)),返回 (idx, float(probs[idx]))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "logits 与预测:从分布到下一个字",
+          "language": "python",
+          "code": "# logits: (seq_len, vocab_size) 的原始打分\nlogits = model.forward(ids)\nlast = logits[-1]                 # 只看最后一个位置\nprobs = np.exp(last - last.max())  # 先减最大值,数值稳定\nprobs = probs / probs.sum()\nnext_id = int(np.argmax(probs))    # 概率最高的下标\nprint(VOCAB[next_id])",
+          "description": "TinyGPT 的输出头把隐藏状态投影到词表空间,argmax 得到概率最高的下一个字。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "logits",
+          "definition": "模型输出层未归一化的原始打分,形状为 (seq_len, vocab_size),数值可正可负,不能直接当概率。"
+        },
+        {
+          "name": "堆叠(Stacking)",
+          "definition": "多层相同的 Transformer 块依次连接,前一层输出作为后一层输入,是深层模型的结构基础。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "提供多维数组、矩阵乘法与随机采样,支撑整个微缩 GPT 的前向与生成。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 TinyGPT 模型类。",
+          "astType": "class_def",
+          "name": "TinyGPT",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "predict 需要使用 argmax 取最大概率下标。",
+          "pattern": "np\\.argmax",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "模型需要使用 TransformerBlock 堆叠。",
+          "pattern": "self\\.blocks",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印 logits 形状与预测结果。",
+          "expectedStdout": "logits 形状: \\(4, 18\\)[\\s\\S]*预测下标 \\d+,",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-numpy-transformer-s6",
+      "taskId": "t61-numpy-transformer",
+      "order": 6,
+      "title": "温度与 top-k 采样:自回归生成",
+      "instruction": "### 目标\n\ns5 的 predict 是「复读机」:每次只挑概率最大的字,回答确定而单调。真实的文本生成要有随机性——同样的开头,每次续写都不同。本步实现完整的自回归生成循环:温度采样、top-k 截断、generate 函数,让模型一句接一句地「吐字」。你将亲眼看到温度如何控制「创造欲」:低温保守、高温发散。\n\n### 原理\n\n生成的核心是把 logits 变成可采样的概率分布。温度 T 先对 logits 做缩放:除以 T,T 小则分布更尖(差异放大)、T 大则更平(差异抹平)。top-k 截断只保留打分最高的 k 个候选,其余概率直接归零,防止小概率噪音字捣乱。实现上:indices = np.argsort(logits)[-top_k:] 取最高的 k 个下标;只给这些位置算稳定 softmax(先减最大值再 exp),其余位置置 0;最后归一化保证和为 1,才能喂给 rng.choice 采样。generate 循环 length 次:把当前全部 ids 送进模型取 logits[-1],采样一个下标,拼回序列,再进入下一轮——新预测依赖最新上下文,这就是自回归。\n\n### 操作\n\n1. 补全 TinyGPT.forward:与 s5 相同,嵌入加位置编码,依次过块,返回 x @ self.head;\n2. 补全 softmax_for_topk:先 logits / temperature,再用 np.argsort 取打分最高的 top_k 个下标,只给保留位算稳定 softmax,其余置 0 并归一化;\n3. 补全 generate:rng 固定种子,ids = text_to_ids(prompt).tolist(),每轮 forward 取 logits[-1],rng.choice 采样,append 进 ids 并拼回字符串;\n4. 运行 main,对比 temperature=0.5 与 1.0 的生成结果:低温更「稳」,高温更「跳」,但都出自同一个 18 字词表。\n\n### 常见坑\n\n- 温度放缩要放在最前:先 logits / temperature,再做后续处理;\n- argsort 要取末尾:[-top_k:] 是打分最高的 k 个下标,不是前 k 个;\n- probs 必须归一化:rng.choice 要求 p 的和为 1,否则抛 ValueError;\n- 每轮都要把最新 ids 送进模型:生成是「逐字追加」的,不能只喂 prompt。\n",
+      "todoItems": [
+        {
+          "title": "补全 TinyGPT.forward:与 s5 相同的前向管线",
+          "target": "TinyGPT.forward() 方法",
+          "code": "x = self.embed.forward(ids) + self.pos_enc.forward(len(ids))\nfor block in self.blocks:\n    x = block.forward(x)\nreturn x @ self.head",
+          "expect": "logits 形状为 (4, 18)"
+        },
+        {
+          "title": "补全 softmax_for_topk:温度缩放 + top-k 截断的稳定 softmax",
+          "target": "softmax_for_topk() 函数",
+          "code": "logits = logits / temperature\nindices = np.argsort(logits)[-top_k:]\nscores = logits[indices] - logits[indices].max()\nprobs = np.zeros_like(logits)\nprobs[indices] = np.exp(scores) / np.exp(scores).sum()\nreturn probs",
+          "expect": "返回长度等于 logits 的概率向量,和为 1"
+        },
+        {
+          "title": "补全 generate:自回归采样循环",
+          "target": "generate() 函数",
+          "code": "rng = np.random.default_rng(seed)\nids = text_to_ids(prompt).tolist()\ntext = prompt\nfor _ in range(length):\n    probs = softmax_for_topk(model.forward(np.asarray(ids))[-1], temperature, top_k)\n    probs = probs / probs.sum()\n    next_id = int(rng.choice(len(VOCAB), p=probs))\n    ids.append(next_id)\n    text += VOCAB[next_id]\nreturn text",
+          "expect": "返回 prompt 续写 length 个字符的字符串"
+        },
+        {
+          "title": "运行 main,对比两档温度的生成结果",
+          "target": "main 运行输出",
+          "expect": "打印 logits 形状与 temperature=0.5、1.0 两段生成结果"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "温度缩放先行:softmax_for_topk 的第一行就是 logits = logits / temperature。"
+        },
+        {
+          "order": 2,
+          "text": "top-k 截断:indices = np.argsort(logits)[-top_k:];scores = logits[indices] - logits[indices].max();probs = np.zeros_like(logits);probs[indices] = np.exp(scores) / np.exp(scores).sum()。"
+        },
+        {
+          "order": 3,
+          "text": "采样循环:rng = np.random.default_rng(seed);ids = text_to_ids(prompt).tolist();每轮 probs = softmax_for_topk(model.forward(np.asarray(ids))[-1], temperature, top_k) 并归一化,next_id = int(rng.choice(len(VOCAB), p=probs)),ids.append(next_id),text += VOCAB[next_id]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "温度对分布的影响",
+          "language": "python",
+          "code": "# 同一组 logits,不同温度下的概率分布\nlogits = np.array([1.0, 2.0, 3.0])\nfor T in (0.5, 1.0, 2.0):\n    probs = np.exp(logits / T)\n    probs = probs / probs.sum()\n    print(f\"T={T}: {probs}\")  # 低温尖、高温平",
+          "description": "温度越小分布越尖锐,最大概率被放大;温度越大分布越平坦,次优候选的机会更多。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "温度(Temperature)",
+          "definition": "生成时的采样参数:对 logits 做除法以控制分布锐度,T 小更保守、T 大更发散。"
+        },
+        {
+          "name": "top-k 采样",
+          "definition": "只保留打分最高的 k 个候选参与采样,其余概率置 0,避免小概率噪音字。"
+        },
+        {
+          "name": "自回归生成(Autoregressive Generation)",
+          "definition": "把已生成的全部字符喂回模型,每次只预测下一个字符,逐字追加。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "提供多维数组、矩阵乘法与随机采样,支撑整个微缩 GPT 的前向与生成。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 softmax_for_topk 函数。",
+          "astType": "function_def",
+          "name": "softmax_for_topk",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 generate 函数。",
+          "astType": "function_def",
+          "name": "generate",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "top-k 截断需要使用 argsort。",
+          "pattern": "np\\.argsort",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "采样需要使用 rng.choice。",
+          "pattern": "rng\\.choice",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印 logits 形状与两档温度的生成结果。",
+          "expectedStdout": "logits 形状: \\(4, 18\\)[\\s\\S]*生成结果: 「[^」]+」",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

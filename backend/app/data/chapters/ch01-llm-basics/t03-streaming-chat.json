@@ -1,0 +1,215 @@
+{
+  "steps": [
+    {
+      "id": "t03-streaming-chat-s1",
+      "taskId": "t03-streaming-chat",
+      "order": 1,
+      "title": "初识流式输出",
+      "instruction": "### 目标\n学会使用 `stream=True` 参数让 LLM 流式返回 token，并逐块打印。\n\n### 背景: 流式为什么是生产标配\n非流式调用要等模型生成完整个回复才返回——一段 500 字的回答可能等 10 秒，用户面对空白屏幕以为卡死了。流式则**边生成边返回**,首 token 延迟(TTFT)通常 <1 秒,用户立刻看到字往外冒,感知速度快 10 倍。\n\n### 技术细节: chunk 的结构\n`stream=True` 后 response 不再是单个对象,而是**迭代器**,每次 yield 一个 chunk:\n```python\nfor chunk in response:\n    delta = chunk.choices[0].delta.content  # 增量文本\n```\n- `delta.content` 是**增量**(这次新增的几个字),不是累计——你要自己拼\n- 第一个 chunk 的 delta.content 可能是 `None`(只含 role 信息),必须判空\n- 最后一个 chunk 的 `finish_reason` 变成 `\"stop\"`,标志生成结束\n\n### 流式的隐藏成本\n流式底层用 SSE(Server-Sent Events),每个 chunk 都是一个独立 HTTP 帧。**chunk 越多网络开销越大**——极端情况下细粒度流式可能比非流式慢。权衡:对终端用户用流式(体验好),对后端批处理用非流式(效率高)。\n\n### 操作\n1. `create(..., stream=True)` 开启流式\n2. `for chunk in response:` 遍历,取 `delta.content` 判空后 `print(..., end=\"\")`\n3. 观察终端逐字输出的效果",
+      "starterCode": "from openai import OpenAI\n\nclient = OpenAI()\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": \"用一句话介绍流式输出\"}],\n    # 添加 stream=True 参数\n)\n\n# TODO: 遍历 response 并打印每个 token\n# 提示: print(token, end='')\n",
+      "solutionCode": "from openai import OpenAI\n\nclient = OpenAI()\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": \"用一句话介绍流式输出\"}],\n    stream=True\n)\n\nfor chunk in response:\n    token = chunk.choices[0].delta.content\n    if token is not None:\n        print(token, end='')\nprint()",
+      "hints": [
+        {
+          "order": 1,
+          "text": "检查 `create` 函数中是否缺少 `stream` 参数，以及如何设置它。"
+        },
+        {
+          "order": 2,
+          "text": "遍历 `response` 时，每个 `chunk` 的 `choices[0].delta.content` 可能为 `None`，需要判断。"
+        },
+        {
+          "order": 3,
+          "text": "在 `create` 中加入 `stream=True`，然后 `for chunk in response:`，在循环内用 `if token:` 过滤 None。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "流式输出基本模板",
+          "language": "python",
+          "code": "response = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": \"你好\"}],\n    stream=True\n)\nfor chunk in response:\n    token = chunk.choices[0].delta.content\n    if token:\n        print(token, end='')",
+          "description": "展示流式输出的标准写法。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "流式输出 (Streaming)",
+          "definition": "模型逐步返回 token，而非一次性返回完整响应。"
+        },
+        {
+          "name": "Token",
+          "definition": "文本的最小单元，可以是词、子词或字符。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "调用 OpenAI API 的官方库",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。支持流式/函数调用/JSON 输出,通过 base_url 可兼容国内模型。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请添加 stream=True 参数",
+          "placeholder": "# TODO: 添加 stream=True 参数"
+        },
+        {
+          "type": "placeholder_filled",
+          "message": "请完成遍历 response 的代码",
+          "placeholder": "# TODO: 遍历 response 并打印每个 token"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应能运行并输出内容",
+          "expectedStdout": null,
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t03-streaming-chat-s2",
+      "taskId": "t03-streaming-chat",
+      "order": 2,
+      "title": "构建多轮对话",
+      "instruction": "### 目标\n学会维护 `messages` 列表，实现简单的多轮对话。\n\n### 概念\n- **多轮对话 (Multi-turn Conversation)**: 模型需要记住历史对话，因此每次请求都要将之前的对话（用户和助手消息）作为上下文传入。\n- **`messages` 列表**: 一个包含多个消息对象的列表，每个消息有 `role`（`system`/`user`/`assistant`）和 `content`。\n\n### 操作指引\n1. 初始化 `messages` 列表，包含一个系统消息（可选）和第一个用户消息。\n2. 调用 API 获取助手回复。\n3. 将用户的后续输入和助手的回复依次追加到 `messages` 列表中。\n4. 每次请求都传入完整的 `messages` 列表。\n\n**为什么这样做？** 模型本身无状态，必须通过 `messages` 传递上下文才能进行连贯对话。",
+      "starterCode": "from openai import OpenAI\n\nclient = OpenAI()\n\nmessages = [\n    {\"role\": \"system\", \"content\": \"你是一个乐于助人的助手。\"},\n    {\"role\": \"user\", \"content\": \"你好，我叫小明。\"}\n]\n\n# 第一次对话\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=messages\n)\nassistant_reply = response.choices[0].message.content\nprint(\"助手:\", assistant_reply)\n\n# 将助手回复追加到 messages 中\n\n# 第二次对话\nuser_input = \"我叫什么名字？\"\n# 将用户输入追加到 messages 中\n\nresponse2 = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=messages\n)\nprint(\"助手:\", response2.choices[0].message.content)",
+      "solutionCode": "from openai import OpenAI\n\nclient = OpenAI()\n\nmessages = [\n    {\"role\": \"system\", \"content\": \"你是一个乐于助人的助手。\"},\n    {\"role\": \"user\", \"content\": \"你好，我叫小明。\"}\n]\n\n# 第一次对话\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=messages\n)\nassistant_reply = response.choices[0].message.content\nprint(\"助手:\", assistant_reply)\n\n# 将助手回复追加到 messages 中\nmessages.append({\"role\": \"assistant\", \"content\": assistant_reply})\n\n# 第二次对话\nuser_input = \"我叫什么名字？\"\nmessages.append({\"role\": \"user\", \"content\": user_input})\n\nresponse2 = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=messages\n)\nprint(\"助手:\", response2.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "思考如何记录助手的回复，以便在下一轮对话中传入。"
+        },
+        {
+          "order": 2,
+          "text": "使用 `messages.append()` 方法，注意 role 和 content 的键名。"
+        },
+        {
+          "order": 3,
+          "text": "先追加助手的回复（role='assistant'），再追加用户的新输入（role='user'）。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "追加消息示例",
+          "language": "python",
+          "code": "messages.append({\"role\": \"assistant\", \"content\": \"你好，小明！\"})\nmessages.append({\"role\": \"user\", \"content\": \"今天天气怎么样？\"})",
+          "description": "展示如何向 messages 列表添加新消息。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "多轮对话",
+          "definition": "包含多次用户输入和模型回复的对话，模型需依赖历史上下文。"
+        },
+        {
+          "name": "messages 列表",
+          "definition": "存储对话历史的消息对象列表，每个对象包含 role 和 content。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "调用 OpenAI API",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。支持流式/函数调用/JSON 输出,通过 base_url 可兼容国内模型。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请追加助手回复到 messages",
+          "placeholder": "# TODO: 将助手回复追加到 messages 中"
+        },
+        {
+          "type": "placeholder_filled",
+          "message": "请追加用户输入到 messages",
+          "placeholder": "# TODO: 将用户输入追加到 messages 中"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应能运行并输出两次助手回复",
+          "expectedStdout": null,
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t03-streaming-chat-s3",
+      "taskId": "t03-streaming-chat",
+      "order": 3,
+      "title": "流式多轮对话",
+      "instruction": "### 目标\n将流式输出与多轮对话结合，实现一个流式交互的多轮对话程序。\n\n### 概念\n- **结合**: 在每轮对话中，使用 `stream=True` 实时输出助手回复，同时将完整回复（拼接所有 token）存入 `messages` 列表。\n\n### 操作指引\n1. 初始化 `messages` 列表。\n2. 进入循环，获取用户输入。\n3. 将用户输入追加到 `messages`。\n4. 调用 API 并设置 `stream=True`。\n5. 遍历 chunk，实时打印 token，同时将 token 拼接成完整回复。\n6. 循环结束后，将完整回复作为 assistant 消息追加到 `messages`。\n7. 重复步骤 2-6。\n\n**为什么这样做？** 流式输出提升体验，但后续对话需要完整回复作为上下文，因此需要手动拼接。",
+      "starterCode": "from openai import OpenAI\n\nclient = OpenAI()\n\nmessages = [\n    {\"role\": \"system\", \"content\": \"你是一个有用的助手。\"}\n]\n\nprint(\"开始对话（输入 'quit' 退出）\")\nwhile True:\n    user_input = input(\"你: \")\n    if user_input.lower() == 'quit':\n        break\n    # TODO: 将用户输入追加到 messages\n# 提示: messages.append({\"role\": \"user\", \"content\": user_input})\n\n    # TODO: 调用 API，stream=True，遍历 chunk 并拼接回复\n    # 提示：用变量收集完整回复\n\n    # TODO: 将完整回复追加到 messages\n# 提示: messages.append({\"role\": \"user\", \"content\": user_input})\n",
+      "solutionCode": "from openai import OpenAI\n\nclient = OpenAI()\n\nmessages = [\n    {\"role\": \"system\", \"content\": \"你是一个有用的助手。\"}\n]\n\nprint(\"开始对话（输入 'quit' 退出）\")\nwhile True:\n    user_input = input(\"你: \")\n    if user_input.lower() == 'quit':\n        break\n    messages.append({\"role\": \"user\", \"content\": user_input})\n\n    response = client.chat.completions.create(\n        model=\"deepseek-v4-pro\",\n        messages=messages,\n        stream=True\n    )\n    full_reply = \"\"\n    print(\"助手: \", end='')\n    for chunk in response:\n        token = chunk.choices[0].delta.content\n        if token:\n            print(token, end='')\n            full_reply += token\n    print()\n    messages.append({\"role\": \"assistant\", \"content\": full_reply})",
+      "hints": [
+        {
+          "order": 1,
+          "text": "需要先追加用户输入，再调用 API，最后追加助手回复。"
+        },
+        {
+          "order": 2,
+          "text": "在遍历 chunk 时，用一个字符串变量累加 token，循环结束后再追加到 messages。"
+        },
+        {
+          "order": 3,
+          "text": "参考前两个步骤，将流式输出和多轮对话的代码组合起来，注意变量作用域。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "拼接完整回复",
+          "language": "python",
+          "code": "full_reply = ''\nfor chunk in response:\n    token = chunk.choices[0].delta.content\n    if token:\n        print(token, end='')\n        full_reply += token",
+          "description": "展示如何在流式输出时拼接完整回复。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "流式多轮对话",
+          "definition": "结合流式输出与多轮对话，实时显示回复并保存历史。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "调用 OpenAI API",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。支持流式/函数调用/JSON 输出,通过 base_url 可兼容国内模型。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请完成用户输入追加",
+          "placeholder": "# TODO: 将用户输入追加到 messages"
+        },
+        {
+          "type": "placeholder_filled",
+          "message": "请完成 API 调用和流式处理",
+          "placeholder": "# TODO: 调用 API，stream=True，遍历 chunk 并拼接回复"
+        },
+        {
+          "type": "placeholder_filled",
+          "message": "请完成助手回复追加",
+          "placeholder": "# TODO: 将完整回复追加到 messages"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应能运行并开始对话",
+          "expectedStdout": null,
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

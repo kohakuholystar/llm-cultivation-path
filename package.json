@@ -1,0 +1,24 @@
+{
+  "name": "llm-agent-engineer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LLM Agent 工程师修炼之路 — 打怪升级式任务型 LLM 技术栈学习网站",
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --port 4200",
+    "build": "pnpm --filter frontend build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "cd backend && python -m pytest tests/ -q",
+    "build:sandbox": "docker build -f docker/sandbox.Dockerfile -t llmquest-sandbox:latest .",
+    "generate:curriculum": "cd backend && python ../scripts/generate_curriculum.py",
+    "validate:curriculum": "cd backend && python ../scripts/validate_curriculum.py"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@11.15.1"
+}

@@ -1,0 +1,435 @@
+{
+  "steps": [
+    {
+      "id": "t24-rag-eval-s1",
+      "taskId": "t24-rag-eval",
+      "order": 1,
+      "title": "搭建检索基线与标注测试集",
+      "instruction": "### 目标\n为「藏经阁」RAG 系统搭建评估实验场:一个迷你语料库、一个纯 Python TF-IDF 检索器,以及一套带标准答案的测试问题集。这是收官任务的地基——没有可复现的检索基线和标注数据,后面一切指标都是空谈。\n\n### 原理\n**为什么评估要先于优化?** RAG 系统最常见的失败模式是\"凭感觉调优\":换 embedding、调 chunk、改 prompt,效果全靠目测几个例子。工程上的正确姿势是先固定一把\"标尺\"(标注测试集 + 确定的检索器实现),之后每次改动都用同一把尺子量,才知道改对了没有。\n\n**TF-IDF 打分机制**:对查询中的每个词 t,文档得分累加 `tf(t)·idf(t)`。其中 idf = log((N+1)/(df+1)) + 1——出现在越多文档里的词(如\"什么\"),idf 越低、区分度越差;只在少数文档出现的词(如\"金疮\")才是定位文档的关键信号。这就是\"逆文档频率\"的直觉:越稀有的词越有指向性。\n\n**中文切词的折中**:没有分词库时,按单字切会把\"内功\"拆成\"内\"\"功\"丢失词义;本步用 **bigram(相邻两字成词)**,牺牲部分精度换来零依赖、确定性——评估实验最看重可复现性。真实系统里把 `search()` 换成向量检索即可,评估框架原样复用,这就是\"评估与被测对象解耦\"。\n\n### 操作\n1. 通读已给出的语料、`tokenize` 与 `TfidfRetriever.__init__`,理解 tf 表和 idf 表怎么建。\n2. 补全 `search`:对每条文档按查询词的 tf·idf 求和打分,按分数降序返回前 k 条。\n3. 补全主程序:用测试集前 3 个问题做冒烟测试,肉眼检查命中是否合理。\n\n### 常见坑\n- **打分后不排序**:返回顺序等于语料顺序,top-k 永远命中前两篇,后面所有评估全部失真。`sort` 的 key 必须是分数,且 `reverse=True`。\n- **bigram 边界**:长度为 1 的中文串(如\"拳\")产生不了 bigram,查询会被切成空列表、得分全 0;教学场景可接受,但要知道有这个盲区。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:search 要对每条文档算一个总分——查询里每个词的 tf(文档内词频)乘 idf(全局稀有度),累加即可。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:counts.get(t, 0) * self.idf.get(t, 0.0),用 sum(...) 对 tokenize(query) 求和;排序用 scored.sort(key=lambda x: x[1], reverse=True)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:scored = [(doc, 总分) for doc, counts in zip(self.docs, self.tf)],排序后 return scored[:k];主程序 top = \", \".join(f\"{d['id']}({s:.2f})\")。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "IDF 手算示例",
+          "language": "python",
+          "code": "import math\nN, df = 6, 1  # 6 篇文档,\"金疮\"只在 1 篇出现\nidf = math.log((N + 1) / (df + 1)) + 1\nprint(f\"idf(金疮) = {idf:.3f}\")  # ≈ 2.253,稀有词权重高",
+          "description": "体会 idf 公式:词越稀有,对打分的贡献越大"
+        }
+      ],
+      "terms": [
+        {
+          "name": "TF-IDF",
+          "definition": "词频-逆文档频率:用词频衡量词对文档的重要度,用逆文档频率压制常见词,是经典的字面检索打分方式。",
+          "referenceUrl": "https://en.wikipedia.org/wiki/Tf%E2%80%93idf"
+        },
+        {
+          "name": "标注测试集",
+          "definition": "带人工标准答案的问题集合(Golden Dataset),是评估检索/生成质量的标尺;标注一旦固定,不应随系统改动而挪动。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "编程语言",
+          "description": "本课程全程使用的语言,LLM/AI 生态最丰富。",
+          "officialUrl": "https://www.python.org/",
+          "category": "语言"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全 search 打分与冒烟测试代码",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 TfidfRetriever 类",
+          "astType": "class_def",
+          "name": "TfidfRetriever"
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 tokenize 函数",
+          "astType": "function_def",
+          "name": "tokenize"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "打分后必须按分数降序排序(reverse=True)",
+          "pattern": "reverse\\s*=\\s*True"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出 top-2 命中且第一题为 d1",
+          "expectedStdout": "top-2 → d1\\(",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t24-rag-eval-s2",
+      "taskId": "t24-rag-eval",
+      "order": 2,
+      "title": "接入 DeepSeek 生成端",
+      "instruction": "### 目标\n在检索基线上接入 DeepSeek 生成端,把\"检到文档\"变成\"给出答案\",并练就两项工程素养:从环境变量读 API 配置、用 MOCK 分支让流水线离线也能完整跑通。\n\n### 原理\n**RAG 的生成本质是\"带着镣铐跳舞\"**:把检索到的文档原文拼进 prompt,再要求模型\"只根据资料回答\"。模型被迫以资料为依据,而不是凭训练记忆自由发挥——这是抑制幻觉的第一道防线(注意:不是最后一道,第五步会看到它仍然会失败)。\n\n**为什么坚持 env 配置**:`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `MODEL_NAME` 全部从环境变量读取,代码里绝不硬编码 key——硬编码的 key 一旦提交进 git 就等同泄露。程序开头检查 key,缺失时打印提示并 `sys.exit(0)` 优雅退出,而不是让学习者面对一屏 traceback。\n\n**MOCK 分支的价值**:`MOCK_LLM=1` 时用确定性的假回复替代真实 API。评估脚本要反复跑,每次都烧 token 又慢又贵;mock 让\"检索 → 拼 prompt → 解析输出\"的流水线在离线环境也能完整演练,且结果逐字节可复现——评估代码和业务代码一样需要可测试性。注意 mock 不是摆设:本步故意让它在检索得分为 0 时\"凭记忆瞎答\",为后面的忠实度评估制造幻觉标本。\n\n### 操作\n1. 补全 `chat()`:用 OpenAI SDK 调 `chat.completions.create`,`temperature=0`,异常时返回带标记的错误说明。\n2. 补全 `generate_answer()`:把 top 文档拼成\"资料\"段落,附上防幻觉指令后交给 LLM。\n3. 运行观察:检索命中时答案引用原文;检索失败时 mock 开始瞎编——记住这个感觉,第五步要量化它。\n\n### 常见坑\n- **把异常当正常答案返回**且不加标记,下游会把 \"[LLM 调用失败] ...\" 当成正式答案展示给用户。\n- **temperature 不设 0**:评估场景每次输出不同,指标无法复现,排查问题时会怀疑人生。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:chat() 只做一件事——把 prompt 发给 DeepSeek 并拿回文本;generate_answer() 负责组织 prompt,两者职责分开。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:client.chat.completions.create(model=MODEL, messages=[{\"role\": \"user\", \"content\": prompt}], temperature=0),取 resp.choices[0].message.content。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:context = \"\\n\".join(d[\"text\"] for d, _ in hits),prompt 里写明\"资料不足就说无法回答\";MOCK 分支用 hits[0][1] == 0 判断检索失败并返回瞎答句。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "环境变量配置",
+          "language": "bash",
+          "code": "export OPENAI_API_KEY=\"sk-你的key\"\nexport OPENAI_BASE_URL=\"https://api.deepseek.com\"\nexport MODEL_NAME=\"deepseek-v4-pro\"\nexport MOCK_LLM=1   # 离线演示模式,不烧 token",
+          "description": "配置一律走环境变量;MOCK_LLM=1 时离线跑通整条流水线"
+        }
+      ],
+      "terms": [
+        {
+          "name": "幻觉(Hallucination)",
+          "definition": "模型在缺乏依据时编造看似合理的内容;RAG 用检索资料约束生成,正是为了抑制幻觉。"
+        },
+        {
+          "name": "Mock(测试替身)",
+          "definition": "用确定性的假实现替换真实外部依赖(这里是 LLM API),让流水线离线可跑、结果可复现,是评估脚本的标配。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "DeepSeek API",
+          "role": "大模型推理服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容对话接口,本课程统一使用 deepseek-v4-pro。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型"
+        },
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 客户端",
+          "description": "DeepSeek 兼容 OpenAI 协议,用官方 SDK 换 base_url 即可直连。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全 chat 与 generate_answer",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要调用 chat.completions.create",
+          "api": "chat.completions.create",
+          "minCount": 1
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 generate_answer 函数",
+          "astType": "function_def",
+          "name": "generate_answer"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "缺少 API Key 时应提示并优雅退出",
+          "pattern": "请先在右上角 AI 配置填入 DeepSeek API Key"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要保留 MOCK_LLM 离线演示分支",
+          "pattern": "MOCK_LLM"
+        }
+      ]
+    },
+    {
+      "id": "t24-rag-eval-s3",
+      "taskId": "t24-rag-eval",
+      "order": 3,
+      "title": "召回率评估:给检索一把尺子",
+      "instruction": "### 目标\n给检索器做量化体检:实现 Recall@k 与库外拒绝率两个指标,对 6 道测试题逐题打分,输出一张评估报告。从此\"检索好像变好了\"变成\"Recall@2 从 0.25 提到 0.75\"——能量化的优化才叫优化。\n\n### 原理\n**为什么看召回而不是准确率?** top-k 检索里 k 是固定的,\"检出的 k 篇里有几篇相关\"(precision)被人为锁死,区分度很差;真正卡脖子的是\"该检出来的有没有检出来\"——漏掉关键文档,生成端再强也只能瞎编。**检索质量是 RAG 的上限**,这就是先用整步量化它的原因。\n\n**零分过滤**:我们的检索器永远返回 k 条结果,哪怕得分全 0——那只是排序后\"最不坏\"的凑数,不是命中。评估前必须按 `score > 0` 过滤,否则每题都\"命中\" k 篇,召回率虚高,你会误以为系统没问题。\n\n**库外问题的指标**:测试集里有两道 relevant 为空的题(观点题、无厘头题)。对它们,正确行为是一篇都别检出来;检出任何文档都叫\"误检\"。把\"不知道\"纳入评估,系统才不敢硬答——这是第五步忠实度评估的伏笔。注意:库外题的召回率**无定义**(分母为 0),应返回 None 跳过,而不是当作 0 拉低平均。\n\n### 操作\n1. 实现 `effective_hits`:过滤零分凑数结果。\n2. 实现 `recall_at_k`:命中相关文档数 ÷ 相关文档总数,relevant 为空返回 None。\n3. 实现 `evaluate_retriever`:逐题评估,\"召回率题\"与\"库外拒绝题\"分开统计,汇总平均召回率与拒绝率。\n\n### 常见坑\n- **把 None 当 0 平均**:库外题召回率无定义,混进平均会把指标拉偏,必须跳过单独统计。\n- **只看平均分不看明细**:平均分 0.25 可能掩盖\"某类题全灭\"——逐题打印命中明细,bad case 才藏不住(第五步正式处理)。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:三个函数各司其职——effective_hits 过滤零分,recall_at_k 算单题召回,evaluate_retriever 汇总;库外题(relevant 为空)单独统计拒绝率。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:recall_at_k 里 if not relevant: return None;命中数用 sum(1 for i in retrieved_ids if i in relevant)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:recall is None 的分支里 reject_total += 1;reject_ok += not ids(空命中即正确拒绝);recalls.append(recall) 只在非 None 分支。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Recall@k 手算",
+          "language": "python",
+          "code": "retrieved = [\"d1\", \"d4\"]  # 检索器 top-2(已过滤零分)\nrelevant = [\"d1\", \"d5\"]  # 人工标注\nrecall = len(set(retrieved) & set(relevant)) / len(relevant)\nprint(recall)  # 0.5:该捞回来的只捞回一半",
+          "description": "召回率只看\"该检出的检出了多少\",与顺序无关"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Recall@k",
+          "definition": "前 k 条检索结果中命中的相关文档数 ÷ 相关文档总数;衡量\"该找回来的找回来多少\",是检索评估的核心指标。"
+        },
+        {
+          "name": "误检(False Positive Retrieval)",
+          "definition": "对库外问题(库中无答案)检出了文档;正确行为是零命中,误检会诱导生成端硬答。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "编程语言",
+          "description": "本课程全程使用的语言,LLM/AI 生态最丰富。",
+          "officialUrl": "https://www.python.org/",
+          "category": "语言"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全三个评估函数",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 recall_at_k 函数",
+          "astType": "function_def",
+          "name": "recall_at_k"
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 evaluate_retriever 函数",
+          "astType": "function_def",
+          "name": "evaluate_retriever"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "必须过滤零分假命中(score > 0)",
+          "pattern": "score > 0"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "平均 Recall@2 应为 0.25(基线确实很差,第四步再治)",
+          "expectedStdout": "平均 Recall@2: 0\\.25",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t24-rag-eval-s4",
+      "taskId": "t24-rag-eval",
+      "order": 4,
+      "title": "MultiQuery 查询扩展",
+      "instruction": "### 目标\n实现 MultiQuery 查询扩展:让 DeepSeek 把用户的一个问题改写成多个不同问法,多路检索后融合结果,并用第三步的尺子验证召回率到底涨了多少。这是字面检索器对抗\"词汇鸿沟\"的经典手段。\n\n### 原理\n**词汇鸿沟(vocabulary mismatch)**:用户问\"流血该用什么药\",文档写的却是\"止血生肌\"——意思相同、用词零重叠,字面检索(TF-IDF 如此,向量检索也常常如此)天然失明。第三步报告里 Q2/Q3/Q4 全军覆没,根因就在这里。MultiQuery 的思路是借力 LLM 的语义能力:把查询\"翻译\"成语料库可能出现的措辞,多试几种说法,只要一路命中就算赢。\n\n**融合策略**:多路检索各产出一个排行榜,怎么合并?本步用 max-score——每篇文档取各路中的最高分,简单直接;工业界更常用 RRF(倒数排名融合,只看名次不看绝对分),对各路分数尺度不一致的场景更稳。无论哪种,**零分文档绝不进并集**,否则并集会被凑数结果污染。\n\n**改写是把双刃剑**:改写太少覆盖不足;太多引入噪声——改写跑偏会把无关文档拉进并集,反而制造误检。经验值 3~5 路,且**原查询必须保留**在查询列表里:LLM 改写可能偏离原意,原 query 是防止跑题的锚。\n\n### 操作\n1. 实现 `expand_query`:真实分支让模型输出 3 个改写(每行一个),MOCK 分支查固定表;返回\"原问题 + 改写\"列表。\n2. 实现 `multi_search`:对每个查询检索,按 doc id 做 max-score 融合,零分文档不进并集。\n3. 跑对比实验:逐题打印单查/多查召回率,看平均 Recall@2 的变化;注意\"剑法\"一题为何没救回来。\n\n### 常见坑\n- **把改写串拼成一个长查询**:关键词互相稀释、得分被摊薄,效果比单查还差——必须分开检索再融合。\n- **盲信 LLM 输出格式**:模型可能给改写加\"1.\"序号或夹空行,解析时务必逐行 strip 并过滤空行,否则序号会变成查询词污染打分。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:expand_query 只负责\"一问变多问\"(原问题放列表首位);multi_search 对每路查询检索,用 dict 按 doc id 合并,同篇留最高分。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:改写解析 rewrites = [ln.strip() for ln in chat(prompt).splitlines() if ln.strip()];融合 best[doc[\"id\"]] = (score, doc)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:if score > 0 and score > best.get(doc[\"id\"], (0.0,))[0]: 才更新;最后 sorted(best.values(), key=lambda item: item[0], reverse=True)[:k]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "MultiQuery 改写 prompt 与产出",
+          "language": "text",
+          "code": "把下面的问题改写成 3 个不同问法,每行一个,不要编号:\n弟子受伤流血该用什么药?\n\n→ 模型输出:\n止血疗伤该用什么药材?\n金疮药怎么配制?\n外伤出血的处理方法是什么?",
+          "description": "改写把\"流血\"翻译成文档可能的措辞\"止血/金疮\",跨过词汇鸿沟"
+        }
+      ],
+      "terms": [
+        {
+          "name": "MultiQuery(多查询扩展)",
+          "definition": "用 LLM 把一个问题改写成多个不同问法,多路检索后合并结果,以牺牲少量延迟换取召回率提升的技术。"
+        },
+        {
+          "name": "词汇鸿沟(Vocabulary Mismatch)",
+          "definition": "用户用词与文档用词不一致(如\"流血\"vs\"止血\")导致字面检索失效的现象,是检索失败的头号根因。"
+        },
+        {
+          "name": "max-score 融合",
+          "definition": "多路检索结果合并时,每篇文档取各路中的最高分;对照方案是 RRF(按名次倒数加权),对分数尺度不一致更稳。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "DeepSeek API",
+          "role": "大模型推理服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容对话接口,本课程统一使用 deepseek-v4-pro。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型"
+        },
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 客户端",
+          "description": "DeepSeek 兼容 OpenAI 协议,用官方 SDK 换 base_url 即可直连。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全 expand_query 与 multi_search",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要调用 chat.completions.create 生成改写",
+          "api": "chat.completions.create",
+          "minCount": 1
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 expand_query 函数",
+          "astType": "function_def",
+          "name": "expand_query"
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 multi_search 函数",
+          "astType": "function_def",
+          "name": "multi_search"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要按 doc id 做 max-score 融合",
+          "pattern": "best\\[doc\\[\"id\"\\]\\]"
+        }
+      ]
+    },
+    {
+      "id": "t24-rag-eval-s5",
+      "taskId": "t24-rag-eval",
+      "order": 5,
+      "title": "忠实度评估与 Bad Case 分析表",
+      "instruction": "### 目标\n收官交付:给藏经阁做最后一次全面体检——评估每个答案的忠实度(faithfulness),按\"失败分类学\"给每道题下诊断,输出一张带改进建议的 Bad Case 分析表。这张表就是系统下一轮迭代的燃料。\n\n### 原理\n**忠实度**:答案的每一句话能否被检索到的资料支撑。它和\"答案对不对\"是两回事——答对了但引错资料(歪打正着)、资料对但模型自由发挥(幻觉),都算忠实度失败。检测分两派:启发式(检查答案与资料的词面重叠)便宜快速但粗糙;**LLM-as-judge**(让模型当裁判,判断答案是否被资料蕴涵)更准但更贵,且裁判本身必须 `temperature=0`,否则评估结果不可复现。\n\n**失败分类学**:RAG 的失败不是一回事——检索失败(该检的没检到)、误检(库外问题检出了文档)、生成幻觉(没依据也硬答),病灶不同药方完全不同:检索失败上向量检索或查询改写,误检加相关性阈值或重排序,幻觉上拒答策略。Bad Case 分析表的价值,就是把\"系统不太好\"这种模糊感受,翻译成\"哪类病灶、各几例、先治哪个\"。\n\n**收官回望**:第三步把检索量化(Recall@2 = 0.25),第四步用 MultiQuery 拉到 0.75;本步你会看到残余的失败——\"剑法\"题改写词与文档用词仍零重叠(该上 t21 的向量检索了),库外题检索为空时的幻觉。评估不是终点,是下一轮迭代的起点。\n\n### 操作\n1. 实现 `check_faithfulness`:MOCK 用\"是否引用原文\"的前缀启发式;真实分支构造裁判 prompt,只许回\"忠实\"或\"幻觉\"。\n2. 实现 `diagnose`:按 检索失败 → 误检 → 幻觉 → 通过/正确拒绝 的顺序归类(顺序即优先级)。\n3. 主程序逐题跑通\"检索 → 生成 → 判忠实 → 诊断\",打印逐题结论与 Bad Case 分析表。\n\n### 常见坑\n- **诊断顺序乱**:一道题可能既有检索失败又有幻觉,先归检索失败——检索治好了,幻觉常常不治自愈(有资料可依)。\n- **裁判 prompt 不放水**:必须写明\"明确拒答也算忠实\",否则会把正确的\"无法回答\"误判成幻觉,反而逼模型硬答。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:check_faithfulness 回答\"答案有没有依据\",diagnose 回答\"失败算哪类\";诊断按 检索失败→误检→幻觉 的优先级归类。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:MOCK 分支 return answer.startswith(\"根据藏经阁记载:\");交集判断 set(hit_ids) & set(relevant)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:真实裁判 prompt 末尾写\"只回'忠实'或'幻觉'\",return \"忠实\" in chat(prompt);diagnose 最后落 return (\"通过\", \"\") if relevant else (\"正确拒绝\", \"\")。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "LLM-as-Judge 裁判 prompt",
+          "language": "text",
+          "code": "资料:\n{检索到的文档原文}\n答案:{模型回答}\n答案的每句话都能从资料中找到依据,或答案明确说了无法回答吗?只回\"忠实\"或\"幻觉\"。",
+          "description": "裁判 prompt 三要素:给资料、给答案、限定输出词;明确拒答也算忠实"
+        }
+      ],
+      "terms": [
+        {
+          "name": "忠实度(Faithfulness)",
+          "definition": "答案的每一句话都能被检索资料支撑的程度;与答案\"对不对\"正交,是 RAG 生成质量的核心指标。"
+        },
+        {
+          "name": "LLM-as-Judge",
+          "definition": "让 LLM 充当裁判评估另一个 LLM 的产出;须固定 temperature=0 并限定输出格式,否则评估本身不可复现。"
+        },
+        {
+          "name": "Bad Case 分析",
+          "definition": "把失败样本按根因归类统计(检索失败/误检/幻觉...),用分布决定迭代优先级,是系统调优的标准动作。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "DeepSeek API",
+          "role": "大模型推理服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容对话接口,本课程统一使用 deepseek-v4-pro。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型"
+        },
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 客户端",
+          "description": "DeepSeek 兼容 OpenAI 协议,用官方 SDK 换 base_url 即可直连。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全 check_faithfulness 与 diagnose",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要调用 chat.completions.create",
+          "api": "chat.completions.create",
+          "minCount": 1
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 check_faithfulness 函数",
+          "astType": "function_def",
+          "name": "check_faithfulness"
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 diagnose 函数",
+          "astType": "function_def",
+          "name": "diagnose"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "输出应包含 Bad Case 分析表",
+          "pattern": "Bad Case 分析表"
+        }
+      ]
+    }
+  ]
+}

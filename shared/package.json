@@ -1,0 +1,12 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "前后端共享类型定义(TS 权威 + JSON Schema),M0-2 填充内容",
+  "type": "module",
+  "main": "./types/index.ts",
+  "types": "./types/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

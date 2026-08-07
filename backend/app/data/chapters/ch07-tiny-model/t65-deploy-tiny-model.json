@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t65-deploy-tiny-model-s1",
+      "taskId": "t65-deploy-tiny-model",
+      "order": 1,
+      "title": "模型导出与加载",
+      "instruction": "### 目标\n把训练的小模型导出,能独立加载推理。\n\n### 操作\n1. 保存模型 state_dict 2. 加载模型 3. 推理\n\n### 模型量化(部署优化)\n部署小模型时常用量化降低资源占用:\n- **量化**: 把模型参数从 float32 压缩到 int8/int4,显存/内存降到 1/4~1/8,推理速度提升。\n- **方法**: PyTorch 动态量化(`torch.quantization.quantize_dynamic`)最简单; GGUF 格式适合 CPU 部署。\n- **权衡**: 量化会有少量精度损失,小模型上需评估影响。\n- **本步**: 先学基础导出/加载,量化作为延伸了解(代码里用 `quantize_dynamic` 一行即可量化 Linear 层)。",
+      "starterCode": "import torch\nimport torch.nn as nn\n\nclass TinyModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 5)\n    def forward(self, x): return self.fc(x)\n\nmodel = TinyModel()\n\n# 保存模型\ntorch.save(model.state_dict(), 'tiny_model.pt')\nprint('模型已保存')\n\n# 加载模型\nloaded = TinyModel()\nloaded.load_state_dict(torch.load('tiny_model.pt'))\nloaded.eval()\n\nx = torch.randn(1, 10)\nprint('推理:', loaded(x))",
+      "solutionCode": "import torch\nimport torch.nn as nn\nclass TinyModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 5)\n    def forward(self, x): return self.fc(x)\n\nmodel = TinyModel()\ntorch.save(model.state_dict(), 'tiny_model.pt')\nprint('模型已保存')\n\nloaded = TinyModel()\nloaded.load_state_dict(torch.load('tiny_model.pt'))\nloaded.eval()\nx = torch.randn(1, 10)\nprint('推理:', loaded(x))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "torch.save(state_dict) 保存权重。"
+        },
+        {
+          "order": 2,
+          "text": "load_state_dict 加载。"
+        },
+        {
+          "order": 3,
+          "text": "eval() 切推理模式。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "torch.save(model.state_dict(), 'model.pt')\nmodel.load_state_dict(torch.load('model.pt'))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "state_dict",
+          "definition": "模型权重字典"
+        },
+        {
+          "name": "推理模式",
+          "definition": "eval() 关闭 dropout/batchnorm"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 torch.save。",
+          "api": "torch.save",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t65-deploy-tiny-model-s2",
+      "taskId": "t65-deploy-tiny-model",
+      "order": 2,
+      "title": "HTTP API 封装",
+      "instruction": "### 目标\n把小模型封装成 **OpenAI 兼容的 API 服务**:让前端/其他服务像调 DeepSeek 一样调你的本地模型。\n\n### 背景: 为什么要 OpenAI 兼容\n不是标准好看,是**生态**:所有 SDK、LangChain、各种前端都认 OpenAI 的 `/v1/chat/completions` 格式。你的服务实现了这个接口,就等于免费接入整个生态——客户端改一行 base_url 就能从 DeepSeek 切到你的模型。\n\n### 最小兼容面\n只需实现一个端点:\n```\nPOST /v1/chat/completions\n请求: {\"model\": \"...\", \"messages\": [{\"role\":\"user\",\"content\":\"...\"}], \"temperature\": 0.7}\n响应: {\"choices\": [{\"message\": {\"role\": \"assistant\", \"content\": \"...\"}}],\n       \"usage\": {\"prompt_tokens\": N, \"completion_tokens\": M}}\n```\n**usage 字段别偷懒**:客户端的成本追踪、限流逻辑都依赖它。\n\n### 生产组件选型\n- 推理引擎:vLLM(高吞吐, 生产首选)/ llama.cpp(本地 CPU)/ Ollama(开发便捷)\n- Ollama 本身就提供 OpenAI 兼容端点(`localhost:11434/v1`)——这就是为什么它在开发圈流行\n\n### 操作\n1. 用 FastAPI 写 `/v1/chat/completions`(模拟生成,不真跑模型)\n2. 响应严格按 OpenAI 格式,含 usage\n3. 用 openai SDK 客户端(改 base_url)调通它——这就是\"客户端零改动切换模型\"的含义",
+      "starterCode": "from fastapi import FastAPI\nfrom pydantic import BaseModel\nimport torch\nimport torch.nn as nn\n\nclass TinyModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 5)\n    def forward(self, x): return self.fc(x)\n\napp = FastAPI()\n# 加载模型\nmodel = TinyModel()\nmodel.eval()\n\nclass Input(BaseModel):\n    features: list[float]\n\n# 推理端点\n@app.post('/predict')\ndef predict(inp: Input):\n    x = torch.tensor(inp.features).unsqueeze(0)\n    with torch.no_grad():\n        out = model(x)\n    return {'prediction': out[0].tolist()}\n\n# 运行: uvicorn main:app",
+      "solutionCode": "from fastapi import FastAPI\nfrom pydantic import BaseModel\nimport torch\nimport torch.nn as nn\nclass TinyModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 5)\n    def forward(self, x): return self.fc(x)\n\napp = FastAPI()\nmodel = TinyModel()\nmodel.eval()\n\nclass Input(BaseModel):\n    features: list[float]\n\n@app.post('/predict')\ndef predict(inp: Input):\n    x = torch.tensor(inp.features).unsqueeze(0)\n    with torch.no_grad():\n        out = model(x)\n    return {'prediction': out[0].tolist()}",
+      "hints": [
+        {
+          "order": 1,
+          "text": "FastAPI 创建端点。"
+        },
+        {
+          "order": 2,
+          "text": "torch.tensor 转输入。"
+        },
+        {
+          "order": 3,
+          "text": "no_grad() 推理不记梯度。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "@app.post('/predict')\ndef predict(inp):\n    out = model(tensor(inp.features))\n    return out.tolist()"
+        }
+      ],
+      "terms": [
+        {
+          "name": "FastAPI",
+          "definition": "Web 框架"
+        },
+        {
+          "name": "推理 API",
+          "definition": "模型封装成 HTTP 服务"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "fastapi",
+          "role": "Web框架",
+          "description": "现代 Python Web 框架,基于类型注解自动生成 API 文档与校验。用于把 LLM 应用部署成 HTTP 服务。",
+          "officialUrl": "https://fastapi.tiangolo.com",
+          "category": "Web 框架",
+          "installHint": "pip install fastapi"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "predict",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t65-deploy-tiny-model-s3",
+      "taskId": "t65-deploy-tiny-model",
+      "order": 3,
+      "title": "让前几章代码调你的小模型",
+      "instruction": "### 目标\n为模型服务加**生产级外围能力**:并发处理、超时保护、优雅降级。\n\n### 背景: 模型服务与普通 API 的不同\n- **推理慢**:一次生成 1-30 秒,普通 API 是毫秒级——并发模型必须异步\n- **显存有限**:同时推理的请求数受显存约束,必须限流(信号量),排队而非硬扛\n- **会OOM**:显存爆了整个服务挂——要有请求队列和背压(backpressure)\n\n### 三个必备保护\n1. **并发上限**:`asyncio.Semaphore(N)`,超出排队。N 由显存实测决定\n2. **超时**:`asyncio.wait_for(..., timeout=30)`,防止单个请求卡死 worker\n3. **降级**:模型超时/出错时,返回兜底文案而非 500(\"服务繁忙,请稍后重试\")——用户看到的是体验下降,不是系统崩溃\n\n### 观测指标(配合第 5 章)\n队列深度、P99 延迟、每分钟 tokens 吞吐——这三个指标决定何时该加卡扩容。\n\n### 操作\n1. 给上一步的服务加 Semaphore 限流(最多 2 并发)\n2. 加 30s 超时与兜底降级\n3. 模拟 5 个并发请求,观察排队与限流行为",
+      "starterCode": "import requests\n\n# 假设小模型 API 在 http://localhost:8000/predict\n# 用 requests 调用\nresp = requests.post(\n    'http://localhost:8000/predict',\n    json={'features': [0.1]*10}\n)\nresult = resp.json()\nprint(f'小模型预测: {result}')\n\nprint('\\n=== 对比 ===')\nprint('大模型(deepseek-v4-pro): 强但贵, 需API key')\nprint('小模型(自建): 弱但免费, 本地部署')\nprint('用途: 简单任务用小模型, 复杂用大模型')",
+      "solutionCode": "import requests\n\nresp = requests.post('http://localhost:8000/predict', json={'features': [0.1]*10})\nresult = resp.json()\nprint(f'小模型预测: {result}')\n\nprint('\\n=== 对比 ===')\nprint('大模型(deepseek-v4-pro): 强但贵, 需API key')\nprint('小模型(自建): 弱但免费, 本地部署')\nprint('用途: 简单任务用小模型, 复杂用大模型')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "requests.post 调 API。"
+        },
+        {
+          "order": 2,
+          "text": "json 参数传输入。"
+        },
+        {
+          "order": 3,
+          "text": "小模型适合简单任务。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "import requests\nr = requests.post(url, json=data)\nr.json()"
+        }
+      ],
+      "terms": [
+        {
+          "name": "requests",
+          "definition": "HTTP 库"
+        },
+        {
+          "name": "本地部署",
+          "definition": "小模型自部署免 API 费"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "requests",
+          "role": "HTTP",
+          "description": "Python 最常用的 HTTP 客户端库,用于调用 REST API。LLM 场景常用于直接调模型接口或抓取网页。",
+          "officialUrl": "https://docs.python-requests.org",
+          "category": "HTTP库",
+          "installHint": "pip install requests"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 requests.post。",
+          "api": "requests.post",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

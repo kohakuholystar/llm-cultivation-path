@@ -1,0 +1,193 @@
+{
+  "steps": [
+    {
+      "id": "t53-debate-pattern-s1",
+      "taskId": "t53-debate-pattern",
+      "order": 1,
+      "title": "多 Agent 辩论",
+      "instruction": "### 目标\n实现**辩论模式**:两个 Agent 持相反观点交锋,通过多轮辩论逼近更可靠的结论。\n\n### 背景: 辩论为什么能提升质量\n单个 LLM 有\"顺从性\"——你问什么它都顺着说。辩论机制引入**对抗压力**:\n- 正方必须辩护自己的观点,暴露论据\n- 反方专门找漏洞,迫使正方补强弱项\n- 研究表明(AI Safety via Debate, OpenAI 2018),对抗式辩论能让判断者比直接问单个模型得到**更真实**的答案\n\n### 辩论的结构\n1. **立论**:正反方各自陈述初始观点+论据\n2. **交锋**(N 轮):轮流针对对方上一条论据反驳\n3. **总结陈词**:各自收敛立场\n4. **裁判裁决**:中立 Agent(或人)读完全程给判决\n\n### 工程要点\n- **角色固化**:每个 Agent 的 system prompt 里写死立场(\"你是正方,无论如何支持 X\"),防止聊着聊着双方趋同\n- **历史隔离**:每方只看到自己的立场指令+完整辩论记录,裁判额外看双方 system prompt 评估谁更一致\n\n### 操作\n1. 定义 `Debater`(立场+system prompt)\n2. 实现交替发言循环(记录每轮发言)\n3. 模拟\"Python vs JavaScript 更适合初学者\"两轮辩论",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(system, user):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'system','content':system},{'role':'user','content':user}])\n    return resp.choices[0].message.content\n\ntopic = 'AI是否会取代程序员'\n\n# 正方\npro = llm('你是正方,支持观点', f'辩论:{topic},陈述你的论点(50字)')\nprint(f'正方: {pro}')\n\n# 反方, 反驳正方\ncon = llm(, f'反驳:{pro}')\nprint(f'反方: {con}')\n\n# 裁判, 评判\njudge = llm('你是裁判', f'正方:{pro}\\n反方:{con}\\n评判谁更有理')\nprint(f'裁判: {judge}')",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(system, user):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'system','content':system},{'role':'user','content':user}])\n    return resp.choices[0].message.content\n\ntopic = 'AI是否会取代程序员'\n\npro = llm('你是正方,支持观点', f'辩论:{topic},陈述论点(50字)')\nprint(f'正方: {pro}')\n\ncon = llm('你是反方,反对观点', f'反驳:{pro}(50字)')\nprint(f'反方: {con}')\n\njudge = llm('你是裁判', f'正方:{pro}\\n反方:{con}\\n评判谁更有理(50字)')\nprint(f'裁判: {judge}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "正方/反方/裁判三个角色。"
+        },
+        {
+          "order": 2,
+          "text": "反方基于正方论点反驳。"
+        },
+        {
+          "order": 3,
+          "text": "裁判综合评判。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 辩论三方\npro = agent('正方', topic)\ncon = agent('反方', pro)  # 反驳\njudge = agent('裁判', pro+con)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "辩论模式",
+          "definition": "正反方对抗+裁判评判"
+        },
+        {
+          "name": "多视角",
+          "definition": "不同 Agent 不同立场"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "llm",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t53-debate-pattern-s2",
+      "taskId": "t53-debate-pattern",
+      "order": 2,
+      "title": "协作生成",
+      "instruction": "### 目标\n给辩论加**裁判 Agent**:全程旁观,按明确标准裁决胜负,而非\"感觉谁说的好\"。\n\n### 背景: 裁判的评分标准设计\n没有标准的裁判等于没有裁判。可操作的评分维度(每项 1-10 分):\n| 维度 | 说明 |\n|------|------|\n| 论据质量 | 有没有事实/数据/逻辑支撑, 还是空喊口号 |\n| 反驳有效性 | 是否正面回应了对方论点, 还是自说自话 |\n| 一致性 | 全程立场是否自洽, 有没有自相矛盾 |\n| 收敛性 | 面对有力反驳是否承认并修正(这是加分项不是减分项!) |\n\n### 防止裁判偏置\n- **位置偏置**:先发言的容易被偏好 → 裁判看的是乱序后的记录(隐去\"正方/反方\"标签)\n- **长度偏置**:说得长显得有理 → 限制每轮字数\n- **权威性偏置**:引用的\"研究\"可能是编的 → 要求给出可核查的来源格式\n\n### 操作\n1. 定义 `Judge`:接收完整辩论记录,按四维度打分\n2. 实现盲评:给裁判的记录隐去立场标签\n3. 输出评分表和判决理由",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\n# 各 Agent 写不同部分\nintro = llm('写一篇AI文章的开头(50字)')\nbody = llm('写一篇AI文章的正文(50字)')\nconclusion = llm('写一篇AI文章的结尾(50字)')\n\n# 合并 + 润色\nfinal = llm(f\"合并润色:\\n{intro}\\n{body}\\n{conclusion}\")\nprint(final)",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\nintro = llm('写一篇AI文章的开头(50字)')\nbody = llm('写一篇AI文章的正文(50字)')\nconclusion = llm('写一篇AI文章的结尾(50字)')\n\nfinal = llm(f\"合并润色成连贯文章:\\n开头:{intro}\\n正文:{body}\\n结尾:{conclusion}\")\nprint(final)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "各 Agent 写不同部分(开头/正文/结尾)。"
+        },
+        {
+          "order": 2,
+          "text": "合并后用 LLM 润色连贯。"
+        },
+        {
+          "order": 3,
+          "text": "协作生成比单 Agent 更全面。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 分工协作\nparts = [agent1(), agent2(), agent3()]\nfinal = polish_agent('\\n'.join(parts))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "协作生成",
+          "definition": "多 Agent 分工合作产出"
+        },
+        {
+          "name": "合并润色",
+          "definition": "汇总各部分并优化"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "llm",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t53-debate-pattern-s3",
+      "taskId": "t53-debate-pattern",
+      "order": 3,
+      "title": "投票与共识",
+      "instruction": "### 目标\n把辩论模式用于**决策辅助**:对真实两难问题(如\"该不该上微服务\"),用辩论产出结构化的利弊分析。\n\n### 背景: 辩论 vs 单模型问\"分析一下利弊\"\n直接问 LLM\"分析利弊\",得到的是**平均化的、谁也不得罪**的答案——每个点都浅尝辄止。辩论的价值:\n- 每一点都被对抗压力**逼到深处**(你说成本低,对方就会问\"具体多少?运维成本算了吗?\")\n- 隐藏的假设被迫显化(正方说\"团队能搞定\",反方追问\"团队有几个有 K8s 经验的?\")\n- 最终产出不是\"选 A 或 B\",而是**\"在什么条件下选 A,什么条件下选 B\"**——这才是决策需要的信息\n\n### 决策型辩论的输出格式\n```\n## 共识点(双方都承认的事实)\n## 分歧点及各自最强论据\n## 条件化建议: 如果 X 则选 A, 如果 Y 则选 B\n## 仍需补充的信息(哪些不确定性能改变结论)\n```\n\n### 操作\n1. 复用前两步的 Debater/Judge\n2. 对\"创业公司该不该上微服务\"跑完整辩论\n3. 裁判按\"决策输出格式\"生成最终报告",
+      "starterCode": "from openai import OpenAI\nfrom collections import Counter\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\nquestion = 'Python最好的Web框架是?(只回复框架名)'\n\n# 3个 Agent 投票\nvotes = []\nfor i in range(3):\n    vote = llm(question)\n    votes.append(vote.strip())\n    print(f'Agent {i+1}: {vote.strip()}')\n\n# 统计投票, 多数决定\ncounter = Counter(votes)\nprint(f'\\n投票统计: {counter}')\nwinner = counter.most_common(1)[0][0]\nprint(f'共识: {winner}')",
+      "solutionCode": "from openai import OpenAI\nfrom collections import Counter\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\nquestion = 'Python最好的Web框架是?(只回复框架名,如Django/Flask/FastAPI)'\n\nvotes = []\nfor i in range(3):\n    vote = llm(question)\n    votes.append(vote.strip())\n    print(f'Agent {i+1}: {vote.strip()}')\n\ncounter = Counter(votes)\nprint(f'\\n投票统计: {counter}')\nwinner = counter.most_common(1)[0][0]\nprint(f'共识: {winner}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "多个 Agent 各自回答。"
+        },
+        {
+          "order": 2,
+          "text": "Counter 统计各答案票数。"
+        },
+        {
+          "order": 3,
+          "text": "most_common(1) 取多数。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from collections import Counter\nvotes = ['a','b','a']\nCounter(votes).most_common(1)[0][0]  # 'a'"
+        }
+      ],
+      "terms": [
+        {
+          "name": "投票共识",
+          "definition": "多 Agent 投票,多数决定"
+        },
+        {
+          "name": "Counter",
+          "definition": "统计票数"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "llm",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

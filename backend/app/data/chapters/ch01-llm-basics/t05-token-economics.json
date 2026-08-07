@@ -1,0 +1,451 @@
+{
+  "steps": [
+    {
+      "id": "t05-token-economics-s1",
+      "taskId": "t05-token-economics",
+      "order": 1,
+      "title": "代币尺:用 tiktoken 数清每一个 token",
+      "instruction": "### 目标\n为「灵讯通」打造成本仪表盘的第一块砖:一个 `TokenMeter` 类。它用 tiktoken 的 BPE 分词器,精确数出任意一段文本、一组 chat 消息各值多少个 token。数得清,后面的成本估算、预算守卫才有地基。\n\n### 原理\n**为什么 LLM 按 token 计费而不是按字?** 模型眼里没有\"字\",只有 token——BPE(字节对编码)把语料里高频出现的字节序列反复合并,凝练成一张几万到十几万大小的词表。常见词(如\"灵讯通\")可能只占 1 个 token,生僻字则会被拆成 2~3 个;英文平均 1 个 token 约 0.75 个单词。计费按 token 走,是因为模型的计算量与 token 数成正比,与字符数无关。\n\n**tiktoken 是怎么数的?** `encoding.encode(text)` 先用正则把文本切成\"字母串/数字串/符号串\"小块,再在每块内部做 BPE 合并,返回 token id 列表;`len()` 这个列表就是 token 数。反向的 `encoding.decode(ids)` 能把 id 还原成文本。\n\n**为什么本步骤要写一个降级分支?** `tiktoken.get_encoding(\"cl100k_base\")` 首次运行需要联网下载约 1.6MB 的词表文件,之后走本地缓存。本沙箱完全断网,直接加载会抛 `ConnectionError`。工程上的正确姿势不是崩溃,而是降级:我们用 `tiktoken.Encoding(name=..., pat_str=..., mergeable_ranks=..., special_tokens=...)` 手工注册一枚最小 BPE 编码——256 个字节打底,再把灵讯通高频词建成逐级合并链。它和真实编码共享同一套 encode/decode API,计数逻辑一行不用改。\n\n**chat 消息为什么要加包装开销?** API 收到的不只是 content,还有 role 等结构字段,序列化后每条消息会多几个 token。这里按每条 4 个 token 估算,是与真实口径接近的教学近似值。\n\n### 操作\n1. 补全 `TokenMeter.count_text`:返回 `text` 经编码后的 token 数\n2. 补全 `TokenMeter.count_messages`:对每条消息累加\"正文 token 数 + 包装开销\"\n3. 运行,观察两点:离线沙箱里编码名是 `lingxun-mini`(降级生效);\"字符数\"与\"token 数\"并不相等\n\n### 常见坑\n- `len(text)` 是**字符数**,不是 token 数——中文 1 个字大约 1 个 token,英文 1 个单词大约 1.3 个,拿字符数估算成本会严重失真\n- 离线环境直接 `get_encoding(\"cl100k_base\")` 会抛 `ConnectionError`,生产代码要么预热缓存,要么像本步骤一样留降级路径\n- 对单个 token id `decode` 时,若它只是某个汉字三分之一字节,会看到乱码——这是字节级 BPE 的正常现象,不是 bug\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:count_text 是对 encoding.encode 的一层薄封装;count_messages 在 count_text 之上逐条累加并加上包装开销。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:len(self.encoding.encode(text)) 得 token 数;对消息列表用生成器表达式 sum(... for m in messages),每条取 m[\"content\"]。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return len(self.encoding.encode(text));消息版 return sum(CHAT_OVERHEAD + self.count_text(m[\"content\"]) for m in messages)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "tiktoken 三分钟上手",
+          "language": "python",
+          "code": "import tiktoken\n\nenc = tiktoken.get_encoding(\"cl100k_base\")  # 首次需联网下载词表\nids = enc.encode(\"灵讯通的成本仪表盘\")\nprint(len(ids))          # token 数\nprint(enc.decode(ids))   # 还原回原文\nprint(enc.n_vocab)       # 词表大小",
+          "description": "encode 文本 -> token id 列表;decode 反向还原;n_vocab 看词表规模。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Token",
+          "definition": "LLM 处理与计费的最小单位,可以是词、子词、单字甚至字节;中文约 1 字 1 token,英文约 0.75 词 1 token。"
+        },
+        {
+          "name": "BPE(字节对编码)",
+          "definition": "Byte Pair Encoding:从 256 个字节出发,反复合并语料中最高频的相邻字节对,凝练成词表的分词算法;GPT 系列与 DeepSeek 均采用其变体。"
+        },
+        {
+          "name": "cl100k_base",
+          "definition": "tiktoken 内置的经典 BPE 编码,词表约 10 万;业界常用它作为各家模型 token 数的近似估算口径。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "BPE 分词与 token 计数库",
+          "description": "OpenAI 开源的高性能分词库(Rust 内核),支持 get_encoding 加载内置编码,也支持 tiktoken.Encoding 自定义词表;是成本估算的事实标准工具。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 count_text 与 count_messages。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "TokenMeter",
+          "message": "请保留并实现 TokenMeter 类。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "count_messages",
+          "message": "请实现 count_messages 方法。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "encoding\\.encode",
+          "message": "请通过 encoding.encode 进行 token 计数。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "当前编码: (lingxun-mini|cl100k_base)[\\s\\S]*本组消息共 \\d+ tokens",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印当前编码名与消息 token 总数。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t05-token-economics-s2",
+      "taskId": "t05-token-economics",
+      "order": 2,
+      "title": "费率表:给 token 标上价格",
+      "instruction": "### 目标\n在 v0.1 的代币尺之上,给 token 标上价格:用 `ModelPricing` 数据类把 DeepSeek 的费率表建模成结构化数据,再用 `estimate_cost` 一行查出任意一次调用要花多少钱。\n\n### 原理\n**为什么费率要建模成数据,而不是散落在代码里的魔法数字?** 价格是云厂商最常变动的东西之一,而且未来灵讯通可能接入多个模型。把费率收敛到一张 `PRICING_TABLE` 字典里,改价只动一处,查价只认一个入口——这就是\"单一事实来源\"。用 `@dataclass(frozen=True)` 声明,是为了让费率对象创建后不可变:没人能在半路把 2 元改成 0.2 元。\n\n**为什么输入和输出分开计价,输出还贵好几倍?** 输入(prompt)可以并行地一次性过模型,而输出(completion)必须逐个 token 串行生成,每个都要走完整的前向计算——串行生成的算力成本高得多。所以定价惯例是:输出价通常是输入价的 3~5 倍。本课程示例费率:deepseek-v4-pro 输入 2 元/百万 tokens,输出 8 元/百万 tokens。\n\n**缓存命中价是什么?** DeepSeek 支持前缀缓存(context caching):如果本次 prompt 的开头与之前某次完全相同,命中的部分直接复用上次算好的 KV 缓存,不再重复计算,因此给出折扣价(示例 0.5 元/百万)。这就是为什么\"把不变的系统提示放在 prompt 最前面\"是一个真实的省钱技巧。\n\n**单位陷阱:元/百万 tokens。** 厂商价格页惯用\"每百万 tokens\",心算时极易和\"每千 tokens\"差出 1000 倍。建模时把 `/ 1_000_000` 写死在函数里,调用方永远只需要传 token 个数。\n\n### 操作\n1. 阅读 `ModelPricing` 与 `PRICING_TABLE`,确认四个字段的含义\n2. 补全 `estimate_cost`:查表、校验模型名、按\"未命中输入 + 缓存命中输入 + 输出\"三段计价\n3. 运行,对比有无缓存命中时的成本差,以及\"1 元钱能聊多少 token\"\n\n### 常见坑\n- 忘记除以 1_000_000:估算结果会放大百万倍,预算守卫等于形同虚设\n- `cached_tokens` 大于 `prompt_tokens` 时直接相减会得到负数输入,务必用 `max(..., 0)` 兜底\n- 用 float 记账有精度误差(0.1 + 0.2 != 0.3),教学场景可接受;真实账单系统应换 `decimal.Decimal`\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:estimate_cost 只做三件事——校验模型名、查 PRICING_TABLE、按三段(未命中输入/命中输入/输出)加权求和再除以 1_000_000。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:fresh = max(prompt_tokens - cached_tokens, 0);费率对象用点号取字段,如 p.input_per_million。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return (fresh * p.input_per_million + cached_tokens * p.cached_input_per_million + completion_tokens * p.output_per_million) / 1_000_000。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "查表算账的最小例子",
+          "language": "python",
+          "code": "PRICING = {\"deepseek-v4-pro\": {\"in\": 2.0, \"out\": 8.0}}  # 元/百万 tokens\n\ndef cost(model, prompt_tokens, completion_tokens):\n    p = PRICING[model]\n    return (prompt_tokens * p[\"in\"] + completion_tokens * p[\"out\"]) / 1_000_000\n\nprint(cost(\"deepseek-v4-pro\", 1000, 500))  # 0.006 元",
+          "description": "费率收敛到一张表,算账就是一个查表函数;改价只动数据不动逻辑。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "费率表(Pricing Table)",
+          "definition": "把各模型输入/输出的单价建模成结构化数据的表;价格变动只改数据,算账逻辑不变。"
+        },
+        {
+          "name": "前缀缓存(Context Caching)",
+          "definition": "DeepSeek 等平台的优化:prompt 开头与历史请求相同时复用已算好的 KV 缓存,命中部分按折扣价计费。"
+        },
+        {
+          "name": "元/百万 tokens",
+          "definition": "LLM 计费的惯用单价单位;与「每千 tokens」相差 1000 倍,换算错一位小数点就是预算事故。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "dataclasses",
+          "role": "费率表的结构化建模",
+          "description": "Python 标准库数据类,@dataclass(frozen=True) 声明不可变配置对象,费率创建后无法被半路篡改。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "库",
+          "installHint": "标准库,无需安装"
+        },
+        {
+          "name": "tiktoken",
+          "role": "输入 token 计数",
+          "description": "本步沿用 v0.1 的 TokenMeter 数出 prompt tokens,作为成本估算的输入。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 estimate_cost。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "ModelPricing",
+          "message": "请用 ModelPricing 数据类建模费率。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "estimate_cost",
+          "message": "请实现 estimate_cost 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "1_000_000",
+          "message": "计价单位是元/百万 tokens,请除以 1_000_000。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "本次预估成本: ¥0\\.\\d{6}[\\s\\S]*命中缓存: ¥0\\.\\d{6}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印预估成本与缓存命中后的折扣成本。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t05-token-economics-s3",
+      "taskId": "t05-token-economics",
+      "order": 3,
+      "title": "预算守卫:超支就拒绝的装饰器",
+      "instruction": "### 目标\n给灵讯通的 LLM 调用装上\"保险丝\":一个 `budget_guard` 装饰器。它在每次调用**之前**估算成本,一旦发现累计花费将突破预算上限,就抛 `BudgetExceededError` 拒绝执行——钱没花出去,调用方也得到明确信号。\n\n### 原理\n**为什么要\"事前估价\"而不是\"事后对账\"?** 事后对账发现问题时,钱已经花出去了——这对个人开发者和创业团队都是真实事故(死循环调用一夜烧掉几千刀的案例屡见不鲜)。Fail-fast 的守卫把决策点前移:调用前用最坏情况估一笔,超支就拒绝,让损失永远停在 0 元。\n\n**最坏情况怎么估?** 输入 token 可以用 v0.1 的 `TokenMeter` 精确数出来;输出还没生成,只能按 `max_tokens` 打满来估。这是保守策略:宁可误拒,不可漏放。实际记账则在调用返回后,按真实 usage 的金额入账——估得狠、记得实。\n\n**带参数的装饰器为什么是三层嵌套?** `budget_guard(0.002, meter)` 本身要先收下配置(工厂层),返回真正的装饰器 `decorator`(装饰层),`decorator` 再返回替换原函数的 `wrapper`(执行层)。三层各管一件事:配置、包装、运行。`state` 字典挂在工厂的闭包里,同一守卫名下的所有调用共享同一本账——这正是闭包的经典用途:私有、持久、随函数走。\n\n**为什么拒绝要抛异常,而不是返回 None?** 返回 None 会被粗心的调用方当成正常结果往下传,污染整条链路;异常则强制调用方显式 `try/except` 做决策(降级、排队、换模型),错误的成本不会被静默吞掉。`functools.wraps` 则负责把原函数的 `__name__` 等元信息复制到 wrapper 上,避免日志里全是\"wrapper\"。\n\n### 操作\n1. 补全 `wrapper` 的超支判断:先 `estimate_cost` 估出本次最坏成本,与 `state[\"spent\"]` 累加后对比 `max_budget`\n2. 超支分支:拒绝数 +1,抛 `BudgetExceededError`,信息里带上预计金额与预算上限\n3. 放行分支:调用原函数,把真实 `cost` 累加进 `state[\"spent\"]` 并返回结果\n4. 运行,观察前几次放行、预算耗尽后被拒绝的完整过程\n\n### 常见坑\n- 判断只比\"本次成本\"忘了加\"累计已花\":守卫会放过每一笔小请求,累计照样超支——条件必须是 `spent + projected > max_budget`\n- 在 wrapper 里写 `spent = 0` 重新初始化:闭包变量被遮蔽,账目每次清零,守卫失效\n- 装饰器叠加顺序搞反:`@budget_guard(...)` 必须包在最靠近真实调用的一侧,否则守住的可能只是日志函数\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:wrapper 里先估(输入实测 + 输出按 max_tokens 打满),再判(累计 + 本次 > 预算则抛异常),最后放行并记账。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:projected = estimate_cost(model, meter.count_messages(messages), max_tokens);账目读写用 state[\"spent\"] / state[\"rejected\"]。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:if state[\"spent\"] + projected > max_budget: state[\"rejected\"] += 1; raise BudgetExceededError(...);放行后 state[\"spent\"] += result[\"cost\"]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "带参装饰器的三层结构",
+          "language": "python",
+          "code": "import functools\n\ndef with_limit(limit):          # 第一层:收配置\n    def decorator(func):        # 第二层:收函数\n        @functools.wraps(func)\n        def wrapper(*args, **kw):  # 第三层:替换执行\n            print(f\"限额 {limit}\")\n            return func(*args, **kw)\n        return wrapper\n    return decorator",
+          "description": "带参数的装饰器 = 工厂函数返回装饰器,装饰器再返回包装函数;每层各管一件事。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "装饰器(Decorator)",
+          "definition": "在不修改原函数源码的前提下包裹一层横切逻辑(如预算检查)的语法;@ 语法糖等价于 func = decorator(func)。"
+        },
+        {
+          "name": "闭包(Closure)",
+          "definition": "内层函数引用外层作用域变量并使其长期存活的机制;守卫的 spent/rejected 账目就靠闭包私有保存。"
+        },
+        {
+          "name": "Fail-fast",
+          "definition": "失败要早:在代价发生之前(调用前估价)就拦截错误,而不是等账单出来再后悔。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "functools",
+          "role": "装饰器元信息保留",
+          "description": "标准库工具,functools.wraps 把原函数的 __name__/__doc__ 复制到包装函数上,日志与调试不迷路。",
+          "officialUrl": "https://docs.python.org/3/library/functools.html",
+          "category": "库",
+          "installHint": "标准库,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 wrapper 的超支判断与记账。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "budget_guard",
+          "message": "请保留并实现 budget_guard 装饰器工厂。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "BudgetExceededError",
+          "message": "超支必须抛 BudgetExceededError 异常。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "functools\\.wraps",
+          "message": "请用 functools.wraps 保留原函数元信息。",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "\\[放行\\][\\s\\S]*\\[拒绝\\][\\s\\S]*守卫账目",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应先放行、预算耗尽后拒绝,并打印守卫账目。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t05-token-economics-s4",
+      "taskId": "t05-token-economics",
+      "order": 4,
+      "title": "用量账本:多会话成本归集",
+      "instruction": "### 目标\n给成本仪表盘加上\"记忆\":一个 `UsageLedger` 账本类。预算守卫每放行一次调用,就把这次的真实用量(会话、输入/输出 token、成本)作为一条 `UsageRecord` 写入账本;账本随时能按会话归集出\"谁在花钱、花了多少\"。\n\n### 原理\n**为什么要单独设一个账本,而不是让守卫自己记?** 这是\"计量与计价分离\"的职责划分:守卫管决策(放不放行),账本管事实(发生了什么)。明天把守卫换成\"限流器\"或\"按用户配额\",账本一行不用改;反过来费率调整重算历史成本,也只需回放账本里的 token 数。各自单一的职责,换来的是可替换性。\n\n**账本里存的为什么是不可变的\"事实记录\"?** `UsageRecord` 只描述一次已经发生的调用:多少输入、多少输出、多少钱。事实一旦写下就不该被改(要改就加一条冲正记录)——这是事件溯源(Event Sourcing)的雏形:任何报表都能从事实流重新算出来,而不是维护一堆可能被改脏的中间状态。\n\n**多会话归集怎么做?** 遍历记录流,用 `dict.setdefault(session_id, 初始值)` 取出该会话的累加槽位,逐项累加调用数、token 总量和成本。这个\"分组-累加\"模式在数据分析里无处不在,SQL 里叫 `GROUP BY`,pandas 里叫 `groupby().sum()`。\n\n**被拒绝的调用要不要入账?** 不要。守卫在调用前就拒绝了,平台没花一分钱,入班会虚增成本。账本的信条是\"只记真实发生的事\"。但要注意:拒绝**次数**仍然值得统计(在守卫的 `state` 里),它是\"预算是否太紧\"的重要信号。\n\n### 操作\n0. 通读骨架:前三步已掌握的组件(代币尺/费率表/守卫)在本步做了紧凑整理,逻辑与 v0.3 完全一致,注意力放在新代码上\n1. 补全 `UsageLedger.by_session`:用 `setdefault` 按会话分组,累加 calls / tokens / cost\n2. 补全守卫 `wrapper` 的入账逻辑:放行后若 `ledger` 不为 `None`,写入一条 `UsageRecord`\n3. 运行,观察两个会话各自的调用数与成本,以及被拒绝的调用确实没有入账\n\n### 常见坑\n- `by_session` 里直接用 `agg[r.session_id][\"calls\"] += 1`:遇到新会话会抛 `KeyError`,先 `setdefault` 再累加\n- `all()` 直接 `return self._records`:外部拿到的是账本本体,可以被悄悄 append 假账——返回 `list(...)` 副本\n- 把\"预估成本\"写进账本:预估按 max_tokens 打满会严重高估,账本只应记录 API 返回的真实 usage 算出的成本\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:by_session 是经典的「分组-累加」:遍历记录流,按 session_id 取累加槽位,逐项加;入账则放在守卫放行之后。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:agg.setdefault(r.session_id, {\"calls\": 0, \"tokens\": 0, \"cost\": 0.0}) 取不到就给初始值;入账用 ledger.add(UsageRecord(...))。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:守卫里 if ledger is not None: ledger.add(UsageRecord(session_id, result[\"prompt_tokens\"], result[\"completion_tokens\"], result[\"cost\"]))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "setdefault 分组聚合",
+          "language": "python",
+          "code": "records = [(\"a\", 10), (\"b\", 20), (\"a\", 30)]\nagg = {}\nfor sid, amount in records:\n    slot = agg.setdefault(sid, {\"count\": 0, \"total\": 0})\n    slot[\"count\"] += 1\n    slot[\"total\"] += amount\nprint(agg)  # {'a': {'count': 2, 'total': 40}, 'b': {'count': 1, 'total': 20}}",
+          "description": "setdefault 一行解决「键不存在给初值」的问题,是 GROUP BY 的 Python 手写版。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "账本(Ledger)",
+          "definition": "只追加、不修改的事实记录集合;任何统计都从记录流重算,而非维护可变的中间状态。"
+        },
+        {
+          "name": "归集(Aggregation)",
+          "definition": "按维度(这里是会话)把明细记录汇总成统计量;SQL 的 GROUP BY、pandas 的 groupby 都是同一思想。"
+        },
+        {
+          "name": "事件溯源(Event Sourcing)",
+          "definition": "以不可变事件为唯一事实来源的架构思想:状态是事件的函数,历史可回放、可审计。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "dataclasses",
+          "role": "用量记录的建模",
+          "description": "@dataclass 让 UsageRecord 成为带类型标注的轻量记录类型,比裸字典更安全、可读。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "库",
+          "installHint": "标准库,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 by_session 与入账逻辑。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "UsageLedger",
+          "message": "请保留并实现 UsageLedger 账本类。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "UsageRecord",
+          "message": "请用 UsageRecord 数据类描述一条用量事实。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "by_session",
+          "message": "请实现 by_session 按会话归集。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "账本共 \\d+ 条记录[\\s\\S]*客服会话: \\d+ 次调用[\\s\\S]*售后会话: \\d+ 次调用",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印账本总量与两个会话各自的归集结果。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t05-token-economics-s5",
+      "taskId": "t05-token-economics",
+      "order": 5,
+      "title": "成本仪表盘:多会话统计报表",
+      "instruction": "### 目标\n章项目收官:把前面四步的零件——代币尺、费率表、预算守卫、用量账本——组装成「灵讯通成本仪表盘」。核心是一个 `render_report` 函数:读账本,渲染出按会话分组的用量报表、总成本对预算的占比、平均调用成本和预算告警。\n\n### 原理\n**仪表盘为什么是\"渲染函数\"而不是一堆 print?** `render_report` 返回字符串、不直接打印,这叫\"渲染与输出解耦\"。好处立竿见影:单测可以断言返回的字符串内容;同一份报表既能 print 到终端,也能写进日志、发到钉钉机器人。函数式的小决定,决定了这段代码能走多远。\n\n**一张合格的成本报表回答三个问题。** 第一,钱花在哪:按会话分组列出调用数、token 量、成本——异常会话(死循环、被攻击)在报表上一眼可辨。第二,还剩多少:总成本对预算的占比,比绝对金额更有决策价值。第三,要不要行动:告警行。阈值要写成预算的**比例**(如 80%)而非绝对值,这样预算调整后告警逻辑不用改。\n\n**平均值是隐藏的异常探测器。** \"平均每次调用成本\"除以调用次数得到。如果某段时间平均值突然翻倍,多半是 prompt 膨胀(有人把整本手册塞进了系统提示)或 max_tokens 被调大——总值正常时平均值也能先报警。\n\n**为什么浮点格式化要统一小数位?** `¥{cost:.6f}` 统一 6 位小数,既对齐了报表,也掩盖了 float 的表示误差(0.1+0.2 的尾巴不会出现在报表上)。报表是给人读的,确定性比精度更重要。\n\n### 操作\n1. 补全 `render_report`:先取 `ledger.by_session()`,逐会话渲染一行(会话名、调用数、tokens、成本)\n2. 追加汇总行:总成本、预算、调用总数、守卫拒绝次数,以及平均每次调用成本\n3. 追加状态行:总成本超过预算 80% 显示\"预算告急\",否则\"预算健康\";返回 `\"\\n\".join(rows)`\n4. 运行,观察完整的放行/拒绝过程和收官仪表盘\n\n### 常见坑\n- 中文按显示宽度占 2 格,`ljust`/`f\"{s:<6}\"` 却按 1 格算,报表列会轻微错位——教学场景可接受,生产环境用 `wcwidth` 库修正\n- 账本为空时 `total / calls` 会抛 `ZeroDivisionError`,开头必须先判空早退\n- 在 `render_report` 里顺手 `print`:函数就失去返回值,无法再被测试和复用——渲染只 return,打印交给调用方\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:render_report = 表头 + 逐会话明细行 + 汇总行 + 状态行,全部塞进 rows 列表,最后一行 join 返回。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:明细遍历 ledger.by_session().items();汇总用 ledger.total_cost() 与 sum(s[\"calls\"] for s in sessions.values());状态用 total > budget * 0.8 判断。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:rows.append(f\"总成本 ¥{total:.6f} / 预算 ¥{budget:.4f} | 共 {calls} 次调用(均 ¥{total / calls:.6f}),守卫拒绝 {rejected} 次\");状态行 rows.append(\"状态: \" + (\"预算告急...\" if total > budget * 0.8 else \"预算健康\"))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "f-string 对齐小抄",
+          "language": "python",
+          "code": "name, calls, cost = \"客服会话\", 3, 0.001234\nprint(f\"{name:<8} {calls:>4} {cost:>10.6f}\")\n# < 左对齐,> 右对齐;数字右对齐、文本左对齐是报表惯例\n# 注意:中文显示宽度为 2 但按 1 计,列会轻微错位,生产可用 wcwidth 修正",
+          "description": "对齐三要素:方向(< 或 >)、宽度、数字的小数位(.6f)。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "仪表盘(Dashboard)",
+          "definition": "把关键指标(花费、预算占比、告警)浓缩到一屏的报表;好仪表盘只回答「现状如何、要不要行动」。"
+        },
+        {
+          "name": "告警阈值",
+          "definition": "触发告警的临界值;写成预算的比例(如 80%)而非绝对金额,预算变化时逻辑不失效。"
+        },
+        {
+          "name": "渲染与输出解耦",
+          "definition": "报表函数只返回字符串不打印;同一份渲染结果可进终端、日志或告警机器人,且可被单元测试断言。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "仪表盘的计数底座",
+          "description": "仪表盘的每个数字都源自 v0.1 封装的 TokenMeter;计数口径统一,报表才可信赖。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 render_report。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "render_report",
+          "message": "请实现 render_report 渲染函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "budget \\* 0\\.8",
+          "message": "告警阈值请写成预算的比例(budget * 0.8)。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "灵讯通 · 成本仪表盘[\\s\\S]*总成本 ¥0\\.\\d{6}[\\s\\S]*状态: (预算告急|预算健康)",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印完整仪表盘:标题、总成本与状态行。",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

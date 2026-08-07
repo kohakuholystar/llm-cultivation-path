@@ -1,0 +1,497 @@
+{
+  "steps": [
+    {
+      "id": "t64-quantize-deploy-s1",
+      "taskId": "t64-quantize-deploy",
+      "order": 1,
+      "title": "权重落盘:int8 量化初窥门径",
+      "instruction": "### 目标\n\n给「袖里乾坤」微型 GPT 的蒸馏产物走部署第一关:把浮点权重导出成 `.npz` 存档,再实现 int8 对称量化(算 `scale`、量化、反量化),逐张量评估量化误差——这是模型从 32 位浮点压到四分之一体积的第一步,也是后续所有量化部署动作的基石。\n\n### 原理\n\n量化是把连续的浮点数值映射到离散整数集合的有损压缩。对称量化最简,只需要一个参数:`scale = max(|w|) / 127.0`(127 是 int8 正半轴最大值),量化 `q = round(w / scale)` 再转成 int8,反量化 `w' = q * scale`。为什么值得做?推理时权重从 4 字节降到 1 字节,内存带宽压力减到四分之一;配合硬件上的 INT8 向量指令,矩阵乘的吞吐可以成倍提升。量化误差全部来自 `round` 取整,理论上界约半个量化步长(`scale / 2`),误差是\"可控的小\",这正是量化能上生产的前提。先量化权重、再看误差,是一切量化方案的起点。\n\n### 操作\n\n1. 实现 `quantize_tensor(w)`:先算 `scale`(用绝对值的最大值,别漏掉负半轴),再用 `np.round` 四舍五入后 `astype(np.int8)`,返回 `(q, scale)`;\n2. 实现 `dequantize(q, scale)`:直接 `q * scale` 还原浮点近似;\n3. 运行 `main`,观察三张量各自的 `scale` 与反量化最大误差,以及 int8 相比浮点省了多少体积。\n\n### 常见坑\n\n- `scale` 必须转成 `float` 再参与除法,整数除法会把精度抹掉;\n- 先 `np.round` 再 `astype(np.int8)`——直接强转会变成截断(向零取整),误差翻倍;\n- 求最大值用 `np.max(np.abs(w))` 而不是 `np.max(w)`,否则负数权重会超过 int8 范围;\n- 误差评估要在\"原始浮点 vs 反量化浮点\"之间进行,不要拿量化后的整数直接比。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "对称量化只有 scale 一个参数:scale = np.max(np.abs(w)) / 127.0;量化是 round 后 astype(int8),反量化是乘回 scale。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:scale = float(np.max(np.abs(w))) / 127.0;return np.round(w / scale).astype(np.int8), scale;反量化 return q * scale。"
+        },
+        {
+          "order": 3,
+          "text": "main 里的误差公式是 np.max(np.abs(原始 - 反量化));运行后三个张量的误差应都在 0.01 量级,远超 0.001 算正常。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "per-tensor 与 per-channel 量化",
+          "language": "python",
+          "code": "# 对称量化按粒度分两种:\n# 1) per-tensor:整张量共用一个 scale(本步采用,最简)\nscale = float(np.max(np.abs(w))) / 127.0\nq = np.round(w / scale).astype(np.int8)\n# 2) per-channel:按输出通道各算各的 scale(精度更好,推理稍复杂)\nscales = np.max(np.abs(w), axis=1) / 127.0\nq = np.round(w / scales[:, None]).astype(np.int8)",
+          "description": "量化粒度决定了精度与开销的取舍:per-channel 通常比 per-tensor 误差小,但推理时反量化要多乘一步广播。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "int8 量化",
+          "definition": "把浮点权重/激活映射到 8 位有符号整数的有损压缩,体积降到 1/4,配合硬件 INT8 指令可显著加速推理。"
+        },
+        {
+          "name": "对称量化",
+          "definition": "浮点区间对称地映射到整数区间,只需一个 scale 参数;非对称还需 zero_point 偏移。"
+        },
+        {
+          "name": "scale(量化步长)",
+          "definition": "相邻整数对应的浮点间隔,对称量化下 scale = max(|w|)/127;误差上界约半个 scale。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "承载权重生成、量化取整、误差评估全部数值运算,np.savez/np.load 负责模型存档。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 quantize_tensor 量化函数。",
+          "astType": "function_def",
+          "name": "quantize_tensor",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 dequantize 反量化函数。",
+          "astType": "function_def",
+          "name": "dequantize",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "量化取整请用 np.round,不要直接强转截断。",
+          "pattern": "np\\.round",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "量化结果需要转换成 int8 类型。",
+          "pattern": "astype\\(np\\.int8\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应导出模型并打印三张量的反量化误差。",
+          "expectedStdout": "\\[误差\\] embed: 反量化最大误差=\\d\\.\\d{4}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t64-quantize-deploy-s2",
+      "taskId": "t64-quantize-deploy",
+      "order": 2,
+      "title": "量化推理引擎:整数矩阵乘入炉",
+      "instruction": "### 目标\n\n在 s1 量化好的权重之上,把 FP32 全精度前向改造成 INT8 整数推理链路:动态量化激活 → 整数矩阵乘 → 一次反量化,再用同一段 token 序列对比两份 logits,让量化误差变得可见、可控——这就是部署版推理引擎的核心。\n\n### 原理\n\nint8 加速的秘密在于把矩阵乘留在整数域。激活与权重都以 int8 表示,相乘的结果在 int32 累加器中累积(8 位 × 8 位 → 32 位不会溢出),整个过程不碰浮点指令,内存带宽也只有浮点路径的四分之一。权重是训练后离线量化的(静态量化,s1 已完成);激活每次推理都在变,只能在运行时现算 scale、动态量化——这就是\"静态量化权重、动态量化激活\"的分工,也是实际部署中最常见的组合。注意非线性层(tanh)仍留在浮点域:它的输入范围窄,整数近似误差占比反而大,业界称之为\"算子混合精度\",不要为了\"全整数\"而强行量化它。\n\n### 操作\n\n1. 实现 `dyn_quant(x)`:仿照 s1 的 `quantize_tensor`,对激活向量动态算 scale 并量化为 int8;\n2. 通读 `forward_int8`:嵌入平均后动态量化 → 与 `hidden_q` 做 int32 整数矩阵乘 → 乘 scale 组合反量化 → tanh → 再量化 → 与 `out_q` 整数乘 → 反量化出 logits;\n3. 运行 `main`,对比 `[FP32]` 与 `[INT8]` 两份 logits 的最大偏差,确认误差在可接受量级。\n\n### 常见坑\n\n- 整数矩阵乘的输入务必 `astype(np.int32)` 再做 `@`,让 numpy 走整数路径并保证累积器足够宽,避免 int8 直接乘溢出;\n- 反量化要乘的是\"多个 scale 的组合\"(如 `sx * hidden_scale`),务必在整数运算完成之后一次性乘回,提前乘等于白做量化;\n- `mean(axis=0)` 得到的是浮点均值,必须先乘 `embed_scale` 还原成真实激活,再动态量化,顺序不能反;\n- 激活恰好全零时 `scale` 会为 0 导致除零,生产代码要对 `max(|x|) == 0` 单独兜底。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "dyn_quant 与 s1 的 quantize_tensor 一模一样,只是输入换成了运行时激活:scale = float(np.max(np.abs(x))) / 127.0,返回 (np.round(x / scale).astype(np.int8), scale)。"
+        },
+        {
+          "order": 2,
+          "text": "整数矩阵乘关键写法:h_int = x_q.astype(np.int32) @ qw[\"hidden_q\"].astype(np.int32);反量化组合是 h_int * (sx * qw[\"hidden_scale\"])。"
+        },
+        {
+          "order": 3,
+          "text": "验证标准:同一 token 序列下 [FP32] 与 [INT8] 的 logits 最大偏差应在 0.1 量级内,量级一致说明整数链路写对了。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "整数矩阵乘的溢出边界",
+          "language": "python",
+          "code": "import numpy as np\n# int8 x int8 -> int32 累加器:单次乘积最大 127*127=16129\n# 维度 K 以内的和不超过 16129*K,只要 K < 13 万就不会溢出 int32\nq_act = np.array([12, -7, 55, 31], dtype=np.int8)\nq_w = np.array([[3], [-2], [1], [4]], dtype=np.int8)\nacc = q_act.astype(np.int32) @ q_w.astype(np.int32)\nprint(acc)  # [ 36+14+55+124 ] -> [[229]]",
+          "description": "演示 int8 激活与权重相乘在 int32 累加器中的行为;numpy 对 int32 输入自动走整数路径。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "动态量化",
+          "definition": "对每次推理都在变化的激活,在运行时计算 scale 并量化为 int8 的做法;与训练后静态量化的权重互补。"
+        },
+        {
+          "name": "int32 累加器",
+          "definition": "int8 × int8 的乘积在 32 位整数中累积的中间存储,防止小维度求和溢出;乘积结果最后一次性反量化。"
+        },
+        {
+          "name": "算子混合精度",
+          "definition": "矩阵乘走 int8、非线性与归一化走浮点的部署策略,兼顾速度与精度,是工业界默认做法。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "np.matmul/@ 对 int32 输入自动执行整数矩阵乘,是演示 int8 推理引擎的载体。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 dyn_quant 动态量化函数。",
+          "astType": "function_def",
+          "name": "dyn_quant",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "激活量化取整请用 np.round。",
+          "pattern": "np\\.round",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "整数矩阵乘需要先提升到 int32。",
+          "pattern": "astype\\(np\\.int32\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应对比 FP32 与 INT8 两份 logits 的最大偏差。",
+          "expectedStdout": "\\[对比\\] logits 最大偏差 = \\d\\.\\d{4}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t64-quantize-deploy-s3",
+      "taskId": "t64-quantize-deploy",
+      "order": 3,
+      "title": "推理加速对比:给量化上一杆公平的秤",
+      "instruction": "### 目标\n\n给 FP32 与 INT8 两条推理链路搭建一个\"绝对公平\"的计时擂台:预热、多次计时取平均、算出加速比,并学会诚实解读数字——量化不一定在每个环境都快,测出方法正确比测出\"加速\"更重要。\n\n### 原理\n\n评测推理速度有三个纪律,违反任何一条都会得到误导性数字。(1) **预热**:首次调用会触发 numpy 的分配器初始化与 CPU 缓存填充,不预热会测出虚高延迟;预热 10~20 次让系统进入稳态再计时。(2) **多次计时取平均**:单次测量噪声大,`perf_counter` 的分辨率也有限,200 次取平均才能抹平抖动。(3) **控制变量**:两条链路除推理函数外必须完全一致,权重构建、token 编码都不能混进计时区。至于结果解读:量化在真实 GPU/CPU 上靠 INT8 SIMD 指令获得数倍加速;而在 numpy 的小矩阵场景里,整数路径没有专用指令加持,加速比接近甚至小于 1 都很正常——本步练的是\"可复现的测量方法\",这个能力才是后续所有性能优化的地基。\n\n### 操作\n\n1. 实现 `bench(fn, tokens, rounds)`:`for` 预热 20 次,再用 `time.perf_counter()` 包住 rounds 次调用,返回平均毫秒耗时;\n2. 运行 `main`,观察两份耗时与加速比;\n3. 尝试把 `rounds` 调大(如 2000),观察均值的方差变小、结果更稳定。\n\n### 常见坑\n\n- 计时对象要用 `lambda t: forward_xxx(weights, t)` 包住,把权重构建、量化等准备工作挡在计时区之外;\n- 用 `perf_counter`(墙上时钟)测端到端延迟,`process_time` 只算本进程 CPU 时间,两者回答的问题不同;\n- 加速比小于 1 时先怀疑测量方法(预热了吗?计时区干净吗?),再怀疑量化本身;\n- 预热与正式计时的循环次数分开写,别把预热次数也除进均值里。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "bench 骨架:预热 20 次后,t0 = time.perf_counter(),循环 rounds 次调用 fn(tokens),返回 (time.perf_counter() - t0) / rounds * 1000.0。"
+        },
+        {
+          "order": 2,
+          "text": "计时区只放推理调用本身:weights/q 的构建和 tokens 的编码都在 bench 之外完成,否则两条链路的耗时会被污染。"
+        },
+        {
+          "order": 3,
+          "text": "加速比 = fp_ms / int8_ms;结果在 1 附近甚至小于 1 都属正常,重点是方法正确——真实加速需要硬件的 INT8 SIMD 指令。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "perf_counter 与 process_time 的分工",
+          "language": "python",
+          "code": "import time\n# perf_counter:墙上时钟,包含一切等待,适合测端到端延迟\nwall = time.perf_counter()\n# process_time:只算本进程的 CPU 时间,不受系统负载干扰\ncpu = time.process_time()\nresult = sum(range(10**6))\nprint(f\"墙钟 {(time.perf_counter() - wall) * 1000:.3f} ms,CPU {(time.process_time() - cpu) * 1000:.3f} ms\")",
+          "description": "两个计时器回答不同问题:对外承诺的延迟用 perf_counter,纯计算优化用 process_time。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "预热(warmup)",
+          "definition": "正式计时前先跑若干次调用,让缓存、分配器进入稳态,避免首调虚高延迟污染测量。"
+        },
+        {
+          "name": "加速比(speedup)",
+          "definition": "优化前后平均耗时的比值,>1 表示变快;必须在同一硬件、同一输入、同一测量协议下比较才有意义。"
+        },
+        {
+          "name": "SIMD",
+          "definition": "单指令多数据:一条指令同时处理多个数,INT8 SIMD 是量化模型在 CPU/GPU 上获得数倍加速的硬件基础。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "承载被评测的两条推理链路;本步只负责计时,不改推理逻辑。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        },
+        {
+          "name": "time(标准库)",
+          "role": "计时工具",
+          "description": "perf_counter 提供高分辨率墙钟,是微秒级性能测量的标准工具。",
+          "officialUrl": "https://docs.python.org/3/library/time.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 bench 计时函数。",
+          "astType": "function_def",
+          "name": "bench",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 time.perf_counter 计时。",
+          "pattern": "perf_counter",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请计算并打印量化加速比。",
+          "pattern": "speedup",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印 FP32/INT8 耗时与加速比。",
+          "expectedStdout": "量化推理速度 x\\d\\.\\d{2}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t64-quantize-deploy-s4",
+      "taskId": "t64-quantize-deploy",
+      "order": 4,
+      "title": "模型打包:交付一个开箱即用的包",
+      "instruction": "### 目标\n\n把量化好的微型 GPT 打包成\"开箱即用\"的单一交付物:量化权重压进 `.npz`,词表与配置写进 `manifest.json`,再写 `load_model` 读回并自检——为下一步把模型挂上 HTTP 服务备好干净的食粮。\n\n### 原理\n\n模型交付远不止\"把数组存下来\"。一个可部署的模型包至少包含三样东西:**权重**(量化后的 int8 张量)、**元信息**(词表、隐藏维度、模型名、量化格式)、**自检机制**(加载时验证张量齐全、dtype 正确、scale 为正)。`np.savez_compressed` 把多个数组打进一个 `.npz` 文件并做无损压缩,一个文件就能装下整个权重表;`manifest.json` 是人类可读的\"装箱单\",也是加载器的契约——加载方先读清单、再按清单逐一核对,任何不一致都立刻 `raise ValueError`,把坏包挡在推理服务门外。为什么强调\"先自检再推理\"?量化模型的所有错误都是静默的:张量缺失会让 key 报错,scale 为 0 会算出 NaN,只有把校验前置,才能保证\"能加载 = 能正确推理\"。\n\n### 操作\n\n1. 通读 `save_model`:量化权重 `savez_compressed` 进 `.npz`,同时生成含模型名/格式/配置/词表/张量清单/scale 表的 manifest;\n2. 实现 `load_model` 的三条校验:张量齐全、类型为 int8、scale 大于 0,不满足就 `raise ValueError` 并附中文原因;\n3. 运行 `main`,观察打包体积与逐张量校验输出。\n\n### 常见坑\n\n- `.npz` 与 `manifest.json` 靠\"张量清单\"串联,加载时只信 manifest,不要硬编码张量名;\n- `json.dump` 记得 `ensure_ascii=False`,否则中文词表会变成 `\\uXXXX` 转义序列,人类无法阅读;\n- 校验要跑在推理之前:加载失败宁可立即崩溃,也不要带着坏权重\"带病推理\";\n- `savez_compressed` 是压缩版,体积更小;若在意加载速度可换 `savez`(不压缩),取舍取决于部署场景。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "校验循环写三条:for name in manifest[\"tensors\"]: 先查存在性,再查 dtype;for key, scale in manifest[\"scales\"].items(): 查 scale > 0。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:raise ValueError(f\"包内缺少张量 {name}\");qw[name].dtype != np.int8;scale <= 0 时 raise。"
+        },
+        {
+          "order": 3,
+          "text": "验证标准:main 打印出 [校验] 三行 ✓ 与 [加载] 模型恢复成功,说明打包与自检闭环成立。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "一个典型模型包的目录结构",
+          "language": "text",
+          "code": "weikun-tiny-gpt/\n├── tiny_quant.npz      # int8 量化权重(本步产物)\n├── manifest.json       # 词表 + 配置 + 张量清单(本步产物)\n├── tokenizer.json      # 生产环境单独存放的词表文件\n└── README.md           # 版本、量化格式、基准精度说明",
+          "description": "模型包 = 权重 + 清单 + 词表 + 说明;清单是加载器的唯一契约,其余文件都可按约定增删。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "模型打包",
+          "definition": "把权重、元信息与校验规则组织成可分发、可加载的交付物(本步为 .npz + manifest.json)。"
+        },
+        {
+          "name": "manifest(清单)",
+          "definition": "描述包内内容的元数据文件,记录模型名、量化格式、配置、张量名与 scale,是加载器的校验契约。"
+        },
+        {
+          "name": "静默错误",
+          "definition": "不会显式报错、但结果错误的异常形态(如 scale 为 0 产生 NaN);靠加载期校验主动拦截。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "np.savez_compressed 与 np.load 承担量化权重的打包与读回。",
+          "officialUrl": "https://numpy.org",
+          "category": "库",
+          "installHint": "pip install numpy"
+        },
+        {
+          "name": "json(标准库)",
+          "role": "清单序列化",
+          "description": "manifest.json 的写入与解析,ensure_ascii=False 保证中文词表可读。",
+          "officialUrl": "https://docs.python.org/3/library/json.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 save_model 打包函数。",
+          "astType": "function_def",
+          "name": "save_model",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 load_model 加载校验函数。",
+          "astType": "function_def",
+          "name": "load_model",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "加载校验需要核对张量 dtype 是否为 int8。",
+          "pattern": "qw\\[name\\]\\.dtype",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "加载校验需要拒绝非正的 scale。",
+          "pattern": "scale <= 0",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打包、读回并打印逐张量校验结果。",
+          "expectedStdout": "\\[加载\\] 模型恢复成功",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t64-quantize-deploy-s5",
+      "taskId": "t64-quantize-deploy",
+      "order": 5,
+      "title": "简易推理服务:让模型开口说话",
+      "instruction": "### 目标\n\n给前面打包好的量化小模型装上 HTTP 推理服务:接收 `{\"prompt\": \"hello\"}` 的 JSON 请求,自回归续写一段文本,再以 JSON 回给调用方。这一步让模型真正\"开口说话\",完成从权重到可调用服务的最后一公里。\n\n### 原理\n\n部署的本质是把模型从\"Python 里的变量\"变成\"任何语言都能调用的边界\"。HTTP 是最通用的边界:客户端把文本塞进 JSON 请求体,服务端解析 prompt、喂给模型、再把续写结果序列化进响应。`http.server` 的 `BaseHTTPRequestHandler` 让你只需关心两件事:解析请求(`do_GET` / `do_POST`)与写出响应(`send_response` + `wfile.write`);`ThreadingHTTPServer` 为每个连接分配一个线程,天然支持并发。续写用的是自回归采样:每次只看最近的 8 个字符,经 `forward_int8` 得到下一个字符的 logits,再用 softmax 概率采样挑一个字符拼到文末,循环若干次就是一段\"模型说出来的话\"。为了让容器里的脚本能自测自退,我们在后台线程里发一次真实的 HTTP 请求,收到响应后调用 `shutdown()` 优雅关停服务——这正是进程内自检的部署演练。\n\n### 操作\n\n1. 实现 `generate`:在循环里用 `sample_token` 采样一个字符并追加到 `text` 末尾,完成自回归续写;\n2. 通读 `TinyServer`:`do_GET` 探活、`do_POST` 解析 prompt 并回 JSON、`log_message` 静默访问日志;\n3. 运行 `main`:依次观察 [服务] 启动、[响应] 回包、[关闭] 退出三行日志,确认一次完整请求闭环。\n\n### 常见坑\n\n- 字符上下文只取 `text[-8:]`,超过窗口的旧字符直接丢弃,这是\"有限上下文\"模型的朴素实现;\n- POST 请求必须先读 `Content-Length` 指定的字节再 `json.loads`,读多读少都会让解析失败;\n- 后台线程必须设 `daemon=True`,否则 `shutdown()` 之后进程可能挂住不退出;\n- `ensure_ascii=False` 让中文生成结果原样输出,而不是变成 `\\uXXXX` 转义序列。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "自回归核心就一行:text += VOCAB[sample_token(logits)]——采样、查表、拼接,循环里完成三步。"
+        },
+        {
+          "order": 2,
+          "text": "服务端只信 Content-Length:length = int(self.headers.get(\"Content-Length\", 0)),再 self.rfile.read(length) 后 json.loads。"
+        },
+        {
+          "order": 3,
+          "text": "验证标准:main 打印 [服务] 启动 → [响应] 回包 → [关闭] 退出,三行日志齐全说明请求闭环成立。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "用一行 urllib 调用刚启动的服务",
+          "language": "python",
+          "code": "import json\nfrom urllib.request import urlopen\n\nreq = json.dumps({\"prompt\": \"hello\"}).encode(\"utf-8\")\nwith urlopen(\"http://127.0.0.1:8000/\", data=req, timeout=5) as resp:\n    print(resp.read().decode(\"utf-8\"))\n# 输出形如:{\"prompt\": \"hello\", \"generated\": \"helloworld is a ...\"}",
+          "description": "带 data 的 urlopen 自动变成 POST;服务端只认 Content-Length 与 JSON 体,与客户端语言无关。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "推理服务",
+          "definition": "把模型封装成网络接口、接收输入并返回输出的常驻进程,让任何语言都能调用模型。"
+        },
+        {
+          "name": "自回归生成",
+          "definition": "把模型刚产出的 token 重新喂回输入,逐 token 采样并拼接,循环产生文本的过程。"
+        },
+        {
+          "name": "优雅关闭",
+          "definition": "服务先停止接收新请求、处理完在途请求再退出;本步用后台线程调 shutdown() 模拟。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "http.server(标准库)",
+          "role": "HTTP 服务骨架",
+          "description": "BaseHTTPRequestHandler 处理请求,ThreadingHTTPServer 提供多线程分发。",
+          "officialUrl": "https://docs.python.org/3/library/http.server.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        },
+        {
+          "name": "threading(标准库)",
+          "role": "并发与自测",
+          "description": "后台线程发出自测请求并触发服务优雅关闭。",
+          "officialUrl": "https://docs.python.org/3/library/threading.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        },
+        {
+          "name": "urllib.request(标准库)",
+          "role": "HTTP 客户端",
+          "description": "进程内自测时扮演外部调用方,发起 POST 请求并读取 JSON 响应。",
+          "officialUrl": "https://docs.python.org/3/library/urllib.request.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 generate 自回归续写函数。",
+          "astType": "function_def",
+          "name": "generate",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 sample_token 概率采样函数。",
+          "astType": "function_def",
+          "name": "sample_token",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "采样结果需要通过词表映射回字符。",
+          "pattern": "VOCAB\\[",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要线程触发自测请求与优雅关闭。",
+          "pattern": "Thread\\(",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应启动服务、收到一次 POST 响应并优雅退出。",
+          "expectedStdout": "\\[响应\\] \\{\\\"prompt\\\": \\\"hello\\\", \\\"generated\\\": \\\"hello[^\\\"]*",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

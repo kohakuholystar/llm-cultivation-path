@@ -1,0 +1,583 @@
+{
+  "steps": [
+    {
+      "id": "t02-s1",
+      "taskId": "t02-chat-session",
+      "order": 1,
+      "title": "记忆从追加开始:ChatSession 与消息历史",
+      "instruction": "### 目标\n把 t01 的一次性 `chat_once` 升级为 `ChatSession` 类:每轮对话自动把问答追加进 `history`,请求时带上全部历史——让灵讯通第一次拥有\"记忆\"。\n\n### 原理\n**LLM 是无状态的,记忆是客户端的工程。** 服务端不会为你保存任何对话:你第一轮说\"我叫阿灵\",第二轮问\"我叫什么\",如果第二轮的 messages 里没有第一轮的内容,模型必然答不上来。所谓多轮对话,本质是一个不断变长的剧本:客户端把每一轮 user/assistant 追加到列表,下次请求整本重发。ChatSession 就是这个剧本的保管员。\n\n**为什么用类而不是全局列表?** 会话是一个明确的对象:它有状态(history)、有依赖(client/config)、有行为(say)。封装成类后,重置会话 = 新建实例,多个会话并存互不干扰——这是后续所有 Agent 记忆模块的基本形态。\n\n**mock 分支的意义。** 本任务默认真实调用 DeepSeek;设置 `MOCK_LLM=1` 时改用本地规则假回复。它\"只能从 messages 里找答案\",恰好直观演示:模型知道什么,完全取决于你发了什么。\n\n### 操作\n1. 定义 `ChatSession`:`__init__` 保存 client/config,初始化空 `history`\n2. 实现 `say`:追加 user 消息 → 带 history 调 `chat.completions.create` → 取回复 → 追加 assistant 消息\n3. main 里连聊三轮(自报姓名 → 闲聊 → 反问名字),观察模型\"记得\"你\n\n### 常见坑\n- 只把 user 消息塞进 history、忘了追加 assistant 回复——下一轮模型看不到自己说过的话,会前后矛盾\n- 调试\"模型怎么忘了\"时先打印 messages 的长度与内容,九成问题出在 history 没攒对,而不是模型不行",
+      "todoItems": [
+        {
+          "title": "定义 ChatSession：__init__ 保存 client/config 并初始化空 history",
+          "target": "ChatSession 类（文件顶部空壳）",
+          "code": "class ChatSession:",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "实现 say：先把 user 消息追加进 history，再带全部历史发请求",
+          "target": "ChatSession.say() 方法",
+          "code": "self.history.append({\"role\": \"user\", \"content\": question})",
+          "expect": "请求携带完整历史"
+        },
+        {
+          "title": "把 assistant 回复也追加进 history 再返回",
+          "target": "ChatSession.say() 方法尾部",
+          "code": "self.history.append({\"role\": \"assistant\", \"content\": reply})",
+          "expect": "下一轮模型能看到自己说过的话"
+        },
+        {
+          "title": "main 连聊三轮（报姓名→闲聊→反问名字），观察模型记得你",
+          "target": "main 入口",
+          "expect": "第三轮模型答出第一轮报的姓名"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:say 的骨架是'追加 → 请求 → 再追加':user 消息进 history,带整个 history 发请求,assistant 回复也进 history。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:self.client.chat.completions.create(model=self.config.model, messages=self.history);回复文本在 response.choices[0].message.content。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:self.history.append({\"role\": \"user\", \"content\": question}) … self.history.append({\"role\": \"assistant\", \"content\": reply}); return reply"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "多轮 = 整本剧本重发",
+          "language": "python",
+          "code": "# 第 1 轮\nmessages = [{\"role\": \"user\", \"content\": \"我叫阿灵\"}]\n\n# 第 2 轮:上一轮的问答都要带上,否则模型必然\"失忆\"\nmessages = [\n    {\"role\": \"user\", \"content\": \"我叫阿灵\"},\n    {\"role\": \"assistant\", \"content\": \"你好,阿灵!\"},\n    {\"role\": \"user\", \"content\": \"我叫什么名字?\"},\n]",
+          "description": "模型无记忆:每轮请求都把历史全部塞回 messages。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "无状态(stateless)",
+          "definition": "LLM 服务端不保存对话历史,每次请求相互独立;'记忆'完全由客户端通过 messages 数组重建。"
+        },
+        {
+          "name": "消息历史(message history)",
+          "definition": "客户端维护的 user/assistant 交替消息列表,是多轮对话的载体;每次请求整本重发给模型。"
+        },
+        {
+          "name": "会话(session)",
+          "definition": "一次连续对话的全部状态(历史、人设、配置)的封装;新建会话 = 一段全新的记忆。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;chat.completions.create 是最核心的对话接口,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容大模型 API,本课程默认模型为 deepseek-v4-pro,端点 https://api.deepseek.com。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,在平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 ChatSession 的 __init__ 与 say。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "ChatSession",
+          "message": "请定义 ChatSession 类。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "say",
+          "message": "请实现 say 方法。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请调用 client.chat.completions.create 发送请求。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "history\\.append",
+          "message": "user 与 assistant 消息都应 append 进 history。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t02-s2",
+      "taskId": "t02-chat-session",
+      "order": 2,
+      "title": "人设注入:system prompt 的正确位置",
+      "instruction": "### 目标\n给 ChatSession 加人设:构造函数接收 `persona`,system 消息在每次请求时注入到 messages 最前面;支持 `change_persona` 中途换人格且不动历史。\n\n### 原理\n**system prompt 是\"常量\",不该混进历史。** 新手常把 system 当成 history[0] 存进去,麻烦随之而来:滑动窗口截断(下一步)可能把它切掉,人设就丢了;换人设要改历史,污染\"真实对话\"的记录。正确姿势是分离存储——history 只记 user/assistant,system 在发送时由 `_messages()` 现场拼装。人设与记忆各归各位,这是\"上下文工程\"的第一课。\n\n**system 为什么有约束力?** 模型在指令微调阶段被训练为优先服从 system 角色的指令(指令层级),DeepSeek 等模型都遵循这一约定。它不是魔法——执意越狱仍可能成功——但对\"语气、格式、边界\"这类软约束非常可靠,是人格化助手的主要实现手段。\n\n**换人设 = 改注入内容。** 因为 system 不在历史里,`change_persona` 只需替换一个字符串,下一条请求立刻生效,历史原封不动——这就是关注点分离的回报。\n\n### 操作\n1. `__init__` 增加 `persona` 参数,默认\"你是灵讯通,一个简洁可靠的命令行智能助手\"\n2. 实现 `_messages()`:返回 `[system 字典, *history]`\n3. 实现 `change_persona()`;演示换人设前后模型的语气变化\n\n### 常见坑\n- 把 system 追加到 history 末尾——它必须位于 messages 最前面,放在中间约束力大打折扣\n- 换人设时顺手 `clear()` 了历史:人设和记忆是两回事,别把用户记忆一起洗掉",
+      "todoItems": [
+        {
+          "title": "__init__ 增加 persona 参数并存入 self",
+          "target": "ChatSession.__init__()",
+          "code": "persona=\"你是灵讯通，一个简洁可靠的命令行智能助手\"",
+          "expect": "不传 persona 也能创建实例"
+        },
+        {
+          "title": "实现 _messages()：把 system 拼到历史最前面",
+          "target": "ChatSession._messages() 方法",
+          "code": "[{\"role\": \"system\", \"content\": self.persona}, *self.history]",
+          "expect": "system 恒在首位、不进 history"
+        },
+        {
+          "title": "实现 change_persona()：只换字符串不动历史",
+          "target": "ChatSession.change_persona() 方法",
+          "code": "self.persona = persona",
+          "expect": "换人设后历史原封不动"
+        },
+        {
+          "title": "演示换人设前后模型的语气变化",
+          "target": "main 入口",
+          "expect": "同一会话换人设后回复语气明显不同"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:persona 存在 self 上,不进 history;发送时用 _messages() 把 system 拼到最前面。"
+        },
+        {
+          "order": 2,
+          "text": "关键写法:return [{\"role\": \"system\", \"content\": self.persona}, *self.history]——星号解包把历史展开接在后面。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:change_persona 就一行 self.persona = persona;say 里把 messages=self.history 换成 messages=self._messages()。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "system 该放哪:两种写法对比",
+          "language": "python",
+          "code": "# 错误:system 混进历史,截断会把它切掉,换人设要改历史\nhistory = [{\"role\": \"system\", \"content\": persona}]\nhistory.append({\"role\": \"user\", \"content\": q})\n\n# 正确:分离存放,发送时现场拼装\nhistory = []  # 只记 user/assistant\nmessages = [{\"role\": \"system\", \"content\": persona}, *history]",
+          "description": "人设是常量、历史是变量;分离存放才能各自独立演化。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "system prompt",
+          "definition": "messages 中 role 为 system 的消息,用于设定模型的身份、语气与行为边界,整场对话生效。"
+        },
+        {
+          "name": "指令层级(instruction hierarchy)",
+          "definition": "模型经指令微调后形成的优先级约定:system 的指令优先于 user 的指令被服从。"
+        },
+        {
+          "name": "人设(persona)",
+          "definition": "通过 system prompt 赋予模型的角色设定,如'简洁可靠的命令行助手';改人设不改记忆。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;chat.completions.create 是最核心的对话接口,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 persona 存储、change_persona 与 _messages。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "\"role\":\\s*\"system\"",
+          "message": "请注入 role 为 system 的人设消息。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "_messages",
+          "message": "请实现 _messages 方法组装 system+历史。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "change_persona",
+          "message": "请实现 change_persona 方法。",
+          "blocking": false
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请调用 client.chat.completions.create 发送请求。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t02-s3",
+      "taskId": "t02-chat-session",
+      "order": 3,
+      "title": "滑动窗口:上下文不是无限的",
+      "instruction": "### 目标\n给 ChatSession 加 `max_turns`:发送时只带最近 N 轮(一轮 = 一问一答),更早的消息留在 history 里存档但不再发给模型——这就是滑动窗口。\n\n### 原理\n**上下文窗口是稀缺资源。** 模型的上下文长度有限,且每个 token 都计费:无限追加历史迟早撞墙——要么请求被服务端拒绝,要么账单爆炸。滑动窗口是最简单的截断策略:只保留最近 N 轮参与请求,超出的静默留在本地。它粗糙(模型会\"忘记\"早期约定),但实现零成本、行为可预期,是理解后续\"摘要压缩\"\"向量检索记忆\"的起点。\n\n**为什么按\"轮\"而不是按\"条\"截断?** 截断必须保持 user/assistant 成对完整:把一个 assistant 单独留在开头,等于让模型看到\"自己莫名开口\",部分模型会困惑甚至报错。`history[-2*max_turns:]` 一步保证了成对与有序。\n\n**窗口外 ≠ 删除。** 本步只改\"发给模型的内容\",history 仍然完整保留——事后审计、将来做摘要都用得上。区分\"记忆存储\"与\"上下文注入\",是 Agent 记忆设计的关键分界:存可以全存,发必须精选。\n\n### 操作\n1. `__init__` 增加 `max_turns=10`\n2. `_messages()` 改为 `system + history[-2*max_turns:]`(先切历史,再拼 system)\n3. 用 `max_turns=2` 的会话连聊 5 轮(`MOCK_LLM=1`),观察第 1 轮自报的姓名在窗口滑过后被\"遗忘\"\n\n### 常见坑\n- 写成 `history[-max_turns:]`:少乘 2,实际只保留了 N/2 轮\n- 先拼 system 再切片:切片会把人设一起切掉——必须先切历史、再拼 system",
+      "todoItems": [
+        {
+          "title": "__init__ 增加 max_turns 参数，默认 10",
+          "target": "ChatSession.__init__()",
+          "code": "max_turns=10",
+          "expect": "默认保留最近 10 轮"
+        },
+        {
+          "title": "_messages() 先切历史再拼 system：只带最近 2*max_turns 条",
+          "target": "ChatSession._messages() 方法",
+          "code": "self.history[-2 * self.max_turns:]",
+          "expect": "问答成对被保留，system 不被切掉"
+        },
+        {
+          "title": "用 max_turns=2 的会话连聊 5 轮，观察早期姓名被遗忘",
+          "target": "main 入口（MOCK_LLM=1）",
+          "expect": "窗口滑过后，模型答不上第一轮报的姓名"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:截断发生在 _messages() 里,只改'发什么',history 本身一条不删。"
+        },
+        {
+          "order": 2,
+          "text": "关键切片:window = self.history[-2 * self.max_turns:]——一轮是两条消息,所以要乘 2。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return [{\"role\": \"system\", \"content\": self.persona}, *self.history[-2 * self.max_turns:]]"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "负数切片 = 滑动窗口",
+          "language": "python",
+          "code": "history = [\"u1\", \"a1\", \"u2\", \"a2\", \"u3\", \"a3\"]  # 3 轮对话\n\nmax_turns = 2\nwindow = history[-2 * max_turns:]  # ['u2', 'a2', 'u3', 'a3'] 只留最近 2 轮\n\n# 先拼 system 再切片的错误示范:\nmessages = [\"system\", *history]\nmessages[-2 * max_turns:]          # system 被切掉了!人设丢失",
+          "description": "先切历史、再拼 system;顺序反了人设就没了。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "上下文窗口(context window)",
+          "definition": "模型单次请求能处理的最大 token 长度;超出会被拒绝或截断,且全部 token 参与计费。"
+        },
+        {
+          "name": "滑动窗口(sliding window)",
+          "definition": "只保留最近 N 轮参与请求的截断策略;实现简单、行为可预期,代价是模型遗忘早期内容。"
+        },
+        {
+          "name": "轮(turn)",
+          "definition": "一轮 = 一条 user 消息加一条 assistant 回复;按轮截断可保持问答成对完整。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;chat.completions.create 是最核心的对话接口,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 max_turns 存储与窗口切片。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "self\\.history\\[-",
+          "message": "请对 history 做尾部切片,只保留最近若干轮。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "max_turns",
+          "message": "请使用 max_turns 控制窗口大小。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "_messages",
+          "message": "请在 _messages 中组装 system + 窗口内历史。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请调用 client.chat.completions.create 发送请求。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t02-s4",
+      "taskId": "t02-chat-session",
+      "order": 4,
+      "title": "token 预算:给历史装上闸门",
+      "instruction": "### 目标\n给滑动窗口再加一道更精确的闸门:token 预算。实现 `estimate_tokens` 估算每条消息的开销,发送前 `_fit_budget()` 从最老的轮次开始丢弃,直到历史总量低于 `token_budget`。\n\n### 原理\n**为什么按轮数截断还不够?** 轮数相同,开销天差地别:一句\"你好\"和一篇贴进来的万字报错日志都只占\"一轮\"。真正决定成本、决定会不会撞上下文上限的是 token 数,所以生产系统用预算(budget)而非轮数做硬约束——轮数窗口保底,token 闸门精控。\n\n**token 怎么算?** 精确计数要用分词器:tiktoken 的 `cl100k_base` 是常用近似(与多数主流模型的计量接近)。但词表需要加载,离线环境可能拿不到——工程上的成熟做法是\"精确优先,启发式兜底\":估算失败时退化为字符数规则(中文约 1 字 1 token,英文约 4 字符 1 token,再加每条消息的固定开销)。预算闸门宁可保守,不能放水。\n\n**丢弃策略的取舍。** 超预算时从最老的一轮开始丢(LRU 式),保留 system 与最近对话——这与人类交谈的注意力分布一致。更高级的做法是先对老消息做摘要再丢,那是 RAG 章节的内容;本步先把\"丢弃\"做正确:成对丢、丢完重算、报告丢了几轮。\n\n### 操作\n1. 实现 `estimate_tokens(text)`:tiktoken 优先,异常时启发式兜底\n2. 实现 `history_tokens()`:persona + 全部历史消息的估算总和\n3. 实现 `_fit_budget()`:超预算时从最老一轮开始丢,返回丢弃轮数;`say()` 发送前调用它\n4. 用 `token_budget=80` 的会话喂几条长消息,观察丢弃报告\n\n### 常见坑\n- 只算 history 忘了算 system:persona 也占预算,长人设场景下会悄悄超支\n- 丢消息一条一条丢,破坏 user/assistant 成对结构——至少成对丢(`history = history[2:]`)",
+      "todoItems": [
+        {
+          "title": "实现 estimate_tokens：tiktoken 优先，异常时字符启发式兜底",
+          "target": "estimate_tokens() 函数",
+          "code": "tiktoken.get_encoding(\"cl100k_base\").encode(text)",
+          "expect": "离线环境不崩溃，仍能估算"
+        },
+        {
+          "title": "实现 history_tokens()：persona 加全部历史的估算总和",
+          "target": "history_tokens() 方法",
+          "code": "estimate_tokens(self.persona) + sum(...)",
+          "expect": "人设计入预算，不悄悄超支"
+        },
+        {
+          "title": "实现 _fit_budget()：超预算从最老一轮成对丢弃，say 发送前调用",
+          "target": "_fit_budget() 方法与 say()",
+          "code": "self.history = self.history[2:]",
+          "expect": "丢弃后 user/assistant 仍成对"
+        },
+        {
+          "title": "用 token_budget=80 的会话喂长消息，观察丢弃报告",
+          "target": "main 入口（MOCK_LLM=1）",
+          "code": "token_budget=80",
+          "expect": "打印丢弃了几轮老消息"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:estimate_tokens 用 try 包 tiktoken,失败走字符启发式;_fit_budget 用 while 循环成对丢弃直到低于预算。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:tiktoken.get_encoding(\"cl100k_base\").encode(text);兜底公式 cjk + (len(text) - cjk) // 4 + 4。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:while len(self.history) >= 2 and self.history_tokens() > self.token_budget: self.history = self.history[2:]; dropped += 1"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "精确优先,启发式兜底",
+          "language": "python",
+          "code": "def estimate_tokens(text: str) -> int:\n    try:\n        import tiktoken\n        return len(tiktoken.get_encoding(\"cl100k_base\").encode(text))\n    except Exception:\n        # 离线拿不到词表:中文 1 字≈1 token,英文 4 字符≈1 token\n        cjk = sum(1 for ch in text if \"\\u4e00\" <= ch <= \"\\u9fff\")\n        return max(1, cjk + (len(text) - cjk) // 4 + 4)",
+          "description": "依赖外部资源的精确方案必须配一个自给自足的兜底方案。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "token",
+          "definition": "模型计量文本的最小单位;中文约 1 字 1 token,英文约 4 字符 1 token,计费与上下文上限都按它算。"
+        },
+        {
+          "name": "token 预算(token budget)",
+          "definition": "为对话历史设定的 token 上限;超出时按策略丢弃老消息,是成本与稳定性的硬闸门。"
+        },
+        {
+          "name": "优雅降级(graceful degradation)",
+          "definition": "精确方案不可用时自动切换到近似方案的设计;如 tiktoken 离线时退化为字符启发式估算。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;chat.completions.create 是最核心的对话接口,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "tiktoken",
+          "role": "token 计数器",
+          "description": "OpenAI 开源的快速 BPE 分词库,可精确计算文本 token 数;离线拿不到词表时本任务给出启发式兜底。",
+          "officialUrl": "https://pypi.org/project/tiktoken/",
+          "category": "库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 estimate_tokens / history_tokens / _fit_budget。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "estimate_tokens",
+          "message": "请实现 estimate_tokens 函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "_fit_budget",
+          "message": "请实现 _fit_budget 方法。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "token_budget",
+          "message": "请使用 token_budget 做预算控制。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "get_encoding|u4e00",
+          "message": "token 估算:用 tiktoken 或字符启发式均可。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t02-s5",
+      "taskId": "t02-chat-session",
+      "order": 5,
+      "title": "组装灵讯通:REPL 多轮对话主循环",
+      "instruction": "### 目标\n把前四步组装成真正的 CLI 工具:`repl()` 交互主循环,支持 `/exit`、`/history`、`/tokens`、`/reset` 斜杠命令;非交互环境(管道/沙箱)自动降级为 `demo()` 脚本化演示。\n\n### 原理\n**REPL 是 Agent 的最小外壳。** Read-Eval-Print-Loop:读输入 → 判断是命令还是对话 → 执行 → 打印 → 循环。灵讯通的 repl 已具备生产 CLI 的骨架:斜杠命令分流、异常隔离、优雅退出。后续章节的 Agent 循环,本质就是在这个循环里加工具调用与规划。\n\n**为什么要区分交互/非交互?** 课程沙箱、CI、管道场景里 stdin 不是终端,`input()` 会立刻撞 EOF。`sys.stdin.isatty()` 探测运行环境:真人用时进交互模式,自动化环境跑脚本化 demo——同一份代码两种行为,是可测试 CLI 的标准做法。\n\n**异常隔离的位置决定系统的健壮性。** try/except 要包在\"单轮 say\"上,而不是整个 while 循环:一轮网络抖动只损失这一轮,会话状态(history)完好,用户接着说下一句。这是 t01\"错误分类\"思想在会话层的落地。同理,`EOFError`/`KeyboardInterrupt` 必须接住——Ctrl+C 和管道关闭都不该让用户看到 traceback。\n\n### 操作\n1. 实现 `repl()`:循环读输入,分流四个斜杠命令,其余交给 `session.say`\n2. 实现 `demo()`:脚本化三轮对话 + 用量报告\n3. main 里用 `sys.stdin.isatty()` 选择 repl 或 demo\n4. 本地 `MOCK_LLM=1 python t02.py` 体验完整交互模式\n\n### 常见坑\n- try/except 包住了整个 while:一次网络异常直接退出程序,历史全丢\n- `input()` 不处理 `EOFError`:管道输入结束时程序以 traceback 收场",
+      "todoItems": [
+        {
+          "title": "实现 repl()：while 循环读输入，分流四个斜杠命令",
+          "target": "repl() 函数",
+          "code": "if q == \"/exit\": ...",
+          "expect": "输入 /exit 正常退出循环"
+        },
+        {
+          "title": "对话分支用 try 包住 session.say，一轮异常不拖垮会话",
+          "target": "repl() 的对话分支",
+          "code": "except Exception as exc:",
+          "expect": "出错打印异常类型名后仍可继续"
+        },
+        {
+          "title": "实现 demo()：脚本化三轮对话加用量报告",
+          "target": "demo() 函数",
+          "expect": "非交互环境跑完整演示"
+        },
+        {
+          "title": "main 用 sys.stdin.isatty() 选择 repl 或 demo",
+          "target": "main 入口",
+          "code": "sys.stdin.isatty()",
+          "expect": "管道/沙箱自动走 demo"
+        },
+        {
+          "title": "本地 MOCK_LLM=1 python t02.py 体验完整交互模式",
+          "target": "终端命令",
+          "code": "MOCK_LLM=1 python t02.py",
+          "expect": "进入‘你: ’提示的交互循环，斜杠命令生效"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:while True 里先 input,再用 if/elif 链分流 /exit /reset /history /tokens,else 分支才是对话。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:sys.stdin.isatty() 区分真人终端与管道;对话分支用 try 包 session.say(q),except Exception as exc 打印 type(exc).__name__。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:if q == \"/exit\": print(\"灵讯通: 再见!\"); return … main 里 repl(session) if sys.stdin.isatty() else demo(session)"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "异常隔离:包单轮,不包循环",
+          "language": "python",
+          "code": "while True:\n    q = input(\"你: \")\n    # 正确:try 只包单轮调用,失败损失一轮,会话继续\n    try:\n        print(session.say(q))\n    except Exception as exc:\n        print(f\"这轮出错了({type(exc).__name__}),请再试一次\")\n\n# 错误:try 包住整个 while——一次异常,程序连同历史一起退出",
+          "description": "异常隔离的粒度:单轮失败不拖垮整个会话。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "REPL",
+          "definition": "Read-Eval-Print-Loop,交互式程序的经典循环:读输入、执行、打印结果、循环;CLI 对话工具与 Agent 循环的共同骨架。"
+        },
+        {
+          "name": "斜杠命令(slash command)",
+          "definition": "以 / 开头的元命令(如 /exit /reset),在输入分流阶段被拦截,不进入对话;CLI 工具的标准交互约定。"
+        },
+        {
+          "name": "sys.stdin.isatty()",
+          "definition": "检测标准输入是否为真人终端;管道、重定向、沙箱中返回 False,用于切换交互/脚本模式。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;chat.completions.create 是最核心的对话接口,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 repl 的命令分流与对话分支。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "repl",
+          "message": "请实现 repl 交互主循环。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "\"/exit\"",
+          "message": "请实现 /exit 命令退出对话。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "对话分支应调用 chat.completions.create(经 session.say)。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "isatty",
+          "message": "建议用 sys.stdin.isatty() 区分交互与非交互环境。",
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

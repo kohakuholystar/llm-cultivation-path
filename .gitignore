@@ -1,0 +1,29 @@
+# ===== 依赖 =====
+node_modules/
+.pnpm-store/
+
+# ===== 构建产物 =====
+dist/
+*.tsbuildinfo
+*.egg-info/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# ===== 环境与密钥(绝不提交) =====
+.env
+.env.local
+.env.*.local
+
+# ===== 编辑器 / 系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== 本地数据 =====
+*.log

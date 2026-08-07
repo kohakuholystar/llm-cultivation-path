@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t32-custom-tools-s1",
+      "taskId": "t32-custom-tools",
+      "order": 1,
+      "title": "Pydantic args_schema 校验工具参数",
+      "instruction": "### 目标\n把任意 Python 函数包装成 Agent 可用的**自定义工具**,理解工具的完整生命周期。\n\n### 背景: @tool 装饰器解剖\n```python\nfrom langchain_core.tools import tool\n\n@tool\ndef search_docs(query: str, top_k: int = 3) -> str:\n    \"\"\"搜索公司知识库, 回答产品功能类问题。\"\"\"\n    return f\"找到 {top_k} 条关于'{query}'的文档\"\n```\n装饰器干了三件事:\n1. 函数名 → tool.name\n2. **docstring → tool.description**(给 LLM 看的!不写 docstring 工具就废了一半)\n3. 类型注解 → 参数 schema(query: str, top_k: int)\n\n### 工具设计的核心原则\n- **单一职责**:一个工具干一件事。\"搜索并总结并翻译\"该拆三个\n- **返回字符串**:工具返回值是给 LLM 看的,返回易读文本而非复杂对象(对象先序列化)\n- **失败要返回错误描述**:抛异常 Agent 会懵,返回\"搜索超时,请换个关键词重试\"它才知道怎么办\n\n### 操作\n1. 用 @tool 包装一个实用函数(如单位换算)\n2. 打印生成工具的 name/description/args schema\n3. 直接 .invoke() 测试工具",
+      "starterCode": "from langchain_core.tools import tool\nfrom pydantic import BaseModel, Field\n\n# 定义参数模型\nclass SearchInput(BaseModel):\n    query: str = Field(description=\"搜索关键词\")\n    max_results: int = Field(default=5, ge=1, le=20, description=\"最大返回数1-20\")\n\n# 创建带 args_schema 的工具\n@tool(args_schema=SearchInput)\ndef search(query: str, max_results: int) -> str:\n    \"\"\"搜索互联网\"\"\"\n    # 模拟搜索(返回 max_results 个结果)\n    return\n\nprint(search.invoke({\"query\": \"python\", \"max_results\": 3}))\n# 试试非法参数\nprint(search.invoke({\"query\": \"test\", \"max_results\": 100}))  # 超过20应报错",
+      "solutionCode": "from langchain_core.tools import tool\nfrom pydantic import BaseModel, Field\n\nclass SearchInput(BaseModel):\n    query: str = Field(description=\"搜索关键词\")\n    max_results: int = Field(default=5, ge=1, le=20, description=\"最大返回数1-20\")\n\n@tool(args_schema=SearchInput)\ndef search(query: str, max_results: int) -> str:\n    \"\"\"搜索互联网\"\"\"\n    results = [f\"结果{i}: 关于 {query} 的内容\" for i in range(1, max_results + 1)]\n    return \"\\n\".join(results)\n\nprint(search.invoke({\"query\": \"python\", \"max_results\": 3}))\ntry:\n    print(search.invoke({\"query\": \"test\", \"max_results\": 100}))\nexcept Exception as e:\n    print(f\"校验失败(预期): {e}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "定义 BaseModel 子类,字段用 Field 加 description 和约束(ge/le)。"
+        },
+        {
+          "order": 2,
+          "text": "@tool(args_schema=SearchInput) 指定参数模型。"
+        },
+        {
+          "order": 3,
+          "text": "invoke 传字典,max_results=100 超过 le=20 会抛 ValidationError。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Field 约束",
+          "language": "python",
+          "code": "from pydantic import Field\ncount: int = Field(ge=1, le=100)  # 1到100之间"
+        }
+      ],
+      "terms": [
+        {
+          "name": "args_schema",
+          "definition": "工具的参数模型,用 Pydantic 定义字段与校验。"
+        },
+        {
+          "name": "Field",
+          "definition": "Pydantic 字段描述,可加约束(description/ge/le 等)。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "pydantic",
+          "role": "参数校验",
+          "description": "Python 数据校验与序列化库,用类型注解定义数据模型并自动校验。LLM 应用中常用于定义结构化输出 schema、工具参数、配置等。",
+          "officialUrl": "https://docs.pydantic.dev",
+          "category": "数据校验",
+          "installHint": "pip install pydantic"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 SearchInput 类。",
+          "astType": "class_def",
+          "name": "SearchInput",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t32-custom-tools-s2",
+      "taskId": "t32-custom-tools",
+      "order": 2,
+      "title": "嵌套参数与结构化返回",
+      "instruction": "### 目标\n掌握**结构化工具**:多参数、复杂输入的工具定义,以及参数校验。\n\n### 背景: 简单工具 vs 结构化工具\n@tool 适合单参数场景。参数复杂(嵌套对象/数组)时用 `StructuredTool` + pydantic schema:\n```python\nclass SearchInput(BaseModel):\n    query: str = Field(description=\"搜索关键词\")\n    filters: dict = Field(default={}, description=\"过滤条件, 如{\"date\": \"2024\"}\")\n\ntool = StructuredTool.from_function(\n    func=search_impl,\n    args_schema=SearchInput,\n    description=\"...\",\n)\n```\npydantic 模型同时承担两件事:**告诉 LLM 参数长什么样 + 调用前校验参数合法性**。\n\n### Field description 的双重作用\n每个 Field 的 description 既给开发者看,也会编进给 LLM 的 schema——**写参数描述就是写提示词**。\"搜索结果数量\"不如\"返回前 N 条结果, 建议 3-5, 太大可能遗漏重点\"。\n\n### 操作\n1. 定义含 pydantic schema 的结构化工具\n2. 用非法参数调用,看校验错误\n3. 观察 schema 如何变成给 LLM 的工具说明",
+      "starterCode": "from langchain_core.tools import tool\nfrom pydantic import BaseModel, Field\n\nclass Item(BaseModel):\n    name: str\n    price: float = Field(gt=0)\n    quantity: int = Field(ge=1)\n\n# 定义 Order, 含 items: list[Item]\nclass Order(BaseModel):\n    # TODO: items 字段\n# 提示: name: str\n    pass\n\n@tool(args_schema=Order)\ndef order_total(items: list[Item]) -> str:\n    \"\"\"计算订单总价\"\"\"\n    # 计算总价\n    return\n\nresult = order_total.invoke({\n    \"items\": [\n        {\"name\": \"书\", \"price\": 30, \"quantity\": 2},\n        {\"name\": \"笔\", \"price\": 5, \"quantity\": 10}\n    ]\n})\nprint(result)",
+      "solutionCode": "from langchain_core.tools import tool\nfrom pydantic import BaseModel, Field\n\nclass Item(BaseModel):\n    name: str\n    price: float = Field(gt=0)\n    quantity: int = Field(ge=1)\n\nclass Order(BaseModel):\n    items: list[Item]\n\n@tool(args_schema=Order)\ndef order_total(items: list[Item]) -> str:\n    \"\"\"计算订单总价\"\"\"\n    total = sum(item.price * item.quantity for item in items)\n    return f\"订单总价: {total} 元\"\n\nresult = order_total.invoke({\n    \"items\": [\n        {\"name\": \"书\", \"price\": 30, \"quantity\": 2},\n        {\"name\": \"笔\", \"price\": 5, \"quantity\": 10}\n    ]\n})\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Order 模型含 items: list[Item],Item 是之前定义的。"
+        },
+        {
+          "order": 2,
+          "text": "order_total 里用 sum(item.price * item.quantity for item in items) 算总价。"
+        },
+        {
+          "order": 3,
+          "text": "invoke 传嵌套 JSON,Pydantic 自动解析成 Item 对象。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "嵌套模型",
+          "language": "python",
+          "code": "class Order(BaseModel):\n    items: list[Item]\n    # Pydantic 自动解析嵌套 JSON"
+        }
+      ],
+      "terms": [
+        {
+          "name": "嵌套模型",
+          "definition": "Pydantic 模型字段可以是另一个模型,支持多层嵌套。"
+        },
+        {
+          "name": "结构化返回",
+          "definition": "工具返回结构化数据(字符串/JSON)而非无格式文本。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "pydantic",
+          "role": "参数校验",
+          "description": "Python 数据校验与序列化库,用类型注解定义数据模型并自动校验。LLM 应用中常用于定义结构化输出 schema、工具参数、配置等。",
+          "officialUrl": "https://docs.pydantic.dev",
+          "category": "数据校验",
+          "installHint": "pip install pydantic"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 Order 类。",
+          "astType": "class_def",
+          "name": "Order",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t32-custom-tools-s3",
+      "taskId": "t32-custom-tools",
+      "order": 3,
+      "title": "工具异常处理与友好返回",
+      "instruction": "### 目标\n实现工具的**错误处理与超时保护**:工具会挂、会慢,Agent 不能被拖死。\n\n### 背景: 工具是 Agent 系统里最不可靠的环节\nLLM 调用有 SLA,但你的工具背后可能是:第三方 API(会限流)、数据库(会慢查询)、文件系统(会不存在)。工具挂了的连锁反应:\n- 异常上抛 → Agent 循环崩溃\n- 慢工具 → 整个 Agent 响应超时\n\n### 防御性工具设计\n```python\n@tool\ndef search(query: str) -> str:\n    try:\n        result = requests.get(url, timeout=5)   # 1. 必设超时\n        return result.text[:2000]                # 2. 截断超长返回(省token)\n    except requests.Timeout:\n        return \"搜索超时, 请稍后重试或换个关键词\"   # 3. 错误→可读的返回\n    except Exception as e:\n        return f\"搜索失败: {type(e).__name__}, 请换种方式\"\n```\n**铁律:工具永不抛异常给 Agent,错误信息变成\"行动建议\"返回**。\n\n### 操作\n1. 给工具加 try/except + 超时 + 返回截断\n2. 模拟超时场景,验证返回友好错误而非崩溃\n3. 总结:一个生产级工具比 demo 版多哪些防护",
+      "starterCode": "import os\nfrom langchain_core.tools import tool, ToolException\nfrom pathlib import Path\n\n@tool\ndef read_file(filepath: str) -> str:\n    \"\"\"读取文件内容\"\"\"\n    # try/except 读取文件, 失败抛 ToolException\n    try:\n        return Path(filepath).read_text(encoding=\"utf-8\")\n    except FileNotFoundError:\n        # 抛 ToolException 让 Agent 知道\n        raise\n\n# 配置 handle_tool_error\nfrom langchain.agents import AgentExecutor, create_tool_calling_agent\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.prompts import ChatPromptTemplate\n\ndef handle_error(error: ToolException) -> str:\n    return f\"工具出错: {error}\"\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [read_file]\nprompt = ChatPromptTemplate.from_messages([(\"system\", \"你是助手\"), (\"human\", \"{input}\"), (\"placeholder\", \"{agent_scratchpad}\")])\nagent = create_tool_calling_agent(llm, tools, prompt)\nexecutor = AgentExecutor(agent=agent, tools=tools, handle_tool_error=handle_error)\n\nresult = executor.invoke({\"input\": \"读取 /nonexistent.txt 的内容\"})\nprint(result[\"output\"])",
+      "solutionCode": "import os\nfrom langchain_core.tools import tool, ToolException\nfrom pathlib import Path\n\n@tool\ndef read_file(filepath: str) -> str:\n    \"\"\"读取文件内容\"\"\"\n    try:\n        return Path(filepath).read_text(encoding=\"utf-8\")\n    except FileNotFoundError:\n        raise ToolException(f\"文件不存在: {filepath}\")\n    except Exception as e:\n        raise ToolException(f\"读取失败: {e}\")\n\nfrom langchain.agents import AgentExecutor, create_tool_calling_agent\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.prompts import ChatPromptTemplate\n\ndef handle_error(error: ToolException) -> str:\n    return f\"工具出错: {error}\"\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [read_file]\nprompt = ChatPromptTemplate.from_messages([(\"system\", \"你是助手\"), (\"human\", \"{input}\"), (\"placeholder\", \"{agent_scratchpad}\")])\nagent = create_tool_calling_agent(llm, tools, prompt)\nexecutor = AgentExecutor(agent=agent, tools=tools, handle_tool_error=handle_error)\n\nresult = executor.invoke({\"input\": \"读取 /nonexistent.txt 的内容\"})\nprint(result[\"output\"])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "工具内 try/except,失败时 raise ToolException(错误描述)。"
+        },
+        {
+          "order": 2,
+          "text": "ToolException 是 LangChain 的工具异常,AgentExecutor 能识别。"
+        },
+        {
+          "order": 3,
+          "text": "handle_tool_error 传函数,接收 ToolException 返回字符串给 Agent。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "ToolException",
+          "language": "python",
+          "code": "from langchain_core.tools import ToolException\nraise ToolException(\"文件不存在\")"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ToolException",
+          "definition": "LangChain 工具异常,被 AgentExecutor 捕获处理。"
+        },
+        {
+          "name": "handle_tool_error",
+          "definition": "AgentExecutor 参数,统一处理工具异常。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。ToolException + handle_tool_error 异常处理。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需用 ToolException。",
+          "api": "ToolException",
+          "minCount": 1,
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

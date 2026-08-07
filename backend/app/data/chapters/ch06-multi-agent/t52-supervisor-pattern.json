@@ -1,0 +1,213 @@
+{
+  "steps": [
+    {
+      "id": "t52-supervisor-pattern-s1",
+      "taskId": "t52-supervisor-pattern",
+      "order": 1,
+      "title": "Supervisor 主管模式",
+      "instruction": "### 目标\n实现 **Supervisor(主管)模式**:一个主管 Agent 统筹,把任务分派给多个工人 Agent,汇总结果。\n\n### 背景: 中心化编排的取舍\nSupervisor 是**中心化**编排:所有决策经主管,工人之间不直接通信。对比去中心化(自由讨论):\n- 优点:控制流清晰、易调试(所有决策在主管一处)、工人可独立替换\n- 缺点:主管是单点瓶颈和单点故障;所有信息汇聚主管,上下文容易爆\n\n**LangGraph 的 supervisor、CrewAI 的 hierarchical process 都是这个模式**——生产环境多 Agent 系统 90% 用它,因为可控性压倒一切。\n\n### 主管的三个核心职责\n1. **拆解**:把用户任务拆成子任务(\"写行业报告\"→[查数据, 查新闻, 写稿, 审校])\n2. **路由**:每个子任务派给合适的工人(按工人能力描述匹配)\n3. **验收**:工人交活,主管判断\"过了/打回重做\",全部过了才汇总输出\n\n### 操作\n1. 定义 Worker(姓名+能力描述+干活函数)\n2. 实现 Supervisor:decide_next() 选工人,review() 验收\n3. 跑通\"写报告\"全流程,打印分派记录",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\n# 子 Agent\ndef search_agent(query):\n    return llm(f'搜索:{query},返回一句话结果')\n\ndef calc_agent(expr):\n    return str(eval(expr))\n\n# Supervisor, 根据任务类型选子 Agent\ndef supervisor(task):\n    # 用 LLM 判断任务类型\n    task_type = llm(f'判断任务类型(回复search或calc):{task}')\n    if 'search' in task_type.lower():\n        return search_agent(task)\n    elif 'calc' in task_type.lower():\n        return calc_agent(task)\n    return '未知任务'\n\nprint(supervisor('搜索 AI 最新进展'))\nprint(supervisor('计算 123*456'))",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\ndef search_agent(query):\n    return llm(f'搜索:{query},返回一句话结果')\n\ndef calc_agent(expr):\n    return str(eval(expr))\n\ndef supervisor(task):\n    task_type = llm(f'判断任务类型(只回复search或calc):{task}')\n    if 'search' in task_type.lower():\n        return search_agent(task)\n    elif 'calc' in task_type.lower():\n        return calc_agent(task)\n    return '未知任务'\n\nprint(supervisor('搜索 AI 最新进展'))\nprint(supervisor('计算 123*456'))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Supervisor 用 LLM 判断任务类型。"
+        },
+        {
+          "order": 2,
+          "text": "根据类型调对应子 Agent。"
+        },
+        {
+          "order": 3,
+          "text": "子 Agent 专注单一能力。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "def supervisor(task):\n    type = llm('判断类型:'+task)\n    if 'search' in type: return search_agent(task)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Supervisor",
+          "definition": "主管 Agent,调度子 Agent"
+        },
+        {
+          "name": "任务路由",
+          "definition": "根据类型分配给子 Agent"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "supervisor",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t52-supervisor-pattern-s2",
+      "taskId": "t52-supervisor-pattern",
+      "order": 2,
+      "title": "任务分发与汇总",
+      "instruction": "### 目标\n给 Supervisor 加**动态路由**:主管根据当前进展**动态决定**下一个工人,而非写死流水线。\n\n### 背景: 静态流水线 vs 动态路由\n- **静态流水线**:A→B→C 写死。简单场景够用,但\"B 的输出质量差需要 A 重做\"就表达不了\n- **动态路由**:每步结束主管重新决策\"下一步给谁(或结束)\"。能表达循环(A→B→A)、条件分支(失败→D)、提前终止——**这才是真正的 Agent 编排**\n\nLangGraph 里这就是 **conditional edge**:主管节点的返回值决定图的下一跳。\n\n### 路由决策的输入\n主管每次决策看到:原始任务 + 各工人历史输出(摘要) + 已用步数。输出:下一个工人名 或 FINISH。用结构化输出(JSON)约束,别让主管自由发挥。\n\n### 防止死循环\n动态路由的代价:主管可能在 A↔B 间反复横跳。必须加:\n- **步数上限**(如 10 步强制 FINISH)\n- **同一工人连续调用上限**(如同一工人连续 2 次则换人或终止)\n\n### 操作\n1. Supervisor.decide_next(state) 返回 {next: 工人名/FINISH, reason: ...}\n2. 实现步数上限与连续调用上限\n3. 模拟\"写稿→审校→打回→重写→通过\"的循环路由",
+      "starterCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\ndef supervisor(task):\n    # 拆分任务\n    subtasks = llm(f'把任务拆成3个子任务(JSON数组):{task}')\n    print(f'拆分: {subtasks}')\n    \n    # 每个子任务用 Agent 处理\n    results = []\n    for sub in [subtasks]:  # 简化\n        results.append(llm(f'完成子任务:{sub}'))\n    \n    # 汇总\n    final = llm(f'汇总这些结果:{results}')\n    return final\n\nprint(supervisor('写一篇关于AI的科普文章'))",
+      "solutionCode": "from openai import OpenAI\nclient = OpenAI()\n\ndef llm(prompt):\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=[{'role':'user','content':prompt}])\n    return resp.choices[0].message.content\n\ndef supervisor(task):\n    subtasks_str = llm(f'把任务拆成3个子任务,用逗号分隔:{task}')\n    subtasks = [s.strip() for s in subtasks_str.split(',')]\n    print(f'拆分: {subtasks}')\n    \n    results = []\n    for sub in subtasks:\n        results.append(llm(f'完成子任务(一句话):{sub}'))\n    \n    final = llm(f'汇总这些结果成一段话:{results}')\n    return final\n\nprint(supervisor('写一篇关于AI的科普文章'))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Supervisor 先拆任务,再分给 Agent。"
+        },
+        {
+          "order": 2,
+          "text": "各 Agent 处理子任务,返回结果。"
+        },
+        {
+          "order": 3,
+          "text": "Supervisor 汇总所有结果。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 拆分→分发→汇总\nsubtasks = split(task)\nresults = [agent(s) for s in subtasks]\nfinal = summarize(results)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "任务拆分",
+          "definition": "复杂任务拆成子任务"
+        },
+        {
+          "name": "结果汇总",
+          "definition": "合并子 Agent 结果"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "supervisor",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t52-supervisor-pattern-s3",
+      "taskId": "t52-supervisor-pattern",
+      "order": 3,
+      "title": "Supervisor 总结",
+      "instruction": "### 目标\n用状态机实现完整的 Supervisor 编排,把前两步的概念落成可运行代码。\n\n### 背景: 为什么用状态机描述编排\nAgent 编排本质是**有限状态机(FSM)**:每个工人是一个状态,主管是转移函数,FINISH 是终止态。显式建模成状态机的好处:\n- 转移路径可记录、可回放(调试神器)\n- 可在转移函数里插入横切逻辑(日志/成本/审批)\n- 状态图可以可视化导出(给产品经理解释系统行为)\n\nLangGraph 的 StateGraph 就是这个思想的工业化实现:节点=工人,边=转移条件,state=共享状态对象。\n\n### 本步实现\n一个迷你\"LangGraph\":\n1. `StateGraph`:add_node(名字, 函数) / add_edge(条件) / run(初始状态)\n2. 每个节点函数读 state 返回更新的 state\n3. supervisor 节点决定转移;实现完整\"研究→写作→审校\"流程",
+      "starterCode": "# t52-s3: 迷你状态机版 Supervisor\nclass StateGraph:\n    \"\"\"迷你状态机: 节点=工人, 转移=supervisor决策。\"\"\"\n\n    def __init__(self):\n        self.nodes = {}       # name -> fn(state) -> state\n        self.entry = None\n\n    def add_node(self, name: str, fn):\n        # TODO: 注册节点函数\n        pass\n\n    def set_entry(self, name: str):\n        self.entry = name\n\n    def run(self, state: dict, max_steps: int = 10) -> dict:\n        # TODO: 从 entry 开始:\n        #   1. 调当前节点函数更新 state\n        #   2. 若 state[\"next\"] == \"FINISH\" 或超步数 → 结束\n        #   3. 否则跳到 state[\"next\"] 指定的节点\n        return state\n\n\n# ===== 定义工人节点(已给全) =====\ndef supervisor(state: dict) -> dict:\n    \"\"\"主管: 按进展路由。研究→写作→审校→FINISH。\"\"\"\n    if \"research\" not in state:\n        state[\"next\"] = \"researcher\"\n    elif \"draft\" not in state:\n        state[\"next\"] = \"writer\"\n    elif \"review\" not in state:\n        state[\"next\"] = \"reviewer\"\n    else:\n        state[\"next\"] = \"FINISH\"\n    return state\n\ndef researcher(state: dict) -> dict:\n    state[\"research\"] = \"资料: 注意力机制=QKV点积加权(2017年提出)\"\n    state[\"next\"] = \"supervisor\"\n    return state\n\ndef writer(state: dict) -> dict:\n    state[\"draft\"] = f\"初稿: 基于[{state['research'][:20]}...]写成的科普文\"\n    state[\"next\"] = \"supervisor\"\n    return state\n\ndef reviewer(state: dict) -> dict:\n    state[\"review\"] = \"审校通过: 事实准确, 结构清晰\"\n    state[\"next\"] = \"supervisor\"\n    return state\n\n\nif __name__ == \"__main__\":\n    g = StateGraph()\n    # TODO: 注册 4 个节点, set_entry(\"supervisor\"), run({})\n    # TODO: 打印最终 state 里的 draft 和 review\n    pass\n",
+      "solutionCode": "# t52-s3: 迷你状态机版 Supervisor\nclass StateGraph:\n    \"\"\"迷你状态机: 节点=工人, 转移=supervisor决策。\"\"\"\n\n    def __init__(self):\n        self.nodes = {}\n        self.entry = None\n\n    def add_node(self, name: str, fn):\n        self.nodes[name] = fn\n\n    def set_entry(self, name: str):\n        self.entry = name\n\n    def run(self, state: dict, max_steps: int = 10) -> dict:\n        current = self.entry\n        path = []\n        for _ in range(max_steps):\n            if current == \"FINISH\" or current is None:\n                break\n            path.append(current)\n            state = self.nodes[current](state)\n            current = state.get(\"next\")\n        state[\"path\"] = path\n        return state\n\n\ndef supervisor(state: dict) -> dict:\n    if \"research\" not in state:\n        state[\"next\"] = \"researcher\"\n    elif \"draft\" not in state:\n        state[\"next\"] = \"writer\"\n    elif \"review\" not in state:\n        state[\"next\"] = \"reviewer\"\n    else:\n        state[\"next\"] = \"FINISH\"\n    return state\n\ndef researcher(state: dict) -> dict:\n    state[\"research\"] = \"资料: 注意力机制=QKV点积加权(2017年提出)\"\n    state[\"next\"] = \"supervisor\"\n    return state\n\ndef writer(state: dict) -> dict:\n    state[\"draft\"] = f\"初稿: 基于[{state['research'][:20]}...]写成的科普文\"\n    state[\"next\"] = \"supervisor\"\n    return state\n\ndef reviewer(state: dict) -> dict:\n    state[\"review\"] = \"审校通过: 事实准确, 结构清晰\"\n    state[\"next\"] = \"supervisor\"\n    return state\n\n\nif __name__ == \"__main__\":\n    g = StateGraph()\n    g.add_node(\"supervisor\", supervisor)\n    g.add_node(\"researcher\", researcher)\n    g.add_node(\"writer\", writer)\n    g.add_node(\"reviewer\", reviewer)\n    g.set_entry(\"supervisor\")\n\n    final = g.run({\"task\": \"写一篇注意力机制科普\"})\n    print(\"执行路径:\", \" → \".join(final[\"path\"]))\n    print()\n    print(\"研究成果:\", final[\"research\"])\n    print(\"文章初稿:\", final[\"draft\"])\n    print(\"审校结论:\", final[\"review\"])\n    print()\n    print(\"状态机的价值: 转移路径可记录可回放, 这就是 LangGraph 的核心思想\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Supervisor 优点:清晰可控;缺点:瓶颈。"
+        },
+        {
+          "order": 2,
+          "text": "平等协作优点:并行;缺点:协调难。"
+        },
+        {
+          "order": 3,
+          "text": "流程化任务用 Supervisor,讨论用平等。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# Supervisor vs 平等\n# Supervisor: 主管调度, 可控\n# 平等: 各Agent平等, 灵活"
+        }
+      ],
+      "terms": [
+        {
+          "name": "单点故障",
+          "definition": "Supervisor 是瓶颈,挂了全停"
+        },
+        {
+          "name": "模式对比",
+          "definition": "Supervisor vs 平等协作"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 StateGraph。",
+          "astType": "class_def",
+          "name": "StateGraph",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 run。",
+          "astType": "function_def",
+          "name": "run",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

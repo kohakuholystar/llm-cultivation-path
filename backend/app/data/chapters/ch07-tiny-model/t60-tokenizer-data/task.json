@@ -1,0 +1,609 @@
+{
+  "steps": [
+    {
+      "id": "t60-tokenizer-data-s1",
+      "taskId": "t60-tokenizer-data",
+      "order": 1,
+      "title": "语料清洗与字符统计:构建基础词表",
+      "instruction": "### 目标\n\n为章项目「袖里乾坤」搭建微型 GPT 的数据管道,本步是源头——语料清洗与字符统计。你要把三首古诗拼成的原始语料 `CORPUS` 清洗成纯净字符串,统计每个字符的出现次数,并建立「字符 ↔ 序号」的双向映射词表。这份词表是后面 BPE 训练和数据集构建的地基:模型不认识汉字,只认数字。\n\n### 原理\n\n语言模型吃的是 token 序列,而 token 底层是整数 id。把语料变成 id 的第一层转换叫「字符级词表」:`sorted(set(text))` 得到全部去重字符,按字典序从 0 开始编号;`char_to_id` 负责「查字给号」,`id_to_char` 负责「查号给字」,两者互为逆映射。清洗是为了去噪:全角空格 `\\u3000`、控制字符等不可打印字符既不是古诗的一部分,也会让词表虚胖、让后面的字对统计失真,所以必须先过滤再建表。`Counter` 则是统计利器,一句 `Counter(text)` 就能得到每个字符的频次,`most_common(5)` 直接取前五。\n\n### 操作\n\n1. 补全 `clean_text`:先把全角空格替换为空串,再用 `str.isprintable()` 过滤不可打印字符,`join` 后返回;\n2. 补全 `build_char_vocab`:`chars = sorted(set(text))` 已给出,请建立 `char_to_id` 与 `id_to_char` 两个字典;\n3. 运行 `main`,确认输出「语料长度: 72 个字符」「词表大小: 38 个字符」与频次 TOP5。\n\n### 常见坑\n\n- 两个字典必须互为逆映射:`id_to_char[i] == ch` 对每个 `(ch, i) in char_to_id.items()` 都要成立,写反了后面 decode 全是乱码;\n- 清洗要在建表之前:先过滤再 `set(text)`,否则全角空格会混进词表凑数;\n- 语料里逗号与句号也算字符,统计 TOP5 时「,」「。」会排在最前面,这不是 bug。\n",
+      "todoItems": [
+        {
+          "title": "补全 clean_text:剔除全角空格并过滤不可打印字符",
+          "target": "clean_text() 函数",
+          "code": "''.join(ch for ch in text if _is_printable(ch))",
+          "expect": "运行后语料长度为 72 个字符"
+        },
+        {
+          "title": "补全 build_char_vocab:建立 char_to_id 与 id_to_char 双向映射",
+          "target": "build_char_vocab() 函数",
+          "code": "{ch: i for i, ch in enumerate(chars)}\n{i: ch for ch, i in char_to_id.items()}",
+          "expect": "词表大小为 38 个字符"
+        },
+        {
+          "title": "运行 main,确认清洗与词表输出",
+          "target": "main() 入口",
+          "expect": "打印语料长度、词表大小与字符频次 TOP5"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "清洗是两步:先把全角空格 　 替换成空串,再把 isprintable() 为 False 的字符全部滤掉。"
+        },
+        {
+          "order": 2,
+          "text": "建表是两行:char_to_id = {ch: i for i, ch in enumerate(chars)};id_to_char = {i: ch for ch, i in char_to_id.items()}。"
+        },
+        {
+          "order": 3,
+          "text": "语料清洗后恰好 72 个字符、38 个唯一字符,和输出对得上说明你写对了。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "字符频次统计结果",
+          "language": "python",
+          "code": "# char_stats(text).most_common(5) 的输出:\nCounter({'，': 6, '。': 6, '明': 4, '月': 4, '头': 4})",
+          "description": "标点也是字符,频次最高;「明」「月」并列第三,是后续 BPE 合并的主角。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "字符词表(char vocab)",
+          "definition": "把语料里出现过的每个字符映射成一个整数 id,是 tokenizer 最基础的一层;词表大小 = 唯一字符数。"
+        },
+        {
+          "name": "char_to_id / id_to_char",
+          "definition": "双向映射字典:前者查字给号(编码用),后者查号给字(解码用),两者必须互逆。"
+        },
+        {
+          "name": "Counter",
+          "definition": "collections 提供的计数器,iterable 直接传进去即可统计频次,most_common(n) 返回最高的前 n 项。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现语言",
+          "description": "纯标准库实现:collections.Counter 做字符频次统计,不依赖任何第三方包。",
+          "officialUrl": "https://docs.python.org/3/library/",
+          "category": "语言",
+          "installHint": "Python 3.10+ 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 clean_text 清洗函数。",
+          "astType": "function_def",
+          "name": "clean_text",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 build_char_vocab 建表函数。",
+          "astType": "function_def",
+          "name": "build_char_vocab",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示语料长度、词表大小与频次 TOP5。",
+          "expectedStdout": "语料长度: 72 个字符[\\s\\S]*词表大小: 38 个字符[\\s\\S]*字符频次 TOP5",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t60-tokenizer-data-s2",
+      "taskId": "t60-tokenizer-data",
+      "order": 2,
+      "title": "BPE 合并规则:从高频字对开始",
+      "instruction": "### 目标\n\n把 s1 的 38 字符词表升级为「词表 + 合并规则」。BPE 的核心思想:反复统计相邻 token 对的出现次数,挑最高频的一对合并成一个新 token,循环 `num_merges` 次。本步要实现 `most_frequent_pair`(找最高频字对)、`merge_pair`(一趟扫描合并)与 `learn_bpe`(训练主循环)。\n\n### 原理\n\nGPT 的词表远不止 38 个字符——「明月」「故乡」这类高频词应当成为单个 token。BPE 就是逐轮贪心合并:第 1 轮统计发现「明」「月」相邻出现 4 次,是最高频字对,于是引入一个新 id 表示「明月」,把所有「明」「月」替换成它;第 2 轮在更新后的序列上继续统计,此时「床」「前」以 2 次胜出……新 token 的 id 从 `base = len(char_to_id)` 开始顺延,`pieces` 字典记录每个 id 拼出的文本,供打印规则与后续解码使用。合并必须用一趟左到右的扫描:同一轮内相邻的 `(left, right)` 全部替换,不能替换完再回头配对。\n\n### 操作\n\n1. 补全 `most_frequent_pair`:用 `Counter(zip(ids, ids[1:]))` 统计相邻对;序列为空时返回哨兵值 `((-1, -1), 0)`;\n2. 补全 `learn_bpe` 循环体:调用 `merge_pair(ids, l, r, base + idx)` 做一趟合并,结果赋回 `ids`;\n3. 运行 `main`,观察合并规则如何从「明」+「月」层层拼出「床前明月光,疑」,确认最终 token 数为 50。\n\n### 常见坑\n\n- 合并后 `l` 或 `r` 可能是合并产物,打印规则时必须查 `pieces` 而不是 `id_to_char`,否则直接 KeyError;\n- `merge_pair` 必须一趟扫描内完成所有配对合并,用 `while` 指针推进,合并后 `i += 2` 跳过已合并的部分;\n- 空序列或单元素序列的相邻对为空,`most_frequent_pair` 要返回哨兵值,否则 `main` 会崩。\n",
+      "todoItems": [
+        {
+          "title": "补全 most_frequent_pair:统计相邻 id 对并返回最高频项",
+          "target": "most_frequent_pair() 函数",
+          "code": "pairs = Counter(zip(ids, ids[1:]))\nif not pairs:\n    return (-1, -1), 0",
+          "expect": "第一轮能挑出「明」+「月」这个最高频字对"
+        },
+        {
+          "title": "补全 learn_bpe 循环体:调用 merge_pair 完成一趟合并",
+          "target": "learn_bpe() 的 for 循环体",
+          "code": "ids = merge_pair(ids, l, r, base + idx)",
+          "expect": "训练 10 轮后最终 token 数为 50"
+        },
+        {
+          "title": "运行 main,观察合并规则与最终 token 数",
+          "target": "main() 入口",
+          "expect": "打印前 6 条合并规则,最终 token 数为 50"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "统计相邻对:pairs = Counter(zip(ids, ids[1:]));空序列时 pairs 为空 Counter,判空返回 ((-1, -1), 0)。"
+        },
+        {
+          "order": 2,
+          "text": "合并的一行核心代码:ids = merge_pair(ids, l, r, base + idx),放在 merges.append 与 pieces 记录之后。"
+        },
+        {
+          "order": 3,
+          "text": "合并是贪心的:每轮只合并一个最高频字对;「明」「月」在语料里出现 4 次,必然是第一轮冠军。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "BPE 训练出的前 3 条规则",
+          "language": "python",
+          "code": "#1 「明」+「月」 → 「明月」(出现 4 次)\n#2 「床」+「前」 → 「床前」(出现 2 次)\n#3 「床前」+「明月」 → 「床前明月」(出现 2 次)",
+          "description": "合并层层套娃:新 token 反过来参与下一轮统计,这正是 BPE 能拼出长词的原因。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "BPE(Byte Pair Encoding)",
+          "definition": "逐轮贪心合并最高频相邻 token 对的词表压缩算法,GPT 系列分词器的基础;本步用汉字对实现其最朴素的版本。"
+        },
+        {
+          "name": "合并规则(merges)",
+          "definition": "训练产出的有序规则列表,每条是 (left_id, right_id, count),按顺序应用即可把文本编码成更粗粒度的 token。"
+        },
+        {
+          "name": "pieces 拼装表",
+          "definition": "记录每个 id 对应文本的字典;基础字符 id 对应单字,合并 id 对应多字串,解码与打印规则都靠它。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现语言",
+          "description": "纯标准库实现 BPE:collections.Counter 统计相邻字对频次,无任何第三方依赖。",
+          "officialUrl": "https://docs.python.org/3/library/",
+          "category": "语言",
+          "installHint": "Python 3.10+ 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 most_frequent_pair 频次统计函数。",
+          "astType": "function_def",
+          "name": "most_frequent_pair",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 learn_bpe 训练主循环。",
+          "astType": "function_def",
+          "name": "learn_bpe",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示 10 条合并规则与最终 token 数。",
+          "expectedStdout": "BPE 训练完成:基础词表 38 字符,合并 10 条[\\s\\S]*最终 token 数: 50",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t60-tokenizer-data-s3",
+      "taskId": "t60-tokenizer-data",
+      "order": 3,
+      "title": "MiniBPE 类:编码器与解码器",
+      "instruction": "### 目标\n\n把散装的训练逻辑装进 `MiniBPE` 类,提供 `encode`(文本 → token 序列)与 `decode`(token 序列 → 文本)两个方向的能力,并用 `train_mini_bpe` 一条龙完成「清洗 → 建表 → 学合并 → 组装」。\n\n### 原理\n\ntokenizer 是语言模型的脸面:encode 负责把输入压缩成模型能吃的 id 序列,decode 负责把模型吐出的 id 还原成人话。编码时按训练顺序逐条应用合并规则即可——第 `idx` 条规则把相邻 `(l, r)` 替换成 `base + idx`;解码更简单,到 `pieces` 表里查每个 id 对应的文本直接拼接。`vocab_size = 基础字符数 + 合并规则数`,这是词表的最终规模,也是训练模型时要先告诉它的数字。往返一致(encode 后 decode 能原样还原)是 tokenizer 最重要的正确性指标,本步用一句断言直接验证。\n\n### 操作\n\n1. 补全 `MiniBPE.encode`:先把文本转成字符 id,再按 `self.merges` 顺序逐条调用 `merge_pair` 合并,新 id 从 `self.base + idx` 开始;\n2. 补全 `MiniBPE.decode`:用 `self.pieces` 把每个 id 还原成文本并 `join`;\n3. 运行 `main`,验证「词表 48 个 token」「编码 50 个 token」与「往返一致: True」。\n\n### 常见坑\n\n- encode 必须按训练顺序逐条应用,顺序错了合并结果完全不同,decode 也还原不回去;\n- 合并用的新 id 是 `self.base + idx`,必须与 `learn_bpe` 里的编号规则完全一致;\n- decode 只查 `self.pieces`,不要用 `id_to_char`:合并 token 在字符词表里根本没有记录。\n",
+      "todoItems": [
+        {
+          "title": "补全 MiniBPE.encode:按训练顺序逐条应用合并规则",
+          "target": "MiniBPE.encode() 方法",
+          "code": "for idx, (l, r, _cnt) in enumerate(self.merges):\n    ids = merge_pair(ids, l, r, self.base + idx)",
+          "expect": "编码 72 字符语料得到 50 个 token"
+        },
+        {
+          "title": "补全 MiniBPE.decode:用 pieces 查表拼接还原文本",
+          "target": "MiniBPE.decode() 方法",
+          "code": "''.join(self.pieces[i] for i in ids)",
+          "expect": "encode 后 decode 能原样还原,往返一致为 True"
+        },
+        {
+          "title": "运行 main,验证词表规模与往返一致",
+          "target": "main() 入口",
+          "expect": "打印「词表 48 个 token」「编码 50 个 token」与「往返一致: True」"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "encode 是循环套合并:for idx, (l, r, _cnt) in enumerate(self.merges): ids = merge_pair(ids, l, r, self.base + idx)。"
+        },
+        {
+          "order": 2,
+          "text": "decode 是一行生成器:return \"\".join(self.pieces[i] for i in ids)。"
+        },
+        {
+          "order": 3,
+          "text": "往返一致判定:decoded == CORPUS 应为 True;若是 False,多半是合并顺序或新 id 编号写错了。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "MiniBPE 的使用方式",
+          "language": "python",
+          "code": "bpe = train_mini_bpe(CORPUS, 10)\nids = bpe.encode(\"床前明月光\")   # 压缩后的 token 序列\nprint(bpe.decode(ids))          # 原样还原:床前明月光\nprint(bpe.vocab_size)           # 48",
+          "description": "encode 压缩、decode 还原、vocab_size 汇报词表规模,这就是 tokenizer 的完整接口。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "tokenizer",
+          "definition": "负责文本 ↔ token id 双向转换的组件;本步的 MiniBPE 是一个从零手写的极简 tokenizer。"
+        },
+        {
+          "name": "encode / decode",
+          "definition": "编码把文本压缩成 id 序列,解码把 id 序列还原成文本;两者配合构成无损往返。"
+        },
+        {
+          "name": "vocab_size",
+          "definition": "词表总规模 = 基础字符数 + 合并规则数,决定 embedding 层与输出头的大小。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现语言",
+          "description": "纯标准库实现 tokenizer 类,无第三方依赖;类封装、property 与生成器都是 Python 基础语法。",
+          "officialUrl": "https://docs.python.org/3/library/",
+          "category": "语言",
+          "installHint": "Python 3.10+ 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 MiniBPE tokenizer 类。",
+          "astType": "class_def",
+          "name": "MiniBPE",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请实现 encode 方法。",
+          "pattern": "def encode\\(",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请实现 decode 方法。",
+          "pattern": "def decode\\(",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示词表规模与往返一致。",
+          "expectedStdout": "48 个 token[\\s\\S]*往返一致: True",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t60-tokenizer-data-s4",
+      "taskId": "t60-tokenizer-data",
+      "order": 4,
+      "title": "数据集构建:滑动窗口样本",
+      "instruction": "### 目标\n\n把 50 个 token 变成 GPT 能训练的样本。本步实现 `make_blocks`:用滑动窗口把 token 序列切成多个 `(input, target)` 对,并校验窗口对齐。窗口参数 `block_size=8`、`stride=4`。\n\n### 原理\n\nGPT 的训练样本是「给定前 N 个 token,预测下一个」:`input = tokens[i:i+8]`,`target = tokens[i+1:i+9]`——target 恰好是 input 整体右移一位,模型看到前 8 个词,学习预测第 9 个。窗口每次前进 `stride` 步,50 个 token 用 `range(0, 50-8, 4)` 切出 11 个样本,样本之间互相重叠、天然构成数据增广。对齐校验 `x[1:] == y[:-1]` 是对这类样本对最直观的正确性证明:input 去掉首 token 之后,理应恰好等于 target 去掉尾 token。当 `stride < block_size` 时,相邻窗口必然重叠:上一段样本的尾部 token,会成为下一段样本的头部再次出场。GPT 靠海量文本喂养,一条 50 token 的短序列切成 11 条样本,等于把小语料「摊大」,这就是最朴素的数据增广。\n\n### 操作\n\n1. 补全 `make_blocks`:在 `range(0, len(tokens) - block_size, stride)` 上循环,把 `(tokens[i:i+block_size], tokens[i+1:i+block_size+1])` 追加进 `blocks`;\n2. 运行 `main`,确认「总 token 数: 50」「滑动窗口得到 11 个样本」「对齐校验: 全部通过」;\n3. 观察样本 #0:input 与 target 共享 7 个 token,只是整体错开一位。\n\n### 常见坑\n\n- 循环上界是 `len(tokens) - block_size`,写错会越界或丢掉尾部样本;\n- target 切片是 `tokens[i+1:i+block_size+1]`,起始比 input 晚一位、长度相同,忘了 `+1` 会对不齐;\n- 窗口重叠是特性不是 bug:同一批 token 会出现在多个样本里,这正是数据增广;\n- 不要只比长度就算对齐:错位一个 token 的 input/target 长度完全一样,但模型学到的是「预测自己」;逐元素比对 `x[1:] == y[:-1]` 才是硬校验。\n",
+      "todoItems": [
+        {
+          "title": "补全 make_blocks:用滑动窗口切出 (input, target) 样本对",
+          "target": "make_blocks() 的 for 循环体",
+          "code": "blocks.append((tokens[i:i+block_size], tokens[i+1:i+block_size+1]))",
+          "expect": "50 个 token 切出 11 个样本"
+        },
+        {
+          "title": "运行 main,确认样本数与对齐校验",
+          "target": "main() 入口",
+          "expect": "打印「滑动窗口得到 11 个样本」与「对齐校验: 全部通过」"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "样本是一对切片:input 用 tokens[i:i+block_size],target 用 tokens[i+1:i+block_size+1],长度相同、整体错开一位。"
+        },
+        {
+          "order": 2,
+          "text": "循环边界:range(0, len(tokens) - block_size, stride),50 个 token、块 8、步长 4 恰好得到 11 个样本。"
+        },
+        {
+          "order": 3,
+          "text": "对齐校验已经给出:all(x[1:] == y[:-1] for x, y in blocks),返回 True 说明窗口切得对。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "滑动窗口样本的结构",
+          "language": "python",
+          "code": "# make_blocks(tokens, 8, 4) 的第一个样本\n# input  [47, 1, 4, 13, 25, 38, 0, 6]\n# target [1, 4, 13, 25, 38, 0, 6, 13]\n# target[:-1] == input[1:]  →  True",
+          "description": "input 与 target 共享中间 7 个 token,整体右移一位——模型的任务就是预测错开的那一位。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "滑动窗口",
+          "definition": "以固定步长在序列上滑动的定长窗口,每滑一步产出一个训练样本;窗口间相互重叠,起到数据增广作用。"
+        },
+        {
+          "name": "input/target 对",
+          "definition": "语言模型的基本训练样本:input 是已知上下文,target 是期望预测的下一个 token 序列,二者错开一位。"
+        },
+        {
+          "name": "block_size / stride",
+          "definition": "窗口长度与滑动步长;block_size 决定模型看多长的上下文,stride 决定样本密度。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现语言",
+          "description": "纯标准库实现数据切分:列表切片与 range 步长即可完成滑动窗口,无第三方依赖。",
+          "officialUrl": "https://docs.python.org/3/library/",
+          "category": "语言",
+          "installHint": "Python 3.10+ 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 make_blocks 滑动窗口函数。",
+          "astType": "function_def",
+          "name": "make_blocks",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 build_dataset 数据集构建函数。",
+          "astType": "function_def",
+          "name": "build_dataset",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示样本数量与对齐校验结果。",
+          "expectedStdout": "总 token 数: 50[\\s\\S]*11 个样本[\\s\\S]*对齐校验: 全部通过",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t60-tokenizer-data-s5",
+      "taskId": "t60-tokenizer-data",
+      "order": 5,
+      "title": "train/val 切分:随机打散与元数据",
+      "instruction": "### 目标\n\n样本不能全投进训练——模型需要「考官」来检验它有没有真的学会。本步把 11 个样本用固定随机种子打散,按 9:1 切成 train(9 个)与 val(2 个),并把词表规模等元数据落盘保存。\n\n### 原理\n\n机器学习的基本纪律:训练集负责教会模型,验证集负责评判模型。切分前必须 shuffle,否则相邻窗口样本高度相似,验证集与训练集几乎重复,评估结果虚高。shuffle 必须用固定种子 `random.Random(42)`,保证每次运行切分结果一致、实验可复现。`n_train = int(len * 0.9)`,11 个样本切出 9:2。元数据(词表大小、合并数、样本数)是复现训练的关键信息,写成 JSON 便于下次直接加载,不必重跑整条管道。\n\n### 操作\n\n1. 补全 `split_dataset`:洗牌后按 `n_train` 用切片切成 `(train, val)` 两段并返回;\n2. 运行 `main`,确认 train 9 个、val 2 个、总数一致,元数据回读 `vocab_size=48`;\n3. 检查 `tiny_dataset_meta.json` 是否生成,内容是否与打印一致。\n\n### 常见坑\n\n- 切分必须在 shuffle 之后:直接前 9 后 2 切,val 全是同一首诗的窗口,评估失真;\n- 不要用全局 `random.shuffle`,要用 `random.Random(seed)` 实例,否则切分结果不可复现;\n- train 与 val 来自同一次 shuffle 的两段切片,二者互斥且并集等于全集,总数校验必须为 True。\n",
+      "todoItems": [
+        {
+          "title": "补全 split_dataset:按 n_train 用切片切出 (train, val) 两段",
+          "target": "split_dataset() 函数",
+          "code": "train = shuffled[:n_train]\nval = shuffled[n_train:]",
+          "expect": "11 个样本切出 train 9 个、val 2 个"
+        },
+        {
+          "title": "运行 main,确认切分数量与元数据落盘",
+          "target": "main() 入口",
+          "expect": "打印 train 9 / val 2,生成 tiny_dataset_meta.json,回读 vocab_size=48"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "两行切片:train, val = shuffled[:n_train], shuffled[n_train:],然后 return train, val。"
+        },
+        {
+          "order": 2,
+          "text": "seed=42 已作默认参数,洗牌要用 random.Random(seed).shuffle(shuffled),保证结果稳定。"
+        },
+        {
+          "order": 3,
+          "text": "11 个样本按 0.9 切:train 9 个、val 2 个;回读元数据 vocab_size=48、n_train=9、n_val=2。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "tiny_dataset_meta.json 的内容",
+          "language": "text",
+          "code": "{\n  \"vocab_size\": 48,\n  \"num_merges\": 10,\n  \"n_tokens\": 50,\n  \"n_blocks\": 11,\n  \"n_train\": 9,\n  \"n_val\": 2\n}",
+          "description": "元数据把管道的关键数字一次性落盘,训练阶段直接读取即可复现数据集。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "train/val 切分",
+          "definition": "把样本按比例分成训练集与验证集:训练集用于更新参数,验证集用于评估泛化能力,两者必须互斥。"
+        },
+        {
+          "name": "随机种子(seed)",
+          "definition": "随机数生成器的起始状态;固定种子后每次 shuffle 结果相同,是实验可复现的基石。"
+        },
+        {
+          "name": "元数据(metadata)",
+          "definition": "描述数据集本身的数据:词表大小、合并规则数、样本数等,保存为 JSON 便于复现与加载。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现语言",
+          "description": "random.Random(seed) 做可复现洗牌,json 做元数据落盘,全部内置。",
+          "officialUrl": "https://docs.python.org/3/library/",
+          "category": "语言",
+          "installHint": "Python 3.10+ 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 split_dataset 切分函数。",
+          "astType": "function_def",
+          "name": "split_dataset",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 save_metadata 元数据落盘函数。",
+          "astType": "function_def",
+          "name": "save_metadata",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示 train/val 数量与元数据回读。",
+          "expectedStdout": "== train/val 切分 ==[\\s\\S]*train: 9 个样本[\\s\\S]*val: 2 个样本[\\s\\S]*回读元数据: vocab_size=48",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t60-tokenizer-data-s6",
+      "taskId": "t60-tokenizer-data",
+      "order": 6,
+      "title": "总装一条龙:微型 GPT 数据管道",
+      "instruction": "### 目标\n\n把 s1-s5 的全部环节拧成一条流水线:`build_pipeline` 一条龙完成「清洗 → 训练 BPE → 编码 → 切块 → 切分」,返回包含 `bpe`/`tokens`/`blocks`/`train`/`val`/`stats` 的完整数据管道,再用出厂自检验证往返一致、窗口对齐、切分互斥。\n\n### 原理\n\n数据管道是训练的前置工序,它的输出质量直接决定模型上限:词表太糙,模型记不住词形;样本不对齐,模型学到的是错位映射;切分泄漏,评估分数就是自欺欺人。因此总装之后要做三项自检:encode → decode 往返一致,证明 tokenizer 无损;`x[1:] == y[:-1]`,证明窗口对齐;train 与 val 互斥,证明没有样本泄漏。这三行断言就是微型 GPT 数据的「出厂质检」。`stats` 汇总所有关键数字,训练阶段读它即可复现整个数据集。\n\n### 操作\n\n1. 补全 `build_pipeline`:依次调用 `clean_text`、`build_char_vocab`、`learn_bpe`、`MiniBPE`、`make_blocks`、`split_dataset`,并统计 `stats`;\n2. 组装返回字典:`bpe`/`tokens`/`blocks`/`train`/`val`/`stats` 六件套;\n3. 运行 `main`,确认「48 token」「50 token → 11 个样本」「train 9 / val 2」与三项自检全为 True。\n\n### 常见坑\n\n- train/val 的元素是 `(input, target)` 二元组,不可 hash,不能转 set 求交集——直接用 `any(tb in train for tb in val)` 判互斥;\n- `stats` 里的 `vocab_size` 必须等于基础字符数 + 合并数,别漏算 `MiniBPE.vocab_size`;\n- 往返自检要用原始 `CORPUS` 而非清洗后文本,保证整条链路端到端无损。\n",
+      "todoItems": [
+        {
+          "title": "补全 build_pipeline:串联清洗、建表、BPE、编码、切块、切分",
+          "target": "build_pipeline() 函数",
+          "code": "clean = clean_text(text)\nchar_to_id, id_to_char = build_char_vocab(clean)\nmerges, pieces = learn_bpe(clean, num_merges, char_to_id)",
+          "expect": "能一次跑通从语料到 train/val 的完整数据管道"
+        },
+        {
+          "title": "组装 stats 统计字典并返回六件套",
+          "target": "build_pipeline() 的返回字典",
+          "code": "stats = {'chars': len(clean), 'vocab_size': bpe.vocab_size, 'num_merges': len(bpe.merges), ...}",
+          "expect": "vocab_size 等于基础字符数 + 合并数(48)"
+        },
+        {
+          "title": "运行 main,确认三项出厂自检全为 True",
+          "target": "main() 入口",
+          "expect": "打印「48 token」「50 token → 11 个样本」「train 9 / val 2」,往返一致、窗口对齐、切分互斥全为 True"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "管道顺序固定:clean_text → build_char_vocab → learn_bpe → MiniBPE(...) → bpe.encode(clean) → make_blocks → split_dataset。"
+        },
+        {
+          "order": 2,
+          "text": "stats 六个数字:chars、vocab_size、num_merges、n_tokens、n_blocks、n_train、n_val,全部来自各环节的结果。"
+        },
+        {
+          "order": 3,
+          "text": "返回字典的 key 与 main 里用法一一对应:pipe[\"stats\"][\"vocab_size\"]、pipe[\"bpe\"].decode(...)、pipe[\"train\"]/pipe[\"val\"]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "build_pipeline 的使用方式",
+          "language": "python",
+          "code": "pipe = build_pipeline(CORPUS)\nprint(pipe[\"bpe\"].vocab_size)        # 48\nprint(len(pipe[\"tokens\"]))           # 50\nprint(len(pipe[\"train\"]), len(pipe[\"val\"]))   # 9 2",
+          "description": "一条调用拿到微型 GPT 的完整训练数据,六件套各司其职。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "数据管道(data pipeline)",
+          "definition": "从原始语料到可训练样本的完整工序链,本步的 build_pipeline 是它的最小实现。"
+        },
+        {
+          "name": "往返一致(round-trip)",
+          "definition": "encode 后再 decode 能原样还原文本,是 tokenizer 无损性的直接证明。"
+        },
+        {
+          "name": "样本泄漏(data leakage)",
+          "definition": "验证集样本混入训练集导致评估虚高的现象;train 与 val 互斥是杜绝泄漏的第一道防线。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现语言",
+          "description": "六个环节全部用内置模块实现,总装后形成完整的数据管道,零第三方依赖。",
+          "officialUrl": "https://docs.python.org/3/library/",
+          "category": "语言",
+          "installHint": "Python 3.10+ 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 build_pipeline 总装函数。",
+          "astType": "function_def",
+          "name": "build_pipeline",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请保留 MiniBPE tokenizer 类。",
+          "astType": "class_def",
+          "name": "MiniBPE",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示管道统计与三项自检。",
+          "expectedStdout": "== 出厂自检 ==[\\s\\S]*切分互斥: True",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

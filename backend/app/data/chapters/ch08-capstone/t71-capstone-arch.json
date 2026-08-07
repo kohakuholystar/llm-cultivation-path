@@ -1,0 +1,213 @@
+{
+  "steps": [
+    {
+      "id": "t71-capstone-arch-s1",
+      "taskId": "t71-capstone-arch",
+      "order": 1,
+      "title": "模块划分与接口设计",
+      "instruction": "### 目标\n设计系统的**组件架构**:有哪些模块,各自职责,数据怎么流动。产出一张 ASCII 架构图。\n\n### 背景: RAG Agent 的经典分层\n一个生产级 RAG Agent 通常分 5 层,每层职责单一:\n1. **接入层(API/UI)**:接收文档上传和提问,只做协议转换,不写业务逻辑\n2. ** ingest 层(文档处理)**:加载→切分→向量化→入库。离线执行,与问答链路解耦\n3. **检索层(Retriever)**:query 向量化→相似度搜索→metadata 过滤→重排序\n4. **生成层(Chain)**:拼装 prompt(系统指令+检索片段+问题)→调 LLM→解析引用\n5. **存储层**:向量库(Chroma)+ 文档元数据(SQLite/JSON)\n\n**关键设计决策**:ingest 和 query 是两条独立链路,共享的只有向量库。这样改切分策略不影响问答,改 prompt 不用重新入库。\n\n### 操作\n1. 定义各层模块及职责(数据结构)\n2. 画 ASCII 架构图展示数据流向(上传链路↓ 和 问答链路↓)\n3. 标注每条数据流的格式(如\"chunks: List[str]\")",
+      "starterCode": "# 毕业设计 Step4: 组件架构设计\nlayers = [\n    {\"name\": \"接入层\", \"module\": \"api.py (FastAPI)\", \"duty\": \"\"},   # TODO: 职责一句话\n    # TODO: 补 Ingest层 / 检索层 / 生成层 / 存储层 (各含 name/module/duty)\n]\n\narch_diagram = r\"\"\"\n# TODO: 画 ASCII 架构图, 展示两条链路:\n#   上传链路: 接入层 → Ingest层 → 存储层\n#   问答链路: 接入层 → 检索层 → 存储层 → 生成层\n\"\"\"\n\nfor l in layers:\n    print(f\"[{l['name']}] {l['module']}: {l['duty']}\")\nprint(arch_diagram)\n",
+      "solutionCode": "# 毕业设计 Step4: 组件架构设计\nlayers = [\n    {\"name\": \"接入层\", \"module\": \"api.py (FastAPI)\", \"duty\": \"POST /upload 收文档, POST /ask 收问题, 仅做协议转换\"},\n    {\"name\": \"Ingest层\", \"module\": \"ingest.py\", \"duty\": \"pypdf加载→递归切分(500字/重叠50)→BGE向量化→写Chroma, 附页码metadata\"},\n    {\"name\": \"检索层\", \"module\": \"retriever.py\", \"duty\": \"query向量化→Chroma相似搜索top8→交叉编码器重排取top3\"},\n    {\"name\": \"生成层\", \"module\": \"chain.py\", \"duty\": \"拼prompt(指令+片段+问题)→DeepSeek生成→正则提取引用[页码]\"},\n    {\"name\": \"存储层\", \"module\": \"Chroma + docs.json\", \"duty\": \"向量+metadata持久化; docs.json记录文档清单\"},\n]\n\narch_diagram = r\"\"\"\n                ┌────────────── 接入层 api.py ──────────────┐\n   上传PDF ───▶ │ POST /upload        POST /ask            │ ◀─── 提问\n                └──────┬───────────────────┬───────────────┘\n                       ▼                   ▼\n              ┌── Ingest层 ──┐     ┌── 检索层 ─────────┐\n              │ pypdf 加载    │     │ query 向量化       │\n              │ 递归切分      │     │ 相似搜索 top8      │\n              │ BGE 向量化    │     │ 重排序取 top3      │\n              └──────┬───────┘     └────────┬──────────┘\n                     ▼                      ▼\n              ┌── 存储层: Chroma(向量+页码) ──┐    ┌── 生成层 ──────────┐\n              └─────────────────────────────┘───▶│ 拼prompt→DeepSeek  │\n                                                  │ →带引用的回答       │\n                                                  └────────┬──────────┘\n                                                           ▼ 返回用户\n\"\"\"\n\nfor l in layers:\n    print(f\"[{l['name']}] {l['module']}: {l['duty']}\")\nprint(arch_diagram)\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "services 按职责分(文档/嵌入/检索/问答)。"
+        },
+        {
+          "order": 2,
+          "text": "API: upload/ask/documents。"
+        },
+        {
+          "order": 3,
+          "text": "数据模型:Document/Question。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 模块\ndocument_service: 上传+切分\nembedding_service: 嵌入\nqa_service: 问答"
+        }
+      ],
+      "terms": [
+        {
+          "name": "模块划分",
+          "definition": "按职责拆分服务"
+        },
+        {
+          "name": "API 设计",
+          "definition": "RESTful 接口定义"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "FastAPI",
+          "role": "接口设计",
+          "description": "REST API 设计",
+          "officialUrl": "https://fastapi.tiangolo.com/",
+          "category": "Web 框架",
+          "installHint": "pip install fastapi"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t71-capstone-arch-s2",
+      "taskId": "t71-capstone-arch",
+      "order": 2,
+      "title": "数据流与架构图",
+      "instruction": "### 目标\n设计系统的**数据模型**:文档、切片、消息各自的字段,以及它们的关系。\n\n### 背景: RAG 系统的三个核心实体\n1. **Document(文档)**:用户上传的原始文件。关键字段:`doc_id`、`filename`、`page_count`、上传时间。它是元数据管理单位\n2. **Chunk(切片)**:文档切分后的最小检索单位。关键字段:`chunk_id`、`doc_id`(外键)、`page`(页码,引用的关键!)、`text`、`embedding`\n3. **Message(消息)**:一次问答的记录。关键字段:`question`、`answer`、`citations`(引用列表,每项含 doc_id+page+片段)\n\n### 设计要点\n- **Chunk 必须带 page 字段**:没有它就无法做\"引用页码\",这是 MVP 的核心功能\n- **citations 存结构化引用**而非纯文本:前端才能做\"点击跳转原文\"\n- **doc_id 串联一切**:删除文档时,靠 doc_id 找到并删除它的所有 chunk\n\n### 操作\n1. 用 `@dataclass` 定义三个实体\n2. 实例化示例数据展示它们的关联\n3. 实现\"删除文档\"逻辑(按 doc_id 清理 chunk)验证外键设计",
+      "starterCode": "# 毕业设计 Step5: 数据模型设计(dataclass 建模)\nfrom dataclasses import dataclass, field\n\n\n# TODO: 定义 Document(doc_id/filename/page_count/uploaded_at)\n\n\n# TODO: 定义 Chunk(chunk_id/doc_id外键/page页码/text) —— page是引用功能的命根子\n\n\n# TODO: 定义 Citation(doc_id/page/snippet) 和 Message(question/answer/citations)\n\n\ndef delete_document(doc_id: str, all_chunks: list) -> list:\n    \"\"\"按 doc_id 清理该文档的所有 chunk(验证外键设计)。\"\"\"\n    # TODO: 列表推导过滤\n    return all_chunks\n\n\nif __name__ == \"__main__\":\n    # 实例化示例数据验证三个实体的关联\n    pass\n",
+      "solutionCode": "# 毕业设计 Step5: 数据模型设计(dataclass 建模)\nfrom dataclasses import dataclass, field\n\n\n@dataclass\nclass Document:\n    doc_id: str\n    filename: str\n    page_count: int\n    uploaded_at: str\n\n\n@dataclass\nclass Chunk:\n    chunk_id: str\n    doc_id: str          # 外键 → Document, 删文档时靠它找chunk\n    page: int            # 页码: 引用功能的命根子\n    text: str\n    # embedding 存在 Chroma 里, 模型里只留引用\n\n\n@dataclass\nclass Citation:\n    doc_id: str\n    page: int\n    snippet: str         # 引用的原文片段(前端展示用)\n\n\n@dataclass\nclass Message:\n    question: str\n    answer: str\n    citations: list = field(default_factory=list)  # List[Citation], 结构化引用\n\n\n# ===== 示例: 三个实体的关联 =====\ndoc = Document(\"d001\", \"attention.pdf\", 12, \"2026-07-23\")\nchunks = [\n    Chunk(\"d001_p3_c0\", \"d001\", 3, \"注意力机制允许模型对输入序列的不同位置赋予不同权重...\"),\n    Chunk(\"d001_p3_c1\", \"d001\", 3, \"QKV 三个矩阵分别代表查询、键、值...\"),\n    Chunk(\"d001_p4_c0\", \"d001\", 4, \"多头注意力将 d_model 拆成 h 个头并行计算...\"),\n]\nmsg = Message(\n    question=\"什么是注意力机制?\",\n    answer=\"注意力机制是对输入不同位置赋予不同权重的机制[1], 通过QKV矩阵计算[2]。\",\n    citations=[Citation(\"d001\", 3, chunks[0].text[:40]), Citation(\"d001\", 3, chunks[1].text[:40])],\n)\n\n# 删除文档: 按 doc_id 过滤掉它的所有 chunk\ndef delete_document(doc_id: str, all_chunks: list) -> list:\n    return [c for c in all_chunks if c.doc_id != doc_id]\n\n\nprint(f\"文档: {doc.filename} ({doc.page_count}页) → {len(chunks)} 个切片\")\nprint(f\"问答: {msg.question} → 引用 {len(msg.citations)} 处\")\nprint(f\"删除 {doc.doc_id} 后剩余切片: {len(delete_document('d001', chunks))}\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "上传:切分→嵌入→存。"
+        },
+        {
+          "order": 2,
+          "text": "问答:检索→生成→答。"
+        },
+        {
+          "order": 3,
+          "text": "架构:前端→API→services→存储/LLM。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 数据流\n上传: doc→split→embed→store\n问答: query→retrieve→llm→answer"
+        }
+      ],
+      "terms": [
+        {
+          "name": "数据流",
+          "definition": "数据在模块间的流动"
+        },
+        {
+          "name": "架构图",
+          "definition": "系统结构可视化"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Mermaid",
+          "role": "架构图",
+          "description": "数据流图绘制",
+          "officialUrl": "https://mermaid.js.org/",
+          "category": "工具",
+          "installHint": ""
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 Document。",
+          "astType": "class_def",
+          "name": "Document",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 Chunk。",
+          "astType": "class_def",
+          "name": "Chunk",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t71-capstone-arch-s3",
+      "taskId": "t71-capstone-arch",
+      "order": 3,
+      "title": "风险识别与对策",
+      "instruction": "### 目标\n设计 **API 接口契约**:每个端点的请求/响应格式。契约先行,前后端(或你和自己未来的前端)才能并行开发。\n\n### 背景: REST 契约设计要点\n- **资源导向**:`POST /documents`(上传)、`POST /questions`(提问)而非 `/upload` `/ask` 这种动词式(两者皆可,但资源式更易扩展)\n- **错误也要契约化**:定义统一错误格式 `{error: {code, message}}`,而不是让前端猜各种 500\n- **响应里带引用结构**:问答接口返回 `citations: [{doc_id, page, snippet}]`,前端直接渲染可点击引用\n\n### 知识库 Agent 的最小接口集\n| 端点 | 方法 | 说明 |\n|------|------|------|\n| /documents | POST | 上传文档(multipart) |\n| /documents | GET | 文档列表 |\n| /documents/{id} | DELETE | 删除文档及其切片 |\n| /questions | POST | 提问,返回带引用的回答 |\n\n### 操作\n1. 用 dict 定义 4 个端点的契约(请求体/成功响应/错误响应)\n2. 实现一个 mock 处理函数,按契约返回响应\n3. 打印契约文档",
+      "starterCode": "# 毕业设计 Step6: API 接口契约设计\ncontracts = [\n    {\n        \"endpoint\": \"POST /documents\",\n        \"request\": \"\",          # TODO: 请求格式(multipart?)\n        \"response_200\": {},     # TODO: 成功响应结构\n        \"error\": {},            # TODO: 统一错误格式 {error: {code, message}}\n    },\n    # TODO: 补 GET /documents、DELETE /documents/{id}、POST /questions\n    #        POST /questions 的响应必须含结构化 citations\n]\n\nfor c in contracts:\n    print(f\"## {c['endpoint']}\")\n    print(f\"  请求: {c['request']}\")\n    print(f\"  200:  {c['response_200']}\")\n    if c[\"error\"]:\n        print(f\"  错误: {c['error']}\")\n    print()\n",
+      "solutionCode": "# 毕业设计 Step6: API 接口契约设计\ncontracts = [\n    {\n        \"endpoint\": \"POST /documents\",\n        \"request\": \"multipart/form-data: file (PDF/MD)\",\n        \"response_200\": {\"doc_id\": \"d001\", \"filename\": \"a.pdf\", \"chunks\": 42},\n        \"error\": {\"error\": {\"code\": \"UNSUPPORTED_TYPE\", \"message\": \"仅支持 PDF/Markdown\"}},\n    },\n    {\n        \"endpoint\": \"GET /documents\",\n        \"request\": \"无\",\n        \"response_200\": {\"documents\": [{\"doc_id\": \"d001\", \"filename\": \"a.pdf\", \"page_count\": 12}]},\n        \"error\": None,\n    },\n    {\n        \"endpoint\": \"DELETE /documents/{doc_id}\",\n        \"request\": \"路径参数 doc_id\",\n        \"response_200\": {\"deleted_chunks\": 42},\n        \"error\": {\"error\": {\"code\": \"DOC_NOT_FOUND\", \"message\": \"文档不存在\"}},\n    },\n    {\n        \"endpoint\": \"POST /questions\",\n        \"request\": {\"question\": \"什么是注意力机制?\", \"top_k\": 3},\n        \"response_200\": {\n            \"answer\": \"注意力机制是...[1]\",\n            \"citations\": [{\"doc_id\": \"d001\", \"page\": 3, \"snippet\": \"注意力机制允许...\"}],\n        },\n        \"error\": {\"error\": {\"code\": \"EMPTY_KB\", \"message\": \"知识库为空, 请先上传文档\"}},\n    },\n]\n\nfor c in contracts:\n    print(f\"## {c['endpoint']}\")\n    print(f\"  请求: {c['request']}\")\n    print(f\"  200:  {c['response_200']}\")\n    if c[\"error\"]:\n        print(f\"  错误: {c['error']}\")\n    print()\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "风险:API费用/切分/性能/上传。"
+        },
+        {
+          "order": 2,
+          "text": "对策:缓存/调参/分库/限制。"
+        },
+        {
+          "order": 3,
+          "text": "提前识别降低风险。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 风险\nAPI费用: 缓存\n切分质量: 调参\n性能: 分库"
+        }
+      ],
+      "terms": [
+        {
+          "name": "风险识别",
+          "definition": "提前发现潜在问题"
+        },
+        {
+          "name": "对策",
+          "definition": "针对风险的解决方案"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Markdown",
+          "role": "文档",
+          "description": "风险对策记录",
+          "officialUrl": "https://www.markdownguide.org/",
+          "category": "文档",
+          "installHint": ""
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

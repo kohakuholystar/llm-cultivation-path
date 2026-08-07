@@ -1,0 +1,423 @@
+{
+  "steps": [
+    {
+      "id": "t62-training-loop-s1",
+      "taskId": "t62-training-loop",
+      "order": 1,
+      "title": "交叉熵损失:给模型一把「标尺」",
+      "instruction": "### 目标\n\n本步给微型 GPT 装上「标尺」:交叉熵损失。它把模型对一批输入预测出的 logits 与真实目标序列比对,输出一个数字——越小说明预测越准。有了这把标尺,后面步骤的梯度下降才能量化「该往哪个方向改进、改进多少」。\n\n### 原理\n\n语言模型在每个位置输出的是一张词表上的概率分布(词表 V=16)。交叉熵衡量「预测分布」与「真实目标」的距离:对每个位置取模型分配给正确词的概率 p_y,损失就是 -log(p_y) 的均值。随机初始化时每个词的概率都接近均匀 1/V,期望损失约 ln(V)≈ln16≈2.77;本步实测 2.8109 与之吻合,说明数值实现是对的。实现上有两个要点:一是 softmax 前先减掉 logits 的最大值,避免 exp 溢出成 inf;二是数据按循环移位构造——字符 x 的下一个字符必是 (x+1)%16,训练集 128 条、验证集 32 条来自同一分布,所以随机模型在两边测出的损失几乎一致(2.8109 vs 2.8109)。这一步搭好的是评估管线:损失函数 + 数据切分 + 曲线绘制,之后的每一步都站在它上面。\n\n### 操作\n\n1. 补全 `cross_entropy`:logits 过 softmax 得概率 p,按目标序列索引取出 p_y;\n2. 运行观察「初始 训练损失 / 验证损失」都接近 2.81;\n3. 调用 `plot_curve` 画出示意曲线,感受「损失随训练下降」的曲线形状;\n4. 试改 `vocab` 或 `n` 再跑,验证「随机模型损失≈ln(V)」的直觉。\n\n### 常见坑\n\n- 忘记数值稳定:logits 中出现大数时 exp 溢出成 inf,损失变成 nan;\n- 索引错位:`p.reshape(-1, V)` 与 `y.reshape(-1)` 的长度必须一致(B*T),否则取到错误概率;\n- 把「损失≈2.8」当成 bug:随机初始模型的损失接近 ln(V) 是正常起点,不是实现问题。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "交叉熵 = -log(正确词概率) 的均值:先把 logits 过 softmax(先减 max 做数值稳定),再按 y 的索引取值。"
+        },
+        {
+          "order": 2,
+          "text": "关键行:p_y = p.reshape(-1, V)[np.arange(B * T), y.reshape(-1)],最后 float(-np.log(p_y + 1e-9).mean())。"
+        },
+        {
+          "order": 3,
+          "text": "期望初始损失 ≈ ln(V)=ln16≈2.77:随机初始化时各词概率均匀;运行后训练与验证都应约 2.81。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "交叉熵损失:softmax 后按目标索引取 -log p",
+          "language": "python",
+          "code": "def cross_entropy(model, x, y):\n    logits = model.forward(x)  # (B, T, V)\n    p = np.exp(logits - logits.max(axis=-1, keepdims=True))\n    p = p / p.sum(axis=-1, keepdims=True)\n    p_y = p.reshape(-1, p.shape[-1])[np.arange(x.size), y.reshape(-1)]\n    return float(-np.log(p_y + 1e-9).mean())",
+          "description": "先减最大值保证数值稳定,再按目标序列索引取概率。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "交叉熵(Cross Entropy)",
+          "definition": "衡量预测分布与真实目标之间距离的损失:对每个位置取正确词概率 p_y,损失为 -log(p_y) 的均值;随机模型损失约 ln(V)。"
+        },
+        {
+          "name": "softmax",
+          "definition": "把 logits 向量归一化成概率分布:exp 后除以总和;先减最大值可保证数值稳定。"
+        },
+        {
+          "name": "训练集/验证集",
+          "definition": "同分布切分的数据:训练集用于优化参数,验证集用于评估泛化;随机模型上两者损失一致是正常现象。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "全部张量运算与梯度计算基于 numpy 完成。",
+          "officialUrl": "https://numpy.org/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 p.reshape(-1, V) 展平后按目标索引取值。",
+          "pattern": "p\\.reshape",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请返回 -np.log(p_y + 1e-9).mean()。",
+          "pattern": "-np\\.log",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印初始损失并画出曲线。",
+          "expectedStdout": "初始 训练损失 \\d\\.\\d+,验证损失 \\d\\.\\d+[\\s\\S]*共 \\d+ 个点",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t62-training-loop-s2",
+      "taskId": "t62-training-loop",
+      "order": 2,
+      "title": "训练循环:让参数沿梯度下山",
+      "instruction": "### 目标\n\n本步把「损失」变成「下山的路」:写出训练循环,用梯度下降规则逐步更新模型参数。每走一步,损失就降一点;循环跑满 60 步,损失从 2.73 一路降到 0.01 以下,你就亲眼看到了「训练」的本质——沿着梯度方向反复调整参数。\n\n### 原理\n\n梯度下降是一条朴素而古老的规则:损失对每个参数的偏导告诉我们「往哪个方向调会让损失变大、往哪个方向调会让损失变小」。于是每次更新都让参数沿负梯度方向挪一小步:w ← w - lr × grad(w)。lr 是学习率,决定步幅:太小走得慢,太大容易在谷底震荡甚至发散。真实语言模型用反向传播高效地算出全部梯度;这里为了聚焦「训练循环」本身,用数值梯度(中心差分,h=1e-4)替代——原理上完全等价,代价只是多跑几次前向。循环体固定四件事:算梯度 → 更新参数 → 记录损失 → 进入下一步。实测 60 步后损失从 2.7313 降到 0.0084,曲线几乎贴地。\n\n### 操作\n\n1. 补全 `update`:遍历 model.params,对每个参数执行 w -= lr * grads[name];\n2. 在 main 的循环里调用 `update(model, grads, lr)`,并把每步损失追加进 his;\n3. 运行观察「训练损失 2.7313 → 0.0084」与贴地的下降曲线;\n4. 试着把 lr 改成 0.1 或 3.0 再跑,感受学习率对收敛速度与稳定性的影响。\n\n### 常见坑\n\n- 忘记把损失记进 his:输出只剩一句话,画不出曲线;\n- 用错误的符号:梯度指向损失上升的方向,更新必须是「减」而不是「加」;\n- 嫌数值梯度慢:60 步要跑上千次前向,耐心等它结束,这不是死循环。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "更新规则就一行:对每个参数 w 执行 w -= lr * grads[name];梯度指向上升方向,所以要「减」。"
+        },
+        {
+          "order": 2,
+          "text": "循环结构:for s in range(steps) 里依次做「算梯度 → 更新参数 → 记损失」,结束后打印首末损失并画曲线。"
+        },
+        {
+          "order": 3,
+          "text": "数值梯度每个参数都要前后各算一次损失,慢是预期;可先临时调小 steps 验证逻辑,再跑满 60 步。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "梯度下降更新:参数沿负梯度方向移动",
+          "language": "python",
+          "code": "def update(model, grads, lr):\n    for name, w in model.params.items():\n        w -= lr * grads[name]",
+          "description": "每个参数减去「学习率 × 梯度」,重复 steps 次即完成一轮训练。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "梯度下降(Gradient Descent)",
+          "definition": "反复让参数沿损失函数的负梯度方向小步移动、使损失逐步下降的优化方法;更新式为 w ← w - lr × grad。"
+        },
+        {
+          "name": "学习率(Learning Rate)",
+          "definition": "控制每次更新步幅的超参数;过大在谷底震荡甚至发散,过小收敛缓慢。"
+        },
+        {
+          "name": "数值梯度(Numerical Gradient)",
+          "definition": "用有限差分 (f(w+h) - f(w-h)) / (2h) 近似偏导,原理简单但代价高,适合小模型教学验证。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "全部张量运算与梯度计算基于 numpy 完成。",
+          "officialUrl": "https://numpy.org/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 w -= lr * grads[name] 实现参数更新。",
+          "pattern": "w -= lr \\* grads",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请在 main 里用 for s in range(steps) 驱动训练循环。",
+          "pattern": "range\\(steps\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印训练损失首末值并画出曲线。",
+          "expectedStdout": "训练损失 \\d\\.\\d+ → \\d\\.\\d+[\\s\\S]*共 \\d+ 个点",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t62-training-loop-s3",
+      "taskId": "t62-training-loop",
+      "order": 3,
+      "title": "学习率调度:warmup 与余弦退火",
+      "instruction": "### 目标\n\n本步给训练循环装上「油门踏板」:学习率调度。让学习率在训练中动态变化,而不是全程固定。前 5 步(warmup)从 0 线性爬升到峰值,之后按余弦曲线平滑衰减到接近 0——这是当今大模型预训练的标准配置。\n\n### 原理\n\n固定学习率有两个难题:起步时模型一无所知,大步长容易把参数推乱;后期接近收敛,固定步长又会在谷底来回震荡。warmup 用前 5 步把学习率从 0 线性升到峰值,让参数先「小心起步」;余弦退火在剩余步数里按 0.5 × (1 + cos(π·p)) 平滑衰减,p 是已走的步数比例。本步实测:首步 lr=0.200,峰值 lr=1.000,末步 lr=0.001,调度曲线正确。需要诚实指出:在这个 60 步的小任务上,末损 0.0467 反而比第 2 步固定学习率的 0.0084 略高——调度不是魔法,小任务短训练里峰值后的退火会「拖慢」最后一段下降;它的价值体现在长训练与大模型上:更稳的起步、更平滑的收敛,而不是更低的末损数字。\n\n### 操作\n\n1. 补全 `lr_warmup_cosine`:step < warmup 时返回 peak * (step + 1) / warmup,否则返回余弦退火公式;\n2. 在循环内用 `lr = lr_warmup_cosine(s, steps, warmup, peak)` 取本步学习率并传给 update;\n3. 运行观察调度三值(0.200 / 1.000 / 0.001)与损失曲线形状;\n4. 试改 warmup 为 1 或 10,观察首步学习率与曲线起点的变化。\n\n### 常见坑\n\n- 忘掉 warmup 分支:step < warmup 时出现除零或负学习率;\n- 把 (step - warmup) 与 (total - warmup) 写反:曲线变成「先降后升」;\n- 看到末损比固定学习率高就以为实现错了:调度改善的是稳定性与收敛质量,不是小任务上的最终数字。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "两个分支:step < warmup 时线性爬升 peak * (step + 1) / warmup;之后余弦退火 peak * 0.5 * (1 + np.cos(np.pi * p)),p 是已走比例。"
+        },
+        {
+          "order": 2,
+          "text": "除零防护:分母用 max(1, total - warmup);p 从 0 走到 1,cos 项从 1 平滑衰减到 -1,学习率随之归零。"
+        },
+        {
+          "order": 3,
+          "text": "调度只影响 lr 的取值,不改其他逻辑;可先临时打印每步 lr 验证曲线形状,再跑完整训练。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "warmup 线性爬升 + 余弦退火",
+          "language": "python",
+          "code": "def lr_warmup_cosine(step, total, warmup, peak):\n    if step < warmup:\n        return peak * (step + 1) / warmup\n    p = (step - warmup) / max(1, total - warmup)\n    return peak * 0.5 * (1.0 + np.cos(np.pi * p))",
+          "description": "前 warmup 步线性升到峰值,之后沿余弦曲线平滑衰减到接近 0。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "学习率调度(Learning Rate Schedule)",
+          "definition": "让学习率随训练步数动态变化:前段线性爬升(warmup),中后段余弦退火衰减,兼顾起步稳定与后期收敛。"
+        },
+        {
+          "name": "warmup",
+          "definition": "训练初期把学习率从 0 线性升到峰值的预热阶段,避免开局大步长破坏随机初始化的参数。"
+        },
+        {
+          "name": "余弦退火(Cosine Annealing)",
+          "definition": "学习率按余弦曲线从峰值平滑衰减到接近 0,让后期收敛更稳定。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "全部张量运算与余弦调度计算基于 numpy 完成。",
+          "officialUrl": "https://numpy.org/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用余弦退火公式 np.cos(np.pi * p) 衰减学习率。",
+          "pattern": "np\\.cos\\(np\\.pi \\* p\\)",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请实现 warmup 线性爬升 peak * (step + 1) / warmup。",
+          "pattern": "peak \\* \\(step \\+ 1\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印调度三值(首步/峰值/末步学习率)。",
+          "expectedStdout": "\\[调度\\] 首步 lr=\\d\\.\\d+,峰值 lr=\\d\\.\\d+,末步 lr=\\d\\.\\d+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t62-training-loop-s4",
+      "taskId": "t62-training-loop",
+      "order": 4,
+      "title": "梯度裁剪:防住梯度爆炸",
+      "instruction": "### 目标\n\n本步给梯度加一道「限流阀」:梯度裁剪。训练中某些参数偶尔会得到特别大的梯度,一次更新就把参数推出正常区域,损失瞬间爆表甚至变成 nan。裁剪把所有梯度的总范数压到阈值以内,既拦住爆炸,又不改变梯度的方向。\n\n### 原理\n\n裁剪的思路极简:先算全部梯度的总范数——每个元素平方求和再开方;若总范数超过阈值 max_norm,就整体乘一个缩放因子 scale = max_norm / total,让范数恰好等于阈值;若没超过,原样放行。方向不变、步幅受限,这正是「防住梯度爆炸」的标准做法。本步实测:训练中梯度范数最大 0.458、均值 0.240,60 步里有 19 步触发了裁剪,说明小任务上梯度也确实会偶尔冒尖。诚实说明:加上裁剪后末损 0.0752,比第 3 步的 0.0467 略高——在小任务上,裁剪偶尔会「压住」本可大步前进的更新;它的真正价值在长序列、深网络里防住梯度爆炸,让训练不崩、不产生 nan。\n\n### 操作\n\n1. 补全 `clip_grads`:算总范数 total;若 total > max_norm,则 scale = max_norm / (total + 1e-12) 并逐组缩放梯度,最后返回 total;\n2. 在循环里用 `raw = clip_grads(grads, max_norm)` 拿到裁剪前的原始范数,统计裁剪次数;\n3. 运行观察「裁剪前梯度范数:max 0.458,mean 0.240」「裁剪次数: 19/60」;\n4. 试把 max_norm 改成 0.1 或 10,观察裁剪次数与损失曲线的变化。\n\n### 常见坑\n\n- 忘加 1e-12:total 恰好为 0 时除零;\n- 裁剪时改了梯度值却忘了 return total:后续范数统计全部错位;\n- 在 total <= max_norm 时也做缩放:会无故改变梯度大小,破坏训练。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "范数公式:total = np.sqrt(sum(float((g * g).sum()) for g in grads.values())),先平方求和再开方。"
+        },
+        {
+          "order": 2,
+          "text": "只在大范数时缩放:if total > max_norm 才执行 scale = max_norm / (total + 1e-12),再逐组 g *= scale。"
+        },
+        {
+          "order": 3,
+          "text": "返回裁剪前的原始范数 total,用来统计裁剪次数 n_clip += int(raw > max_norm)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "梯度裁剪:总范数超限则按比例缩放",
+          "language": "python",
+          "code": "def clip_grads(grads, max_norm=0.3):\n    total = np.sqrt(sum(float((g * g).sum()) for g in grads.values()))\n    if total > max_norm:\n        scale = max_norm / (total + 1e-12)\n        for g in grads.values():\n            g *= scale\n    return total",
+          "description": "总范数超过阈值时整体缩放,方向不变、步幅受限。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "梯度裁剪(Gradient Clipping)",
+          "definition": "当梯度总范数超过阈值时按比例缩放全部梯度,把更新步幅限制在安全范围,防止梯度爆炸。"
+        },
+        {
+          "name": "梯度范数(Gradient Norm)",
+          "definition": "全部梯度元素平方求和再开方得到的标量,衡量本次梯度整体的「大小」。"
+        },
+        {
+          "name": "缩放因子(Scale Factor)",
+          "definition": "max_norm / total;乘上它后梯度方向不变,总范数恰好被压到阈值。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "全部张量运算与梯度范数计算基于 numpy 完成。",
+          "officialUrl": "https://numpy.org/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 clip_grads 裁剪函数。",
+          "astType": "function_def",
+          "name": "clip_grads",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 scale = max_norm / total 计算缩放因子。",
+          "pattern": "max_norm /",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请逐组缩放梯度 g *= scale。",
+          "pattern": "g \\*= scale",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印梯度范数统计、裁剪次数与训练损失。",
+          "expectedStdout": "裁剪前梯度范数:max \\d\\.\\d+,mean \\d\\.\\d+[\\s\\S]*裁剪次数: \\d+/\\d+[\\s\\S]*训练损失 \\d\\.\\d+ → \\d\\.\\d+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t62-training-loop-s5",
+      "taskId": "t62-training-loop",
+      "order": 5,
+      "title": "checkpoint:训练成果的存档与恢复",
+      "instruction": "### 目标\n\n本步把训练成果「存档」:checkpoint。训练好的模型参数只存在内存里,程序一退出就没了。把每组参数写进文件,随时可以恢复、继续训练或部署加载——这是所有深度学习框架的标配能力。\n\n### 原理\n\n模型的所有知识都在 12 组参数里:9 个权重 wte/wpe/wq/wk/wv/wo/w1/w2/wout 与 3 个偏置 b1/b2/bout。存档就是把这些 numpy 数组序列化成可持久化的格式:先 w.tolist() 转成普通 Python 列表,再 json.dump 写进文件;恢复则反向操作——json.load 读回、np.array 还原成数组并写回 model.params。校验方式很直接:另起一个全新的 MiniGPT,把存档加载进去,比较它与原模型在验证集上的损失,差值为 0 说明存档无损。本项目用 JSON 便于肉眼观察;工业界多用 safetensors 或 .pt 这类二进制格式,原理一致,本步不引入。\n\n### 操作\n\n1. 补全 `save_checkpoint`:遍历 model.params,转成 list 后 json.dump 写入 path;\n2. 补全 `load_checkpoint`:json.load 读回,逐个 np.array 还原并写回 model.params;\n3. 运行观察「checkpoint 校验:通过」「存档路径: mini_gpt_ckpt.json,参数组数: 12」;\n4. 打开生成的 mini_gpt_ckpt.json,看看一组参数长什么样。\n\n### 常见坑\n\n- 忘记 w.tolist():numpy 数组不能直接 JSON 序列化,会抛 TypeError;\n- 加载时把数组赋给局部变量就完事:必须写回 model.params[name],否则恢复无效;\n- 校验时凭肉眼比数字:浮点序列化本身无损,应像本步一样比较「加载前后模型的验证损失」。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "保存:payload = {name: w.tolist() for name, w in model.params.items()},再 with open(path, 'w') 后 json.dump(payload, f)。"
+        },
+        {
+          "order": 2,
+          "text": "恢复:读回 payload 后,for name, arr in payload.items(): model.params[name] = np.array(arr)。"
+        },
+        {
+          "order": 3,
+          "text": "校验:比较原模型与恢复模型在验证集上的损失,差值 < 1e-9 即通过;这是「存档是否无损」的直接证据。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "checkpoint 保存与恢复",
+          "language": "python",
+          "code": "def save_checkpoint(model, path):\n    payload = {name: w.tolist() for name, w in model.params.items()}\n    with open(path, \"w\", encoding=\"utf-8\") as f:\n        json.dump(payload, f)\n\n\ndef load_checkpoint(model, path):\n    with open(path, \"r\", encoding=\"utf-8\") as f:\n        payload = json.load(f)\n    for name, arr in payload.items():\n        model.params[name] = np.array(arr)",
+          "description": "保存时逐组转 list 序列化,恢复时逐组转回数组并写回模型。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "checkpoint",
+          "definition": "训练过程中把模型参数等状态持久化到文件,便于中断恢复、继续训练或部署加载。"
+        },
+        {
+          "name": "序列化(Serialization)",
+          "definition": "把内存中的对象转成可存储、可传输的格式;numpy 数组需先 tolist() 才能 json.dump。"
+        },
+        {
+          "name": "校验(Verification)",
+          "definition": "加载后与原模型比较行为(如验证损失),确认存档内容无损、恢复正确。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "数值计算库",
+          "description": "全部张量运算与参数序列化基于 numpy 完成。",
+          "officialUrl": "https://numpy.org/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 save_checkpoint 存档函数。",
+          "astType": "function_def",
+          "name": "save_checkpoint",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 json.dump 写出参数。",
+          "pattern": "json\\.dump\\(payload",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 json.load 读回参数。",
+          "pattern": "json\\.load\\(f\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印 checkpoint 校验结果与存档路径。",
+          "expectedStdout": "checkpoint 校验:通过[\\s\\S]*存档路径:",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

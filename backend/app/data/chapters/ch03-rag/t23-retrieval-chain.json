@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t23-retrieval-chain-s1",
+      "taskId": "t23-retrieval-chain",
+      "order": 1,
+      "title": "构建基础检索链",
+      "instruction": "### 目标\n把检索器和 LLM 串成完整的**检索问答链(RetrievalQA)**:提问→检索→生成→答案,一条链走完。\n\n### 背景: RetrievalQA 链的内部结构\n```python\nchain = RetrievalQA.from_chain_type(llm, retriever=vectorstore.as_retriever())\nchain.invoke(\"问题\")\n```\n看似简单,内部其实跑了 4 步:\n1. 问题 → retriever 检索 top-k 相关文档\n2. 文档塞进固定 prompt 模板(\"基于以下内容回答...\")\n3. 拼好的 prompt → LLM\n4. 返回答案字符串\n\n**chain_type=\"stuff\"** 是默认模式:把所有检索结果直接\"塞\"进一个 prompt。简单粗暴,文档多了就超窗口——这时要换 map_reduce(逐个总结再合并)或 refine(逐文档迭代精炼)。\n\n### 什么时候用现成链,什么时候手写 LCEL\n- RetrievalQA:快速验证、标准场景\n- 手写 LCEL(t15 学过):要自定义 prompt、加来源标注、改检索逻辑时——**生产环境基本都手写**\n\n### 操作\n1. 用向量库创建 retriever(k=2)\n2. 组装 RetrievalQA 链并提问\n3. 打印链返回的完整 dict,找到答案字段",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI, OpenAIEmbeddings\nfrom langchain_community.vectorstores import Chroma\nfrom langchain.chains import create_retrieval_chain\nfrom langchain.chains.combine_documents import create_stuff_documents_chain\nfrom langchain_core.prompts import ChatPromptTemplate\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\n# 加载向量库\nvectorstore = Chroma(persist_directory='./db', embedding_function=OpenAIEmbeddings())\nretriever = vectorstore.as_retriever()\nprompt = ChatPromptTemplate.from_messages([('system', '根据上下文回答:\\n{context}'), ('human', '{input}')])\n# 创建检索链\nqa_chain = create_stuff_documents_chain(llm, prompt)\nrag_chain = create_retrieval_chain(retriever, qa_chain)\nprint(rag_chain.invoke({'input': '什么是AI?'})['answer'])",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI, OpenAIEmbeddings\nfrom langchain_community.vectorstores import Chroma\nfrom langchain.chains import create_retrieval_chain\nfrom langchain.chains.combine_documents import create_stuff_documents_chain\nfrom langchain_core.prompts import ChatPromptTemplate\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\nvectorstore = Chroma(persist_directory='./db', embedding_function=OpenAIEmbeddings())\nretriever = vectorstore.as_retriever()\nprompt = ChatPromptTemplate.from_messages([('system', '根据上下文回答:\\n{context}'), ('human', '{input}')])\nqa_chain = create_stuff_documents_chain(llm, prompt)\nrag_chain = create_retrieval_chain(retriever, qa_chain)\nprint(rag_chain.invoke({'input': '什么是AI?'})['answer'])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "create_stuff_documents_chain(llm, prompt) 创建文档链。"
+        },
+        {
+          "order": 2,
+          "text": "create_retrieval_chain(retriever, qa_chain) 组合。"
+        },
+        {
+          "order": 3,
+          "text": "invoke 传 {input: 问题}。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "rag_chain = create_retrieval_chain(retriever, qa_chain)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "检索链",
+          "definition": "先检索再生成"
+        },
+        {
+          "name": "stuff",
+          "definition": "把文档塞进prompt"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "RAG框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需调用 create_retrieval_chain。",
+          "api": "create_retrieval_chain",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t23-retrieval-chain-s2",
+      "taskId": "t23-retrieval-chain",
+      "order": 2,
+      "title": "引用来源标注",
+      "instruction": "### 目标\n掌握**返回源文档**:让链同时返回答案和检索到的文档,为引用功能铺路。\n\n### 背景: return_source_documents 参数\n```python\nchain = RetrievalQA.from_chain_type(\n    llm, retriever=retriever,\n    return_source_documents=True,   # 关键开关\n)\nresult = chain.invoke(\"问题\")\nresult[\"result\"]            # 答案文本\nresult[\"source_documents\"]  # List[Document], 含 page_content 和 metadata\n```\n\n### 源文档的三大用途\n1. **引用展示**:\"答案来自《手册》第 3 章\"——metadata 里取\n2. **调试检索质量**:答案错了,先看 source_documents——**检索错还是生成错,一眼分清**。这是 RAG 排错的第一原则\n3. **后处理过滤**:按 metadata 再筛一遍(如\"只用最新版文档\")\n\n### 排错决策树\n答案不对 → 看 source_documents:\n- 检索到的文档**不含**答案所需信息 → 检索问题(换 embedding/调 k/优化切分)\n- 检索到的文档**含有**答案 → 生成问题(改 prompt/换更强模型)\n\n### 操作\n1. 开 return_source_documents 重跑上一步\n2. 打印每个源文档的内容摘要和 metadata\n3. 故意问一个库外问题,观察检索到了什么(理解\"垃圾进垃圾出\")",
+      "starterCode": "result = rag_chain.invoke({'input': '什么是深度学习?'})\nprint(result['answer'])\n# 打印引用来源\nfor doc in result['context']:\n    print(doc.metadata.get('source'))",
+      "solutionCode": "result = rag_chain.invoke({'input': '什么是深度学习?'})\nprint(result['answer'])\nprint('--- 引用 ---')\nfor doc in result['context']:\n    print(doc.metadata.get('source', '未知'))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "result['context'] 是检索到的文档列表。"
+        },
+        {
+          "order": 2,
+          "text": "doc.metadata.get('source') 取来源。"
+        },
+        {
+          "order": 3,
+          "text": "遍历打印。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "for doc in result['context']:\n    print(doc.metadata)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "context",
+          "definition": "检索链返回的文档列表"
+        },
+        {
+          "name": "metadata",
+          "definition": "文档元数据"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "RAG框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t23-retrieval-chain-s3",
+      "taskId": "t23-retrieval-chain",
+      "order": 3,
+      "title": "完整 RAG 应用",
+      "instruction": "### 目标\n自定义 RetrievalQA 的 **prompt 模板**,把默认的英文模板换成自己的中文防幻觉模板。\n\n### 背景: 为什么要换默认 prompt\n默认模板是英文的通用模板(\"Use the following pieces of context...\"),两个问题:\n- 中文场景效果打折\n- **没有强力的\"不知道\"指令**——模型容易在资料不足时硬编\n\n### 自定义模板的三个必备要素\n```python\ntemplate = \"\"\"基于以下资料回答问题。\n\n资料:\n{context}\n\n问题: {question}\n\n要求:\n1. 只根据资料回答, 资料不足就明确说\"根据现有资料无法回答\"\n2. 不要编造资料中没有的信息\n3. 回答简洁, 不超过 3 句话\"\"\"\nprompt = PromptTemplate(template=template, input_variables=[\"context\", \"question\"])\nchain = RetrievalQA.from_chain_type(llm, retriever=retriever,\n                                    chain_type_kwargs={\"prompt\": prompt})\n```\n变量名必须恰好是 `context` 和 `question`(RetrievalQA 的约定)。\n\n### 操作\n1. 写中文防幻觉模板(含\"无法回答\"指令)\n2. 通过 chain_type_kwargs 注入\n3. 问库外问题,验证模型如实说\"无法回答\"而非编造",
+      "starterCode": "def ask(question):\n    # try/except 包裹 invoke\n    try:\n        result = rag_chain.invoke({'input': question})\n        if not result.get('context'):\n            return '未检索到相关文档'\n        return result['answer']\n    except Exception as e:\n        return f'查询出错: {e}'\n\nprint(ask('什么是Transformer?'))",
+      "solutionCode": "def ask(question):\n    try:\n        result = rag_chain.invoke({'input': question})\n        if not result.get('context'):\n            return '未检索到相关文档'\n        return result['answer']\n    except Exception as e:\n        return f'查询出错: {e}'\n\nprint(ask('什么是Transformer?'))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "try/except 包裹 invoke。"
+        },
+        {
+          "order": 2,
+          "text": "检查 context 是否为空。"
+        },
+        {
+          "order": 3,
+          "text": "出错返回友好提示。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "try:\n    result = rag_chain.invoke(...)\nexcept: return '出错'"
+        }
+      ],
+      "terms": [
+        {
+          "name": "错误处理",
+          "definition": "try/except 兜底"
+        },
+        {
+          "name": "空结果",
+          "definition": "检索不到时的处理"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "RAG框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "ask",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

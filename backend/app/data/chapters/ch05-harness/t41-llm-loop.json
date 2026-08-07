@@ -1,0 +1,193 @@
+{
+  "steps": [
+    {
+      "id": "t41-llm-loop-s1",
+      "taskId": "t41-llm-loop",
+      "order": 1,
+      "title": "LLM 调用循环与状态对象",
+      "instruction": "### 目标\n理解并实现\"LLM 即决策器\"的循环:每轮让 LLM 根据当前状态**决定下一步动作**,而不是写死流程。\n\n### 背景: 从流程图到决策循环\n传统程序是**流程驱动**:if/else 写死所有分支。Agent 是**决策驱动**:把\"现在情况是什么+能做什么\"发给 LLM,让它返回下一步动作。区别:\n- 流程驱动:开发者预见了所有路径,系统不会应对意外\n- 决策驱动:LLM 现场判断,能处理开发者没想到的情况——但也意味着**你必须防它做错**\n\n### 决策循环的最小结构\n```\nstate = 初始状态\nwhile not done:\n    action = llm_decide(state)   # LLM 看状态选动作\n    result = execute(action)     # 执行(工具/子流程)\n    state = update(state, result) # 结果写回状态\n    done = check_done(state)     # 终止判断\n```\n\n### 关键工程点\n- **动作空间要枚举**:告诉 LLM\"你只能从这些动作里选\",用结构化输出(JSON)拿结果,别让它自由发挥\n- **状态要可序列化**:每轮把它渲染进 prompt,LLM 才能\"看到\"现状\n\n### 操作\n1. 定义动作空间(3-4 个可选动作)\n2. 实现 `llm_decide()`(模拟):根据状态返回动作 JSON\n3. 跑 3-4 轮循环,打印每轮的 状态→决策→结果 完整链路",
+      "starterCode": "from dataclasses import dataclass, field\nfrom openai import OpenAI\n\n@dataclass\nclass HarnessState:\n    messages: list = field(default_factory=list)\n    step: int = 0\n    done: bool = False\n    results: list = field(default_factory=list)\n\nclient = OpenAI()\nstate = HarnessState(messages=[{'role':'system','content':'回复 DONE: 答案 退出'}, {'role':'user','content':'你好'}])\n\n# 循环更新 state\nwhile not state.done and state.step < 5:\n    state.step += 1\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=state.messages)\n    reply = resp.choices[0].message.content\n    state.messages.append({'role':'assistant','content': reply})\n    # 检查是否 DONE, 更新 state\n    print(f'step {state.step}: {reply}')\n\nprint('最终:', state)",
+      "solutionCode": "from dataclasses import dataclass, field\nfrom openai import OpenAI\n\n@dataclass\nclass HarnessState:\n    messages: list = field(default_factory=list)\n    step: int = 0\n    done: bool = False\n    results: list = field(default_factory=list)\n\nclient = OpenAI()\nstate = HarnessState(messages=[{'role':'system','content':'回复 DONE: 答案 退出'}, {'role':'user','content':'你好,介绍一下自己'}])\n\nwhile not state.done and state.step < 5:\n    state.step += 1\n    resp = client.chat.completions.create(model='deepseek-v4-pro', messages=state.messages)\n    reply = resp.choices[0].message.content\n    state.messages.append({'role':'assistant','content': reply})\n    if reply.startswith('DONE'):\n        state.done = True\n        state.results.append(reply)\n    print(f'step {state.step}: {reply}')\n\nprint('最终:', state)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "dataclass 存状态,可序列化。"
+        },
+        {
+          "order": 2,
+          "text": "循环更新 state.step/messages/done。"
+        },
+        {
+          "order": 3,
+          "text": "DONE 时 state.done=True,循环退出。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "@dataclass\nclass HarnessState:\n    messages: list\n    step: int\n    done: bool"
+        }
+      ],
+      "terms": [
+        {
+          "name": "状态对象",
+          "definition": "dataclass 存 Harness 运行状态"
+        },
+        {
+          "name": "暂停恢复",
+          "definition": "序列化状态实现暂停/恢复"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "dataclasses",
+          "role": "Python 标准库",
+          "description": "Python 标准库的数据类,用 @dataclass 装饰器快速定义数据容器类,自动生成 __init__ 等方法。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "HarnessState",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-llm-loop-s2",
+      "taskId": "t41-llm-loop",
+      "order": 2,
+      "title": "状态持久化与恢复",
+      "instruction": "### 目标\n给决策循环加**规划能力**:LLM 先出多步计划,再逐步执行,执行中可修正计划。\n\n### 背景: 规划-执行分离(Plan-and-Execute)\n单步决策(ReAct)的问题:LLM 每一步只看眼前,容易\"走一步看一步\"绕弯路。**Plan-and-Execute** 模式:\n1. **Planner**:开局让 LLM 输出完整计划 `[\"步骤1\", \"步骤2\", ...]`\n2. **Executor**:逐个执行计划项\n3. **Re-planner**(可选):每步执行完问 LLM\"计划要调整吗\"——环境变了就重规划\n\nLangGraph 的 Plan-and-Execute、BabyAGI 都是这个思路。代价:多了规划阶段的 token 开销,但**复杂任务完成率显著提升**(原论文对比 ReAct 提升 ~15%)。\n\n### 何时用哪种\n| 模式 | 适合 | 代价 |\n|------|------|------|\n| ReAct 单步 | 短链路任务(查一下答一下) | 每轮一次 LLM 调用 |\n| Plan-and-Execute | 多步骤任务(写报告/数据处理流水线) | 额外规划调用 + 可能重规划 |\n\n### 操作\n1. 实现 planner(模拟):任务→步骤列表\n2. 实现 executor:逐步执行并记录结果\n3. 模拟一步失败,触发重新规划,打印全过程",
+      "starterCode": "from dataclasses import dataclass, field, asdict\nimport json\nfrom pathlib import Path\n\n@dataclass\nclass HarnessState:\n    messages: list = field(default_factory=list)\n    step: int = 0\n    done: bool = False\n\nSTATE_FILE = Path('harness_state.json')\n\n# 加载状态(如果存在)\nif STATE_FILE.exists():\n    data = json.loads(STATE_FILE.read_text())\n    state = HarnessState(**data)\n    print(f'恢复状态: step={state.step}')\nelse:\n    state = HarnessState(messages=[{'role':'user','content':'你好'}])\n\n# 模拟运行一步\nstate.step += 1\nstate.done = True\n\n# 保存状态\nSTATE_FILE.write_text(json.dumps(asdict(state)))\nprint('状态已保存')",
+      "solutionCode": "from dataclasses import dataclass, field, asdict\nimport json\nfrom pathlib import Path\n\n@dataclass\nclass HarnessState:\n    messages: list = field(default_factory=list)\n    step: int = 0\n    done: bool = False\n\nSTATE_FILE = Path('harness_state.json')\n\nif STATE_FILE.exists():\n    data = json.loads(STATE_FILE.read_text())\n    state = HarnessState(**data)\n    print(f'恢复状态: step={state.step}')\nelse:\n    state = HarnessState(messages=[{'role':'user','content':'你好'}])\n\nstate.step += 1\nstate.done = True\n\nSTATE_FILE.write_text(json.dumps(asdict(state)))\nprint('状态已保存')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "asdict() 把 dataclass 转 dict。"
+        },
+        {
+          "order": 2,
+          "text": "json.dumps 存文件,json.loads 读文件。"
+        },
+        {
+          "order": 3,
+          "text": "HarnessState(**data) 从 dict 恢复对象。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "import json\njson.dumps(asdict(state))  # 序列化\nHarnessState(**json.loads(text))  # 反序列化"
+        }
+      ],
+      "terms": [
+        {
+          "name": "序列化",
+          "definition": "把状态对象转 JSON 存储"
+        },
+        {
+          "name": "断点恢复",
+          "definition": "从保存的状态继续运行"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "dataclasses",
+          "role": "状态管理",
+          "description": "Python 标准库的数据类,用 @dataclass 装饰器快速定义数据容器类,自动生成 __init__ 等方法。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "Python 内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "HarnessState",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t41-llm-loop-s3",
+      "taskId": "t41-llm-loop",
+      "order": 3,
+      "title": "循环终止与错误恢复",
+      "instruction": "### 目标\n处理循环里的**人机协同**:关键动作暂停等人工确认(Human-in-the-loop)。\n\n### 背景: 为什么 Agent 需要\"踩刹车\"\n全自动 Agent 最怕**不可逆动作**:发邮件、删数据、下单支付。一旦 LLM 判断失误,损失真实发生。工程解法:\n- **动作分级**:只读动作(搜索/查询)自动放行;写动作(发送/删除/支付)必须人工确认\n- **断点恢复**:暂停时把状态序列化,人确认后从断点继续——这就是 LangGraph `interrupt` 的机制\n\n### 确认信息的设计\n给人看的确认请求必须包含:**要执行什么动作+参数是什么+影响是什么**。只问\"允许继续吗?\"是无效确认——人根本不知道自己在批准什么。\n\n```\n⚠️ Agent 请求执行高风险动作:\n  动作: send_email\n  参数: {to: \"boss@corp.com\", subject: \"辞职信\"}\n  影响: 邮件将真实发送, 不可撤回\n  [y] 批准  [n] 拒绝  [e] 编辑参数后执行\n```\n\n### 操作\n1. 给动作加风险分级(read/write)\n2. write 动作触发确认流程(用 input 模拟,或预设批准)\n3. 实现\"编辑参数后执行\"选项",
+      "starterCode": "from openai import OpenAI\nimport time\nclient = OpenAI()\n\nmessages = [{'role':'user','content':'你好'}]\nmax_retries = 3\n\nfor step in range(5):\n    for attempt in range(max_retries):\n        try:\n            resp = client.chat.completions.create(model='deepseek-v4-pro', messages=messages, timeout=10)\n            reply = resp.choices[0].message.content\n            messages.append({'role':'assistant','content': reply})\n            print(f'step {step}: {reply}')\n            break\n        except Exception as e:\n            print(f'  重试 {attempt+1}: {e}')\n            if attempt < max_retries - 1:\n                time.sleep(2 ** attempt)  # 指数退避\n            else:\n                print('多次失败,退出')\n                break\n    if 'DONE' in reply:\n        break\n\nprint('结束')",
+      "solutionCode": "from openai import OpenAI\nimport time\nclient = OpenAI()\n\nmessages = [{'role':'user','content':'你好,简短回复后说DONE'}]\nmax_retries = 3\nreply = ''\n\nfor step in range(5):\n    for attempt in range(max_retries):\n        try:\n            resp = client.chat.completions.create(model='deepseek-v4-pro', messages=messages, timeout=10)\n            reply = resp.choices[0].message.content\n            messages.append({'role':'assistant','content': reply})\n            print(f'step {step}: {reply}')\n            break\n        except Exception as e:\n            print(f'  重试 {attempt+1}: {e}')\n            if attempt < max_retries - 1:\n                time.sleep(2 ** attempt)\n            else:\n                print('多次失败,退出')\n                reply = 'ERROR'\n    if 'DONE' in reply or 'ERROR' in reply:\n        break\n\nprint('结束')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "try/except 捕获 API 错误。"
+        },
+        {
+          "order": 2,
+          "text": "指数退避: time.sleep(2 ** attempt)。"
+        },
+        {
+          "order": 3,
+          "text": "多次失败后 break 优雅退出。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "for attempt in range(3):\n    try: ...\n    except: time.sleep(2 ** attempt)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "指数退避",
+          "definition": "重试间隔指数增长,缓解限流"
+        },
+        {
+          "name": "优雅退出",
+          "definition": "错误时安全终止而非崩溃"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM API",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://openai.com",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

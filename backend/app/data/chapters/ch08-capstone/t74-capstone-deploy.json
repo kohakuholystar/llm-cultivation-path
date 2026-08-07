@@ -1,0 +1,227 @@
+{
+  "steps": [
+    {
+      "id": "t74-capstone-deploy-s1",
+      "taskId": "t74-capstone-deploy",
+      "order": 1,
+      "title": "容器化部署",
+      "instruction": "### 目标\n把应用改造成**可部署**的形态:配置外置、环境分离。代码里零硬编码密钥。\n\n### 背景: 十二要素应用(12-Factor)的配置原则\n- **配置存环境变量**:API key、数据库地址、模型名——**进环境变量,不进代码**。代码进 git,环境变量不进\n- **用 .env 文件管理本地开发**:`python-dotenv` 加载,`.gitignore` 里必须忽略它(第5章踩过的坑!)\n- **启动时校验**:缺关键配置要**启动即报错(fail fast)**,别等运行到一半才崩\n\n### 本步实现\n实现一个 `Settings` 配置类:\n1. 从环境变量读配置,带默认值\n2. 启动时校验必填项(如 OPENAI_API_KEY),缺失抛出清晰错误\n3. 区分 dev/prod 环境(日志级别、mock 开关不同)",
+      "starterCode": "# 毕业设计 Step13: 部署级配置管理\nimport os\n\n\nclass Settings:\n    \"\"\"12-Factor配置: 全部走环境变量, 启动即校验, 区分环境。\"\"\"\n\n    REQUIRED = [\"OPENAI_API_KEY\"]\n\n    def __init__(self, env: dict = None):\n        env = env if env is not None else dict(os.environ)\n        self.env_name = env.get(\"APP_ENV\", \"dev\")\n        # TODO: 读 OPENAI_API_KEY / OPENAI_BASE_URL(默认deepseek) / MODEL_NAME(默认v4-pro)\n        self.api_key = \"\"\n        self.base_url = \"\"\n        self.model = \"\"\n        # TODO: dev环境 log_level=DEBUG 且 use_mock_llm=True; prod 反之\n        self.log_level = \"\"\n        self.use_mock_llm = True\n\n    def validate(self):\n        # TODO: prod 环境缺 api_key 时 raise RuntimeError(清晰列出缺什么)\n        return True\n\n    def summary(self) -> str:\n        masked = self.api_key[:6] + \"***\" if self.api_key else \"(未设置)\"\n        return f\"[{self.env_name}] model={self.model} api_key={masked} mock={self.use_mock_llm}\"\n\n\nif __name__ == \"__main__\":\n    dev = Settings({\"APP_ENV\": \"dev\"})\n    print(\"开发:\", dev.summary())\n    prod = Settings({\"APP_ENV\": \"prod\", \"OPENAI_API_KEY\": \"sk-test123456\"})\n    prod.validate()\n    print(\"生产:\", prod.summary())\n",
+      "solutionCode": "# 毕业设计 Step13: 部署级配置管理\nimport os\n\n\nclass Settings:\n    \"\"\"12-Factor配置: 全部走环境变量, 启动即校验, 区分环境。\"\"\"\n\n    REQUIRED = [\"OPENAI_API_KEY\"]  # 缺失即启动失败\n\n    def __init__(self, env: dict = None):\n        env = env if env is not None else dict(os.environ)\n        self.env_name = env.get(\"APP_ENV\", \"dev\")           # dev / prod\n        self.api_key = env.get(\"OPENAI_API_KEY\", \"\")\n        self.base_url = env.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\")\n        self.model = env.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n        self.db_path = env.get(\"CHROMA_PATH\", \"./data/chroma\")\n        self.log_level = \"DEBUG\" if self.env_name == \"dev\" else \"WARNING\"\n        self.use_mock_llm = self.env_name == \"dev\"           # 开发用mock省钱\n\n    def validate(self):\n        \"\"\"fail fast: 启动时检查必填项, 别等请求来了才崩。\"\"\"\n        missing = [k for k in self.REQUIRED if not getattr(self, k.lower().replace(\"openai_\", \"\"), None)\n                   and not os.environ.get(k)]\n        if self.env_name == \"prod\" and not self.api_key:\n            missing.append(\"OPENAI_API_KEY(prod环境必填)\")\n        if missing:\n            raise RuntimeError(f\"缺少必填配置: {', '.join(missing)}\")\n        return True\n\n    def summary(self) -> str:\n        masked = self.api_key[:6] + \"***\" if self.api_key else \"(未设置)\"\n        return (f\"[{self.env_name}] model={self.model} base_url={self.base_url}\\n\"\n                f\"  api_key={masked} log={self.log_level} mock_llm={self.use_mock_llm}\")\n\n\n# 开发环境: mock 模式无需真key\ndev = Settings({\"APP_ENV\": \"dev\"})\nprint(\"开发:\", dev.summary())\n# 生产环境: 有key才能过校验\nprod = Settings({\"APP_ENV\": \"prod\", \"OPENAI_API_KEY\": \"sk-test123456\"})\nprod.validate()\nprint(\"生产:\", prod.summary())\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Dockerfile 定义镜像。"
+        },
+        {
+          "order": 2,
+          "text": "docker-compose 编排多服务。"
+        },
+        {
+          "order": 3,
+          "text": "volumes 持久化数据。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# docker-compose\nservices:\n  backend:\n    build: ./backend\n    ports: ['8000:8000']"
+        }
+      ],
+      "terms": [
+        {
+          "name": "容器化",
+          "definition": "Docker 打包部署"
+        },
+        {
+          "name": "docker-compose",
+          "definition": "多容器编排"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "docker",
+          "role": "容器",
+          "description": "容器化平台,把应用与依赖打包成隔离环境运行。本项目用 Docker 沙箱隔离执行学习者代码,保证安全。",
+          "officialUrl": "https://docker.com",
+          "category": "容器化",
+          "installHint": "安装 Docker Desktop"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 Settings。",
+          "astType": "class_def",
+          "name": "Settings",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 validate。",
+          "astType": "function_def",
+          "name": "validate",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t74-capstone-deploy-s2",
+      "taskId": "t74-capstone-deploy",
+      "order": 2,
+      "title": "API 文档与用户文档",
+      "instruction": "### 目标\n给应用加上**生产级可观测性**:结构化日志 + 健康检查端点。\n\n### 背景: 部署后你怎么知道它活着?\n- **健康检查 `/health`**:负载均衡器/Docker 靠它判断实例是否存活。分两级:\n  - `liveness`(活着没):进程能响应就行\n  - `readiness`(能接客没):依赖(向量库/LLM)都就绪才算\n- **结构化日志**:每行一个 JSON,带 `timestamp/level/event/耗时`。好处是日志系统(ELK/Loki)能直接索引检索,而不是用 regex 啃纯文本\n\n### 请求日志的黄金字段\n每个请求记:方法、路径、状态码、耗时 ms。有了耗时,你才能发现\"问答接口 P99 突然从 2s 变 20s\"——**没有观测就没有优化**。\n\n### 本步实现\n实现:1) JSON 结构化日志器 2) `RequestLogger` 中间件式记录 3) liveness/readiness 两个健康检查函数。",
+      "starterCode": "# 毕业设计 Step14: 结构化日志 + 健康检查\nimport json\nimport time\nfrom datetime import datetime\n\n\ndef log_json(level: str, event: str, **fields):\n    \"\"\"结构化日志: 每行一个JSON。\"\"\"\n    # TODO: 组装 {ts, level, event, **fields}, json.dumps 打印\n    pass\n\n\nclass RequestLogger:\n    def __init__(self):\n        self.count = 0\n        self.total_ms = 0.0\n\n    def log_request(self, method: str, path: str, status: int, start: float):\n        # TODO: 算耗时ms, 累加计数, 调 log_json 输出黄金字段(method/path/status/latency_ms)\n        pass\n\n    @property\n    def avg_ms(self) -> float:\n        return self.total_ms / self.count if self.count else 0.0\n\n\ndef liveness() -> dict:\n    # TODO: 返回 {\"status\": \"alive\"}\n    return {}\n\ndef readiness(deps: dict) -> dict:\n    # TODO: 所有依赖True才 ready, 返回 {\"status\": ..., \"checks\": deps}\n    return {}\n\n\nif __name__ == \"__main__\":\n    rl = RequestLogger()\n    t = time.time(); time.sleep(0.01)\n    rl.log_request(\"POST\", \"/questions\", 200, t)\n    log_json(\"INFO\", \"stats\", avg_ms=round(rl.avg_ms, 1))\n    print(liveness())\n    print(readiness({\"vector_db\": True, \"llm_api\": True}))\n",
+      "solutionCode": "# 毕业设计 Step14: 结构化日志 + 健康检查\nimport json\nimport time\nfrom datetime import datetime\n\n\ndef log_json(level: str, event: str, **fields):\n    \"\"\"结构化日志: 每行一个JSON, 日志系统可直接索引。\"\"\"\n    record = {\"ts\": datetime.now().isoformat(timespec=\"milliseconds\"),\n              \"level\": level, \"event\": event, **fields}\n    print(json.dumps(record, ensure_ascii=False))\n\n\nclass RequestLogger:\n    \"\"\"记录每个请求的黄金字段: 方法/路径/状态码/耗时。\"\"\"\n\n    def __init__(self):\n        self.count = 0\n        self.total_ms = 0.0\n\n    def log_request(self, method: str, path: str, status: int, start: float):\n        ms = (time.time() - start) * 1000\n        self.count += 1\n        self.total_ms += ms\n        log_json(\"INFO\", \"http_request\", method=method, path=path,\n                 status=status, latency_ms=round(ms, 1))\n\n    @property\n    def avg_ms(self) -> float:\n        return self.total_ms / self.count if self.count else 0.0\n\n\ndef liveness() -> dict:\n    \"\"\"活着没: 进程能响应就True。\"\"\"\n    return {\"status\": \"alive\"}\n\n\ndef readiness(deps: dict) -> dict:\n    \"\"\"能接客没: 所有依赖就绪才ready。\"\"\"\n    checks = {name: ok for name, ok in deps.items()}\n    return {\"status\": \"ready\" if all(checks.values()) else \"not_ready\", \"checks\": checks}\n\n\n# 模拟两个请求\nrl = RequestLogger()\nfor path, ms_sleep in [(\"/questions\", 0.01), (\"/documents\", 0.02)]:\n    t = time.time()\n    time.sleep(ms_sleep)\n    rl.log_request(\"POST\", path, 200, t)\nlog_json(\"INFO\", \"stats\", total_requests=rl.count, avg_ms=round(rl.avg_ms, 1))\nprint(liveness())\nprint(readiness({\"vector_db\": True, \"llm_api\": True}))\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "FastAPI /docs 自动 API 文档。"
+        },
+        {
+          "order": 2,
+          "text": "README 写安装使用。"
+        },
+        {
+          "order": 3,
+          "text": "用户指南写操作步骤。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# FastAPI 自动文档\n@app.get('/api/...')\n# 访问 /docs 看 Swagger"
+        }
+      ],
+      "terms": [
+        {
+          "name": "API 文档",
+          "definition": "FastAPI /docs 自动生成"
+        },
+        {
+          "name": "用户文档",
+          "definition": "使用说明"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "docker",
+          "role": "容器",
+          "description": "容器化平台,把应用与依赖打包成隔离环境运行。本项目用 Docker 沙箱隔离执行学习者代码,保证安全。",
+          "officialUrl": "https://docker.com",
+          "category": "容器化",
+          "installHint": "安装 Docker Desktop"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 log_json。",
+          "astType": "function_def",
+          "name": "log_json",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 RequestLogger。",
+          "astType": "class_def",
+          "name": "RequestLogger",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t74-capstone-deploy-s3",
+      "taskId": "t74-capstone-deploy",
+      "order": 3,
+      "title": "项目复盘与下一步",
+      "instruction": "### 目标\n把应用打包成 **Docker 镜像**:写 Dockerfile、.dockerignore、编排文件,实现\"一条命令跑起来\"。\n\n### 背景: 后端服务 Dockerfile 的最佳实践\n1. **基础镜像选 slim**:`python:3.12-slim` 比完整版小 600MB,够跑 Python 服务\n2. **分层缓存**:先 COPY `requirements.txt` 装依赖,再 COPY 代码——代码改动不触发依赖重装,构建快 10 倍\n3. **不跑 root**:生产镜像建普通用户运行(安全基线)\n4. **.dockerignore 必配**:把 `.env`、`data/`、`__pycache__` 排除,否则密钥打进镜像=安全事故\n\n### docker-compose 的价值\n单容器 `docker run` 参数一长串难维护。compose 把端口/卷/环境变量写成 YAML,`docker compose up` 一键起,还能声明依赖服务(如以后加个 redis)。\n\n### 本步实现\n生成三个部署文件的内容并校验:Dockerfile(分层构建)、.dockerignore、docker-compose.yml。",
+      "starterCode": "# 毕业设计 Step15: 容器化部署文件生成\nDOCKERFILE = \"\"\"# TODO: 写分层构建的Dockerfile, 要点:\n#   FROM python:3.12-slim\n#   先COPY requirements.txt装依赖(缓存层), 再COPY代码\n#   useradd 非root用户并切换\n#   CMD uvicorn 启动\n\"\"\"\n\nDOCKERIGNORE = \"\"\"# TODO: 排除 .env / data/ / __pycache__/ .git/ —— 密钥绝不进镜像\n\"\"\"\n\nCOMPOSE = \"\"\"# TODO: 写 docker-compose, 要点:\n#   ports 映射 8000\n#   environment 里 OPENAI_API_KEY=${OPENAI_API_KEY}(从宿主读, 不写死)\n#   volumes 持久化向量库数据\n#   healthcheck 调 /health 端点\n\"\"\"\n\nfiles = {\"Dockerfile\": DOCKERFILE, \".dockerignore\": DOCKERIGNORE, \"docker-compose.yml\": COMPOSE}\nfor name, content in files.items():\n    print(f\"=== {name} ===\")\n    print(content)\n",
+      "solutionCode": "# 毕业设计 Step15: 容器化部署文件生成\nDOCKERFILE = \"\"\"# 分层构建: 依赖层缓存, 改代码不重装依赖\nFROM python:3.12-slim\n\nWORKDIR /app\n\n# 1. 先只拷依赖清单, 装依赖(这层可被缓存)\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n\n# 2. 再拷代码(代码变了只重建这层)\nCOPY app/ ./app/\n\n# 3. 非root运行(安全基线)\nRUN useradd -m appuser && mkdir -p /app/data && chown -R appuser /app\nUSER appuser\n\nEXPOSE 8000\n# 生产用多worker; --proxy-headers 适配反代\nCMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\", \"--workers\", \"2\"]\n\"\"\"\n\nDOCKERIGNORE = \"\"\"# 密钥和数据绝不进镜像\n.env\n.env.*\ndata/\n__pycache__/\n*.pyc\n.git/\ntests/\n\"\"\"\n\nCOMPOSE = \"\"\"services:\n  kb-agent:\n    build: .\n    ports:\n      - \"8000:8000\"\n    environment:\n      - APP_ENV=prod\n      - OPENAI_API_KEY=${OPENAI_API_KEY}   # 从宿主.env读, 不写死\n      - OPENAI_BASE_URL=https://api.deepseek.com\n    volumes:\n      - chroma_data:/app/data               # 向量库持久化, 容器删了数据还在\n    restart: unless-stopped\n    healthcheck:                            # 配合上一步的/health端点\n      test: [\"CMD\", \"python\", \"-c\", \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\"]\n      interval: 30s\n      timeout: 5s\n      retries: 3\n\nvolumes:\n  chroma_data:\n\"\"\"\n\nfiles = {\"Dockerfile\": DOCKERFILE, \".dockerignore\": DOCKERIGNORE, \"docker-compose.yml\": COMPOSE}\nfor name, content in files.items():\n    lines = content.strip().split(\"\\n\")\n    print(f\"=== {name} ({len(lines)} 行) ===\")\n    # 校验要点\n    if name == \"Dockerfile\":\n        assert \"requirements.txt\" in content and \"USER appuser\" in content, \"缺分层或非root\"\n        print(\"  ✓ 分层缓存 ✓ 非root用户\")\n    if name == \".dockerignore\":\n        assert \".env\" in content, \"必须忽略.env!\"\n        print(\"  ✓ .env已排除(密钥不进镜像)\")\n    if name == \"docker-compose.yml\":\n        assert \"${OPENAI_API_KEY}\" in content and \"healthcheck\" in content\n        print(\"  ✓ 密钥外置 ✓ 健康检查\")\nprint(\"\\n部署三件套校验通过: docker compose up 即可一键启动\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "复盘:成果+不足+下一步。"
+        },
+        {
+          "order": 2,
+          "text": "成果:知识库Agent全栈。"
+        },
+        {
+          "order": 3,
+          "text": "恭喜成为Agent工程师!"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 复盘\n成果: 知识库Agent\n不足: 多文档/认证\n下一步: 迭代"
+        }
+      ],
+      "terms": [
+        {
+          "name": "项目复盘",
+          "definition": "总结经验教训"
+        },
+        {
+          "name": "Agent 工程师",
+          "definition": "掌握全栈 LLM 开发"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Markdown",
+          "role": "文档",
+          "description": "项目复盘",
+          "officialUrl": "https://www.markdownguide.org/",
+          "category": "文档",
+          "installHint": ""
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

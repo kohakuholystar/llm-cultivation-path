@@ -1,0 +1,154 @@
+"""灵讯通 · s5:错误分类处理
+按"对策"给错误分类:401 查 Key、429 退避重试、超时/断连查网络。
+"""
+import os
+import sys
+import time
+
+# SDK 异常速查:AuthenticationError=401 Key 无效;RateLimitError=429 限流;
+# APITimeoutError 是 APIConnectionError 的子类(判断顺序不能反)
+from openai import (OpenAI, AuthenticationError, RateLimitError,
+                    APITimeoutError, APIConnectionError)
+
+# 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
+if not os.environ.get("OPENAI_API_KEY"):
+    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
+    sys.exit(0)
+
+# 值得退避重试的错误:限流、超时、断连(401 重试无意义)
+RETRYABLE_ERRORS = (RateLimitError, APITimeoutError, APIConnectionError)
+
+# ---- 全局配置:从环境变量读取(字段含义见 s1) ----
+API_KEY = os.environ["OPENAI_API_KEY"]
+BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
+MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
+TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "30"))
+
+# 基础校验:配置有问题应在启动时就炸,而不是等请求发出去
+if not API_KEY:
+    raise ValueError("api_key 不能为空")
+if not BASE_URL.startswith("http"):
+    raise ValueError(f"base_url 非法: {BASE_URL}")
+if TIMEOUT <= 0:
+    raise ValueError("timeout 必须为正数")
+
+
+def create_client() -> OpenAI:
+    """基于全局配置创建指向 DeepSeek 的客户端。"""
+    return OpenAI(
+        api_key=API_KEY,
+        base_url=BASE_URL,
+        timeout=TIMEOUT,
+        max_retries=0,
+    )
+
+
+def chat_once(client: OpenAI, question: str) -> str:
+    """发送单轮提问,返回回复文本(见 s3)。"""
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": question}],
+        temperature=0.7,
+    )
+    return response.choices[0].message.content
+
+
+def friendly_error(exc: Exception) -> str:
+    """把 SDK 异常翻译成可执行的中文建议(给用户对策,不给堆栈)。"""
+    if isinstance(exc, AuthenticationError):
+        return "认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。"
+    if isinstance(exc, RateLimitError):
+        return "触发限流(429):请求过频或余额不足,请稍后重试。"
+    if isinstance(exc, APITimeoutError):  # 注意:须在 APIConnectionError 之前判断
+        return "请求超时:网络不佳或服务繁忙,可调大 LLM_TIMEOUT 后重试。"
+    if isinstance(exc, APIConnectionError):
+        return "连接失败:请检查网络、代理与 base_url 配置。"
+    return f"调用出错: {type(exc).__name__}: {exc}"
+
+
+def chat_safely(client: OpenAI, question: str):
+    """调 chat_once;异常时打印友好提示并返回 None,不让 traceback 糊用户一脸。"""
+    try:
+        return chat_once(client, question)
+    except Exception as exc:
+        print(f"[灵讯通] {friendly_error(exc)}")
+        return None
+
+
+def health_check(client: OpenAI, retries: int = 3) -> bool:
+    """ping 探活:只对可重试错误指数退避,其余错误(如 401)立即放弃。"""
+    for attempt in range(1, retries + 1):
+        try:
+            client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": "ping,请只回复 pong"}],
+                max_tokens=8,
+            )
+            print(f"[自测] 第 {attempt} 次尝试成功,连接正常")
+            return True
+        except RETRYABLE_ERRORS as exc:
+            wait = 2 ** (attempt - 1)  # 指数退避:1s → 2s → 4s
+            print(f"[自测] 第 {attempt} 次失败({type(exc).__name__}),{wait}s 后重试")
+            if attempt < retries:
+                time.sleep(wait)
+        except Exception as exc:
+            print(f"[自测] 不可重试的错误,放弃: {friendly_error(exc)}")
+            return False
+    print("[自测] 多次重试仍失败")
+    return False
+
+
+def fault_bad_key(question: str) -> None:
+    """故障注入①:Key 末尾加 x,应触发认证失败(401)。"""
+    bad_client = OpenAI(  # 参数 = 全局变量 + 故障注入
+        api_key=API_KEY + "x",
+        base_url=BASE_URL,
+        timeout=TIMEOUT,
+        max_retries=0,
+    )
+    chat_safely(bad_client, question)
+
+
+def fault_bad_url(question: str) -> None:
+    """故障注入②:域名末尾加 x,应触发连接失败。"""
+    bad_client = OpenAI(  # 参数 = 全局变量 + 故障注入
+        api_key=API_KEY,
+        base_url=BASE_URL + "x",
+        timeout=TIMEOUT,
+        max_retries=0,
+    )
+    chat_safely(bad_client, question)
+
+
+def fault_tiny_timeout(question: str) -> None:
+    """故障注入③:超时压到毫秒级,应触发请求超时。"""
+    bad_client = OpenAI(  # 参数 = 全局变量 + 故障注入
+        api_key=API_KEY,
+        base_url=BASE_URL,
+        timeout=TIMEOUT / 3000,  # 30s → 10ms
+        max_retries=0,
+    )
+    chat_safely(bad_client, question)
+
+
+def main() -> None:
+    """自测(智能重试)→ 故障注入(让错误处理现出原形)。"""
+    client = create_client()
+
+    if not health_check(client):
+        sys.exit(1)
+
+    question = "用一句话解释什么是大语言模型。"
+
+    print("\n=== 故障注入验证:故意制造三类错误,看 friendly_error 是否各归其位 ===")
+    print("[故障①] Key 末尾加 x → 应提示:认证失败(401)")
+    fault_bad_key(question)
+    print("[故障②] 域名末尾加 x → 应提示:连接失败")
+    fault_bad_url(question)
+    print("[故障③] 超时压到毫秒级 → 应提示:请求超时")
+    fault_tiny_timeout(question)
+
+
+if __name__ == "__main__":
+    main()

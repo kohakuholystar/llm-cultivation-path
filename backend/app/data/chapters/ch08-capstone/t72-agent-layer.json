@@ -1,0 +1,601 @@
+{
+  "steps": [
+    {
+      "id": "t72-agent-layer-s1",
+      "taskId": "t72-agent-layer",
+      "order": 1,
+      "title": "工具注册表:渡劫台的法器架",
+      "instruction": "### 目标\n\n搭起「渡劫台」的工具层:一张**工具注册表**(工具名 → 描述、参数清单、函数)、一个**分发器**(按名字查表、校验参数、调用函数、把结果统一序列化),以及贯穿始终的**错误信封**——任何失败(工具不存在、缺参数、函数抛异常)都收敛成一条可读的 JSON 文本回传,绝不向调用方抛出异常。本步结束时,四件法器(检索知识、计算成本、写笔记、读笔记)都能从注册表出发,被分发器稳定地调起来。\n\n### 原理\n\n模型只负责决策,执行永远由我们的代码完成——这是「渡劫台」的立台之本。注册表把「工具有什么、怎么用」集中登记:`desc` 是写给模型看的说明书,`params` 是参数清单,`fn` 是真正的执行体。分发器 `dispatch` 是唯一入口:先查表(名字不对 → `unknown_tool`),再校验参数(缺了 → `invalid_args`,清单里列了哪些键就校验哪些),最后执行(函数抛异常 → `internal_error`)。三个失败分支返回不同的 `error.type`,模型读到信封才知道是「换工具」「补参数」还是「此路不通」。错误信封是对 ch04 `safe_call` 思想的继承:成功 `{\"ok\": true, \"data\": ...}`,失败 `{\"ok\": false, \"error\": {...}}`,统一格式才谈得上让模型做下一步决策。\n\n### 操作\n\n1. 在 `build_registry` 里返回完整注册表,把 `search_knowledge`、`calc_forge_cost`、`write_note`、`read_note` 四件工具登记进去,每项含 `desc`、`params`、`fn` 三键;\n2. 在 `dispatch` 里补缺参校验:`missing = [k for k in spec[\"params\"] if k not in args]`,有缺失就返回 `_envelope(False, \"invalid_args\", ...)`;\n3. 运行本文件,观察五类输出:正常检索、正常计算、笔记读写、未知工具、缺参数;\n4. 试着手动调用 `dispatch(\"read_note\", {\"name\": \"不存在\"})`,确认「文件不存在」也以信封形式返回而不是抛异常。\n\n### 常见坑\n\n- `json.dumps` 务必 `ensure_ascii=False`,否则中文变成 `\\uXXXX` 转义,模型和人都不好读;\n- `dispatch` 内部绝不 `raise`——连未知异常都要用 `except Exception` 兜住,这是错误信封的底线;\n- `params` 字典的键顺序就是缺参提示的顺序,书写时按「名称、数量、单价、品质」的直觉顺序登记。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:注册表是「名字 → {desc, params, fn}」的字典;desc 写给模型看,params 供 dispatch 做缺参校验。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:dispatch 里 missing = [k for k in spec[\"params\"] if k not in args],有缺失就 _envelope(False, \"invalid_args\", ...)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:build_registry 返回四件工具条目,read_note/write_note 的 fn 直接指向对应函数对象。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "注册表 + 分发器 + 错误信封",
+          "language": "python",
+          "code": "TOOLS = {\n    \"search_knowledge\": {\n        \"desc\": \"检索修炼典籍,回答修行、丹方、雷劫等知识问题\",\n        \"params\": {\"query\": \"检索关键词\"},\n        \"fn\": search_knowledge,\n    },\n}\n\ndef dispatch(name: str, args: dict) -> str:\n    spec = TOOLS.get(name)\n    if spec is None:\n        return _envelope(False, \"unknown_tool\", f\"没有名为 {name} 的工具\")\n    missing = [k for k in spec[\"params\"] if k not in args]\n    if missing:\n        return _envelope(False, \"invalid_args\", f\"缺少参数: {missing}\")\n    try:\n        return _envelope(True, data=spec[\"fn\"](**args))\n    except Exception as exc:\n        return _envelope(False, \"internal_error\", f\"{type(exc).__name__}: {exc}\")",
+          "description": "工具调用的最小闭环:注册表查找 + 缺参校验 + 错误信封化,失败永远以文本返回。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "工具注册表(Tool Registry)",
+          "definition": "把工具名映射到 {desc, params, fn} 的集中登记表:desc 写给模型看,params 是缺参校验的依据,fn 是真正的执行体。"
+        },
+        {
+          "name": "错误信封(Error Envelope)",
+          "definition": "把成败与错误类型、信息打包成统一 JSON 结构({\"ok\": true, \"data\": ...} / {\"ok\": false, \"error\": {...}})回传给模型的工程模式,失败永远以可读文本返回。"
+        },
+        {
+          "name": "分发器(Dispatch)",
+          "definition": "按工具名查注册表、校验参数、执行函数并统一序列化结果的唯一入口;任何失败都收敛成信封,绝不向调用方抛异常。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "运行语言",
+          "description": "标准库完成注册表、分发器与错误信封,无需任何第三方依赖。",
+          "officialUrl": "https://www.python.org",
+          "category": "语言",
+          "installHint": "内置"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 build_registry 注册表函数。",
+          "astType": "function_def",
+          "name": "build_registry",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "dispatch 里请补缺参校验。",
+          "pattern": "missing = \\[",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "信封序列化请用 ensure_ascii=False。",
+          "pattern": "ensure_ascii=False",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示正常计算、未知工具与缺参数三类结果。",
+          "expectedStdout": "共需 540\\.0 灵石[\\s\\S]*unknown_tool[\\s\\S]*invalid_args",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t72-agent-layer-s2",
+      "taskId": "t72-agent-layer",
+      "order": 2,
+      "title": "模型点将:bind_tools 接入 DeepSeek",
+      "instruction": "### 目标\n\n把 s1 的工具层 bind 到 DeepSeek,让模型真正「点将」:用户说话 → 模型自主决定调用哪件工具、传什么参数(tool_calling)→ 我们执行 → 结果包成 ToolMessage 回传。实现后,一句「帮我查查筑基丹的配方,再算炼三件精品飞剑要多少灵石」就能看到模型连续调用两件工具。没有 API Key 时程序优雅退出并给出引导;设 `MOCK_LLM=1` 可离线用剧本跑通全流程。\n\n### 原理\n\ntool_calling 把一次 Agent 回合劈成两半。(1) **决策半**:`llm.bind_tools(pouch)` 把工具说明书(名字、描述、参数)随请求发给模型,模型返回 `AIMessage.tool_calls`——每条含 `name`(调哪件)、`args`(传什么)、`id`(这次调用的唯一凭证);模型只「说」不「做」,从不亲自执行。(2) **执行半**:我们对每个 `call` 调用 s1 写好的 `dispatch`,把结果包成 `ToolMessage(content=..., tool_call_id=call[\"id\"])` 追加进消息历史,再整包回喂模型,它才有资格生成面向用户的最终答复。`temperature=0` 关闭随机性,工具调用要确定性。这条「工具层 + 消息回填」的链路,就是毕业设计决策层的最小内核。\n\n### 操作\n\n1. 补全 `build_llm`:`ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), api_key=os.environ.get(\"OPENAI_API_KEY\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), temperature=0)`;\n2. 补全 `run_agent_turn` 的循环:先判空 `reply.tool_calls`(模型可能只想聊天不想用工具),再逐个 `dispatch` 并打印,然后 `messages.append(ToolMessage(content=text, tool_call_id=call[\"id\"]))`;\n3. 设 `MOCK_LLM=1` 运行本文件,离线观察:「模型决定调用 2 件工具」以及两次信封输出;\n4. 有 Key 的话直接运行,观察模型真实的点将过程。\n\n### 常见坑\n\n- `tool_call_id` 必须等于 `call[\"id\"]`,否则结果与调用对不上号,LangChain 校验直接报错;\n- 先判空再遍历:模型这回合可能不调工具,直接给 `reply.tool_calls` 为空,直接 `return`;\n- `StructuredTool.from_function` 必须有 `description`(或函数 docstring),否则 bind_tools 拒绝注册;我们把 `desc` 传进去即可。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:模型只做决策——bind_tools 之后从 AIMessage.tool_calls 读调用计划;执行仍走 s1 写好的 dispatch,结果包成 ToolMessage。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:llm = ChatOpenAI(model=..., api_key=..., base_url=...).bind_tools(pouch);reply.tool_calls 每项是 {\"name\", \"args\", \"id\"}。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:循环体 text = dispatch(call[\"name\"], call[\"args\"]);messages.append(ToolMessage(content=text, tool_call_id=call[\"id\"]))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "tool_calls 与 ToolMessage 的配对",
+          "language": "python",
+          "code": "# 模型的回复(决策,不执行):\nreply.tool_calls == [\n    {\"name\": \"search_knowledge\", \"args\": {\"query\": \"雷劫\"}, \"id\": \"call_1\"},\n]\n# 我们执行后回传(每个调用一条 ToolMessage,id 一一对应):\nToolMessage(content=\"【典籍】雷劫征兆:...\", tool_call_id=\"call_1\")",
+          "description": "模型只下指令;工具结果凭 tool_call_id 与调用配对,回填后才生成最终答复。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "bind_tools",
+          "definition": "LangChain 的方法:把工具说明书随请求发给模型,使模型有能力在回复里生成 tool_calls(只决策,不执行)。"
+        },
+        {
+          "name": "ToolMessage",
+          "definition": "承载工具执行结果的消息类型;tool_call_id 与模型发出的调用 id 一一对应,是结果与调用配对的凭证。"
+        },
+        {
+          "name": "tool_calls",
+          "definition": "模型回复里声明的调用计划,每项含 name(工具名)、args(参数)、id(调用凭证);由我们执行后回填。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "bind_tools 与 ToolMessage 是 tool_calling 闭环的官方机制。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "底层大模型",
+          "description": "OpenAI 兼容协议,base_url 指向 https://api.deepseek.com。",
+          "officialUrl": "https://www.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装,配置 base_url 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请用 ChatOpenAI 装配客户端。",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请保留 bind_tools 绑定逻辑。",
+          "api": "bind_tools",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 run_agent_turn 回合函数。",
+          "astType": "function_def",
+          "name": "run_agent_turn",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 ToolMessage 回传工具结果。",
+          "pattern": "ToolMessage\\(",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留无 Key 优雅退出检查。",
+          "pattern": "OPENAI_API_KEY",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t72-agent-layer-s3",
+      "taskId": "t72-agent-layer",
+      "order": 3,
+      "title": "记忆层:滑动窗口与摘要压缩",
+      "instruction": "### 目标\n\nLLM 没有记忆:每一轮都只能看到你这次喂给它的内容。本步给渡劫台装上短期记忆——`ChatMemory` 用「滑动窗口 + 摘要压缩」控制 token 成本:最近 `max_turns` 轮完整保留,更早的部分不再整段回喂,而是把其中的 user 提问压成一段摘要,以 system 消息的身份继续参与上下文。实现后设 `MOCK_LLM=1` 运行,连问四个问题,能看到「窗口还剩几条?」这类纯聊天问题正常作答,而最早那句「筑基丹怎么炼?」已经进了摘要、窗口里只留下最近 6 条。\n\n### 原理\n\n短期记忆的预算由「轮数」决定,而非条数。`ChatMemory(max_turns=3)` 把预算定为 `budget = max_turns * 2`(每轮一问一答共两条消息)。窗口超过预算时,最旧的一批消息被裁剪:其中 `role == \"user\"` 的提问用 `\"; \".join` 拼成一段 chunk,挂到 `self.summary` 末尾(前缀「已压缩对话:」),裁剪动作只发生在 `add` 之后——先追加,再检查,再压缩。记忆对外暴露的形态是 `context()`:先是 system 身份的系统提示,再是可选的摘要 system 消息,最后才是窗口内消息;模型看到的永远是「系统 + 摘要 + 最近对话」三段式。摘要压缩是「降质不删史」:问题被压缩成一句话继续参与上下文,模型依然「记得」早期聊过什么,只是细节变粗。\n\n### 操作\n\n1. 补全 `ChatMemory.compress`:超预算时把最旧的 user 提问拼进 `self.summary`,再把窗口裁到最近 `budget` 条;\n2. 补全 `run_turn` 的 `if reply.tool_calls:` 分支:决策入上下文 → 逐个 `dispatch` 并打印 → `ToolMessage` 回传 → 再 `invoke` 拿最终答复;\n3. 设 `MOCK_LLM=1` 运行本文件,观察四问四答中「纯聊天」与「工具查询」的差别,以及摘要内容与窗口条数;\n4. 对照 `main()` 末尾的断言,理解「最早提问进摘要、窗口留 6 条」这条验收线。\n\n### 常见坑\n\n- 先追加再压缩:`add` 里必须先 `append` 后调 `compress`,否则新消息会被误裁;\n- 只拼 user 的提问:assistant 的答复没有摘要价值,`role == \"user\"` 才进摘要;\n- 摘要只增不减:`self.summary` 用拼接而非覆盖,多次压缩时早期内容仍在摘要里;\n- `context()` 的顺序是 system → 摘要 → 窗口,摘要必须在窗口之前,模型才能把它当「背景」。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:压缩发生在 add 之后、超预算之时——budget = max_turns * 2,最旧的 user 提问进摘要,窗口只留最近 budget 条。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:chunk = \"; \".join(m[\"content\"] for m in old if m[\"role\"] == \"user\");if chunk: self.summary = self.summary + \"已压缩对话:\" + chunk + \"(更早内容从略)\";self.messages = self.messages[-budget:]。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:run_turn 的工具分支与 s2 同构——messages.append(reply) 后逐个 dispatch 并用 ToolMessage 回传,再 invoke 一次取最终答复。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "滑动窗口 + 摘要的组合上下文",
+          "language": "python",
+          "code": "# ChatMemory 对外呈现的三段式上下文:\nctx = [\n    {\"role\": \"system\", \"content\": SYSTEM_PROMPT},\n    {\"role\": \"system\", \"content\": memory.summary + \" 已压缩对话:更早提问从略\"},\n    *memory.messages,  # 最近窗口内消息\n]\n# 压缩只裁剪 self.messages、拼接 self.summary,模型与工具一概不动",
+          "description": "记忆的对外形态:system + 摘要 + 窗口内消息;压缩只动 messages 不碰模型。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "短期记忆",
+          "definition": "随对话动态更新的上下文窗口:最近 max_turns 轮完整保留,更早部分压缩成摘要,支撑单次会话内的多轮引用。"
+        },
+        {
+          "name": "滑动窗口",
+          "definition": "固定容量、只保留最近 budget 条消息的机制:新消息入队、最旧消息出队,使每次请求的 token 开销有上界。"
+        },
+        {
+          "name": "摘要压缩",
+          "definition": "把窗口外早期消息中的 user 提问提炼成一句话,作为 system 消息继续参与上下文,牺牲细节换取对早期话题的持续记忆。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "bind_tools 与 ToolMessage 是 tool_calling 闭环的官方机制。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "底层大模型",
+          "description": "OpenAI 兼容协议,base_url 指向 https://api.deepseek.com。",
+          "officialUrl": "https://www.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装,配置 base_url 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 ChatMemory 记忆类。",
+          "astType": "class_def",
+          "name": "ChatMemory",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用「已压缩对话」前缀生成摘要。",
+          "pattern": "已压缩对话",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 max_turns 滑动窗口参数。",
+          "pattern": "max_turns",
+          "blocking": false
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请用 ChatOpenAI 装配客户端。",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留无 Key 优雅退出检查。",
+          "pattern": "OPENAI_API_KEY",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t72-agent-layer-s4",
+      "taskId": "t72-agent-layer",
+      "order": 4,
+      "title": "Harness 核心循环:决策-执行-观察",
+      "instruction": "### 目标\n\ns2 只处理「一轮」:一次工具决策、一次结果回传。真实 Agent 的一个回合可能连环调用多次工具——比如查完筑基丹还要算成本、查雷劫还要查心魔。本步把「模型决策 → 渡劫台执行 → 观察回传」收进 `AgentHarness.run` 的循环:循环内每步要么是终答(模型不再调工具,直接返回文本),要么是工具调用(执行、记录、回传后进入下一轮)。同时给循环加熔断:单回合最多 `max_steps` 步,防止模型陷入无限连环调工具。\n\n### 原理\n\nHarness 循环就是 ReAct 的落地:Reason(模型在回复里声明要调什么工具)、Act(我们调用 `dispatch` 真正执行)、Observe(把结果包成 `ToolMessage` 回喂模型)三件套轮转,直到模型给出不带 `tool_calls` 的终答。每一步我们都在自己这边记账:`step_count` 记总步数、`trace` 记每次工具调用(工具名 + 参数)——这是多轮 Agent 的可观测性基础,后续 s6 的行动报告就靠它。熔断是安全网:循环 `for _ in range(self.max_steps)` 步数用尽还没等到终答,就强制结束并返回「已达最大步数,转人工接管。」,避免工具链失控烧 token。\n\n### 操作\n\n1. 补全 `AgentHarness.run`:用户提问先入记忆,再从记忆取上下文;\n2. 循环内先 `invoke` 拿 `decision`——没有 `tool_calls` 就是终答,入记忆并 `return`;\n3. 有 `tool_calls` 则把决策追加进上下文,逐个 `dispatch`、记 `trace`、`ToolMessage` 回传,进入下一轮;\n4. 循环外补上熔断:入记忆并返回转人工文案;设 `MOCK_LLM=1` 运行,第一问「一问一答」两步收场,第二问「连环五问」熔断收场。\n\n### 常见坑\n\n- 终答判定要用 `if not decision.tool_calls`,别用 `is None`——空列表同样是「不调工具」;\n- 工具结果必须 `ToolMessage` 回传后再 `invoke`,否则模型看不到执行结果,下一轮只会重复同样的调用;\n- 熔断文案要同时入记忆并作为返回值,不然报告与记忆对不上;\n- `trace` 记的是「执行过什么」,`step_count` 记的是「走了几步」,两者数值不同很正常(一步可能调多个工具)。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:循环体内先 invoke 拿 decision——没有 tool_calls 就是终答,入记忆并 return;有则执行并回传,进入下一轮。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:result = dispatch(call[\"name\"], call[\"args\"]);self.trace.append((call[\"name\"], call[\"args\"]));messages.append(ToolMessage(content=result, tool_call_id=call[\"id\"]))。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:循环外(步数耗尽)要 add 并返回「已达最大步数,转人工接管。」,这就是熔断文案。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "ReAct 循环骨架:决策-执行-观察",
+          "language": "python",
+          "code": "for _ in range(max_steps):\n    decision = llm.invoke(messages)          # 决策(Reason)\n    if not decision.tool_calls:\n        return decision.content              # 终答: 出循环\n    messages.append(decision)                # 带着决策继续\n    for call in decision.tool_calls:\n        result = dispatch(call[\"name\"], call[\"args\"])   # 执行(Act)\n        trace.append((call[\"name\"], call[\"args\"]))\n        messages.append(ToolMessage(content=result, tool_call_id=call[\"id\"]))  # 观察(Observe)",
+          "description": "ReAct 三件套——Reason(决策)、Act(执行)、Observe(观察)——在循环里轮转,直到终答或熔断。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "回合",
+          "definition": "Agent 处理一次用户输入所需的全部迭代:一次或多次「决策 → 执行 → 观察」,直到产生面向用户的终答。"
+        },
+        {
+          "name": "熔断",
+          "definition": "限制单回合最大步数的保护机制:模型连环调用工具的次数超过 max_steps 时,强制终止并转人工接管,防止失控循环。"
+        },
+        {
+          "name": "ReAct 循环",
+          "definition": "Reason(模型决策)→ Act(执行工具)→ Observe(观察结果回传)三件套的轮转模式,是工具型 Agent 的核心骨架。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "bind_tools 与 ToolMessage 是 tool_calling 闭环的官方机制。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "底层大模型",
+          "description": "OpenAI 兼容协议,base_url 指向 https://api.deepseek.com。",
+          "officialUrl": "https://www.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装,配置 base_url 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 AgentHarness 回合引擎。",
+          "astType": "class_def",
+          "name": "AgentHarness",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 run 方法。",
+          "astType": "function_def",
+          "name": "run",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 max_steps 熔断步数。",
+          "pattern": "max_steps",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 ToolMessage 回传工具结果。",
+          "pattern": "ToolMessage\\(",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请保留 bind_tools 绑定逻辑。",
+          "api": "bind_tools",
+          "minCount": 1,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t72-agent-layer-s5",
+      "taskId": "t72-agent-layer",
+      "order": 5,
+      "title": "韧性设计:重试降级护体",
+      "instruction": "### 目标\n\n上一关的 Harness 已经会「决策 → 执行 → 观察」了,但它默认模型永远在线。现实里,网络抖动、限流、超时随时会发生,一次 `ConnectionError` 就可能让整个回合崩掉。本步给模型调用穿上三件护甲:`WithRetry` 负责失败自动重试、间隔指数退避;`FlakyLLM` 负责在本地假装「灵脉抖动」以便反复演练;`AgentHarness._ask` 负责重试耗尽后的降级兜底。完成本步后,你的渡劫台在模型失联时也能给出体面的回复,而不是抛出一堆 traceback。\n\n### 原理\n\n1. **重试(Retry)**:瞬时故障(超时、连接中断)大概率是临时的,稍等片刻重试往往就能成功;但必须有限度——`max_retries` 封顶,防止无限空转烧 token。\n2. **指数退避(Exponential Backoff)**:失败后先等一小段时间再重试,每次间隔翻倍(0.05s → 0.1s → 0.2s)。既给服务方留出恢复时间,也避免在故障节点上反复撞头。\n3. **降级(Degradation)**:重试全部失败后不再抛出异常,而是返回一句兜底文案,让对话还能继续。实时交互里,「体面地失败」往往比「精确地崩溃」更重要。\n4. **区分故障类型**:重试只对瞬时故障有意义;API Key 失效、模型名拼错这类持续故障,重试多少次都不会好,应当快速失败并给出明确引导。\n\n### 操作\n\n1. 实现 `WithRetry.invoke`:按 `max_retries` 循环,成功立即返回;失败且未到上限就打印 `[重试]` 日志、`sleep` 当前退避间隔、再把间隔翻倍;到上限则原样抛出。\n2. 实现 `FlakyLLM.invoke`:`fail_times` 大于 0 时每调用一次减一,并抛 `ConnectionError`;减到 0 后按剧本正常输出,剧本耗尽抛 `RuntimeError` 提示对不上。\n3. 改造 `AgentHarness`:新增 `_ask` 方法,用 try/except 包住 `llm.invoke`;把 `run` 里所有「问模型」的地方都改走 `_ask`。\n4. 设 `MOCK_LLM=1` 运行,观察两种场景:灵脉抖动 2 次后恢复——重试护甲自行扛过 3 次失败并答出丹方;灵脉彻底断开——3 次重试全败后 `_ask` 输出兜底文案。\n\n### 常见坑\n\n- 把指数退避写成固定间隔:必须 `delay *= 2`,而不是每次都 sleep 同一个值;\n- 重试吞掉最后那次异常:末次失败要原样 `raise`,否则上层的降级层永远不知道模型真的坏了;\n- 在 `run` 里直接调 `llm.invoke`,忘了改走 `_ask`:这样重试和降级都成了摆设;\n- 认为重试能救一切:持续故障(如 Key 错误)重试只是浪费时间,要快速失败并给出引导。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:WithRetry 与 FlakyLLM 都只实现 invoke——前者用循环兜住异常,成功立即 return;后者按 fail_times 假装故障、按剧本正常输出。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:重试里要 time.sleep(delay) 再 delay *= 2 实现指数退避;失败达到上限时必须原样 raise,别把异常吞掉。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:AgentHarness._ask 用 try/except 包住 llm.invoke,异常时打印 [降级] 日志并 return AIMessage(content=self.fallback)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "指数退避:失败间隔逐次翻倍",
+          "language": "python",
+          "code": "delay = 0.05\nfor attempt in range(1, 4):\n    try:\n        return llm.invoke(messages)\n    except Exception as exc:\n        if attempt == 3:\n            raise            # 最后一次失败,认输\n        time.sleep(delay)    # 先等一等\n        delay *= 2           # 间隔翻倍",
+          "description": "重试 + 指数退避:失败后 sleep 当前间隔,再把间隔翻倍,给服务方留出恢复时间;到达上限则抛出。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "重试",
+          "definition": "调用失败后不立即放弃,而是按策略再次尝试;只对瞬时故障有意义,持续故障应快速失败。"
+        },
+        {
+          "name": "指数退避",
+          "definition": "重试间隔逐次翻倍(如 0.05s → 0.1s → 0.2s)的退避策略,减少对不稳定服务的冲击。"
+        },
+        {
+          "name": "降级",
+          "definition": "重试全部失败后返回兜底回复而非抛出异常,保证对话在模型失联时仍能体面继续。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "bind_tools 与 ToolMessage 是 tool_calling 闭环的官方机制。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "底层大模型",
+          "description": "OpenAI 兼容协议,base_url 指向 https://api.deepseek.com。",
+          "officialUrl": "https://www.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装,配置 base_url 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 WithRetry 重试护甲。",
+          "astType": "class_def",
+          "name": "WithRetry",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 FlakyLLM 抖动机模型。",
+          "astType": "class_def",
+          "name": "FlakyLLM",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 time.sleep 实现退避等待。",
+          "pattern": "time\\.sleep",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留降级兜底逻辑。",
+          "pattern": "降级",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请保留 bind_tools 绑定逻辑。",
+          "api": "bind_tools",
+          "minCount": 1,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t72-agent-layer-s6",
+      "taskId": "t72-agent-layer",
+      "order": 6,
+      "title": "总装验收:行动报告与完整装配",
+      "instruction": "### 目标\n\n前五关锻好的零件——s1 工具注册表、s2 一轮对话、s3 记忆压缩、s4 Harness 循环、s5 重试降级——在这一关总装成「渡劫台」。`DujieAgent` 是对外门面:道友只接触 `chat`(发问)与 `action_report`(看报告),内部怎么装配完全由构造器注入决定。跑通三连问,再输出行动报告,整个工具型 Agent 的工程闭环就验收完毕。\n\n### 原理\n\n1. **门面模式(Facade)**:`DujieAgent` 把 memory 与 harness 两套内部子系统包在一个简单接口后面。外部代码不碰记忆细节、不碰工具循环,只调 `chat` 就能拿到终答——接口即契约。\n2. **依赖注入(DI)**:`DujieAgent` 不自己 new 记忆与 Harness,而是在 `__init__` 里收进来。换记忆策略、换 Harness 实现都不用改门面,测试时也方便注入假的依赖。\n3. **行动报告**:可观测性的最终产物。轮数来自门面自身,工具调用来自 `harness.trace`,记忆规模来自 `memory.messages` 与 `memory.summary`——报告上的每个数字都必须有真实的账可查。\n4. **验收线**:三连问走完,剧本要恰好耗尽(不多调一次、不少调一次);摘要要真的生成(证明 s3 的压缩在总装后仍然生效);窗口要保持在预算内(4 条 = `max_turns × 2`)。\n\n### 操作\n\n1. 实现 `DujieAgent.chat`:构造器收 memory 与 harness 两个依赖;chat 里 `turn_count` 自增、打印轮次、转交 `harness.run` 并返回结果。\n2. 实现 `action_report`:用 `\"\\n\".join` 拼四行——标题、对话轮数、工具调用次数、记忆规模(条数 + 摘要字数)。\n3. 设 `MOCK_LLM=1` 运行:三连问分别验证「一问一工具」「成本计算工具」「纯闲聊不调工具」三种回合,再打印行动报告。\n4. 核对验收输出:剧本全部消耗、摘要已生成、窗口剩余 4 条——三条 `[检查]` 全绿才算出关。\n\n### 常见坑\n\n- 门面里偷偷 new 依赖:这会破坏可替换性,报告里统计的 memory 与真实记忆对象也对不上;\n- 报告数字写死:`turn_count`、`trace`、`messages` 都要从对象实时取,别用常量冒充;\n- 忘记在 run 收尾前 `compress`:窗口会悄悄超过预算,「窗口剩余 4 条」的验收线就过不去;\n- 混淆「对话轮数」与「工具调用」:轮数是用户发问次数,工具调用是 `harness.trace` 长度,两者通常不同。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:DujieAgent 是门面,构造器收 memory 与 harness;chat 里 turn_count 自增、打印轮次、return self.harness.run(user_text)。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:action_report 用 \"\\n\".join([...]) 拼四行,数字分别取 self.turn_count、len(self.harness.trace)、len(self.memory.messages) 与 len(self.memory.summary)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:记忆压缩由 ChatMemory 在溢出时自动触发,run 收尾前再 compress 一次兜底;报告里所有数字都要实时取自对象状态。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "总装:记忆与 Harness 的依赖注入",
+          "language": "python",
+          "code": "memory = ChatMemory(max_turns=2)\nharness = AgentHarness(llm=llm, memory=memory, max_steps=5)\nagent = DujieAgent(memory=memory, harness=harness)\nreply = agent.chat(\"筑基丹怎么炼?\")",
+          "description": "门面只收依赖、不 new 依赖:记忆与 Harness 由装配处注入,DujieAgent 对外只暴露 chat 与 action_report。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "门面模式",
+          "definition": "把一组内部子系统收敛到一个简单接口之后,外部只通过该接口访问,内部复杂度被挡在后面。"
+        },
+        {
+          "name": "依赖注入",
+          "definition": "对象不自行创建依赖,而是由外部在构造时传入;降低耦合、便于替换与测试。"
+        },
+        {
+          "name": "行动报告",
+          "definition": "Agent 运行的可观测性汇总:对话轮数、工具调用次数、记忆规模等,全部来自运行期真实计数。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "bind_tools 与 ToolMessage 是 tool_calling 闭环的官方机制。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "底层大模型",
+          "description": "OpenAI 兼容协议,base_url 指向 https://api.deepseek.com。",
+          "officialUrl": "https://www.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装,配置 base_url 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 DujieAgent 门面。",
+          "astType": "class_def",
+          "name": "DujieAgent",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 action_report 行动报告。",
+          "astType": "function_def",
+          "name": "action_report",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留渡劫台行动报告标题。",
+          "pattern": "渡劫台行动报告",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 ChatMemory 记忆压缩。",
+          "pattern": "ChatMemory",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请保留 bind_tools 绑定逻辑。",
+          "api": "bind_tools",
+          "minCount": 1,
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

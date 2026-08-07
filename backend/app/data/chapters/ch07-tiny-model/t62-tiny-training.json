@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t62-tiny-training-s1",
+      "taskId": "t62-tiny-training",
+      "order": 1,
+      "title": "用 PyTorch 搭极小 GPT",
+      "instruction": "### 目标\n用 PyTorch 搭一个极简 GPT 模型(理解结构)。\n\n### 概念\n- **nanoGPT**:Karpathy 的极简 GPT 实现。\n- 核心组件:嵌入 + Transformer Block(注意力+前馈) + 输出。\n\n### 操作\n1. 定义嵌入层 2. 定义 Transformer Block 3. 组合成模型",
+      "starterCode": "import torch\nimport torch.nn as nn\n\nclass TinyGPT(nn.Module):\n    def __init__(self, vocab_size=100, embed_dim=64, n_heads=2, n_layers=2):\n        super().__init__()\n        # 嵌入层(token + 位置)\n        self.token_embed = nn.Embedding(vocab_size, embed_dim)\n        self.pos_embed = nn.Embedding(100, embed_dim)  # 最大100位置\n        # Transformer 层\n        self.blocks = nn.ModuleList([\n            nn.TransformerEncoderLayer(embed_dim, n_heads, embed_dim*4, batch_first=True)\n            for _ in range(n_layers)\n        ])\n        # 输出层\n        self.lm_head = nn.Linear(embed_dim, vocab_size)\n    \n    def forward(self, x):\n        pos = torch.arange(x.size(1))\n        x = self.token_embed(x) + self.pos_embed(pos)\n        for block in self.blocks:\n            x = block(x)\n        return self.lm_head(x)\n\nmodel = TinyGPT()\nprint(f'参数量: {sum(p.numel() for p in model.parameters())}')\nx = torch.randint(0, 100, (2, 10))  # batch=2, seq=10\nout = model(x)\nprint(f'输出: {out.shape}')  # [2, 10, 100]",
+      "solutionCode": "import torch\nimport torch.nn as nn\n\nclass TinyGPT(nn.Module):\n    def __init__(self, vocab_size=100, embed_dim=64, n_heads=2, n_layers=2):\n        super().__init__()\n        self.token_embed = nn.Embedding(vocab_size, embed_dim)\n        self.pos_embed = nn.Embedding(100, embed_dim)\n        self.blocks = nn.ModuleList([\n            nn.TransformerEncoderLayer(embed_dim, n_heads, embed_dim*4, batch_first=True)\n            for _ in range(n_layers)\n        ])\n        self.lm_head = nn.Linear(embed_dim, vocab_size)\n    \n    def forward(self, x):\n        pos = torch.arange(x.size(1))\n        x = self.token_embed(x) + self.pos_embed(pos)\n        for block in self.blocks:\n            x = block(x)\n        return self.lm_head(x)\n\nmodel = TinyGPT()\nprint(f'参数量: {sum(p.numel() for p in model.parameters())}')\nx = torch.randint(0, 100, (2, 10))\nout = model(x)\nprint(f'输出: {out.shape}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "token_embed + pos_embed = 输入嵌入。"
+        },
+        {
+          "order": 2,
+          "text": "TransformerEncoderLayer 是一个 Block。"
+        },
+        {
+          "order": 3,
+          "text": "lm_head 输出词表概率。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "import torch.nn as nn\nclass GPT(nn.Module):\n    self.embed = nn.Embedding(vocab, dim)\n    self.blocks = nn.TransformerEncoderLayer(...)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "nanoGPT",
+          "definition": "极简 GPT 实现"
+        },
+        {
+          "name": "TransformerEncoderLayer",
+          "definition": "PyTorch 内置 Transformer 层"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "TinyGPT",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t62-tiny-training-s2",
+      "taskId": "t62-tiny-training",
+      "order": 2,
+      "title": "训练循环",
+      "instruction": "### 目标\n理解**训练循环**的标准结构:前向→算损失→反向传播→更新参数,手写一个 numpy 版。\n\n### 背景: 四步循环的本质\n```python\nfor epoch in range(E):\n    pred = model(X)              # 1. 前向: 算预测\n    loss = criterion(pred, y)    # 2. 损失: 预测vs真相的差距(标量)\n    loss.backward()              # 3. 反向: 链式法则算每个参数的梯度\n    optimizer.step()             # 4. 更新: 参数 -= lr * 梯度\n```\n- **损失函数**是\"学习目标\"的数学化:分类用交叉熵,回归用 MSE。模型的一切行为都由损失函数定义——**损失函数设计错,模型就学错**\n- **学习率(lr)**是最敏感的超参:太大震荡不收敛,太小学得慢。经验值:Adam 从 3e-4 起步调\n\n### 过拟合的信号\n训练 loss ↓ 但验证 loss ↑ ——模型在背答案而非学规律。对策:早停(验证 loss 连续 N 轮不降就停)、dropout、加数据。\n\n### 操作\n1. 用 numpy 实现线性回归的完整训练循环(y=2x+1 加噪声)\n2. 记录每 epoch 的 loss,观察收敛曲线\n3. 分别用 lr=0.01/0.1/1.0 训练,对比三种收敛行为",
+      "starterCode": "import torch\nimport torch.nn as nn\n\n# (假设 TinyGPT 已定义)\n# 简化: 用随机数据\ntorch.manual_seed(42)\nmodel = TinyGPT(vocab_size=50)\noptimizer = torch.optim.Adam(model.parameters(), lr=1e-3)\ncriterion = nn.CrossEntropyLoss()\n\n# 模拟数据: batch=4, seq=8\nfor epoch in range(10):\n    x = torch.randint(0, 50, (4, 8))  # 输入\n    y = torch.randint(0, 50, (4, 8))  # 目标(简化:随机)\n    \n    # 前向 + loss + 反向\n    logits = model(x)  # [4, 8, 50]\n    loss = criterion(logits.reshape(-1, 50), y.reshape(-1))\n    \n    optimizer.zero_grad()\n    loss.backward()\n    optimizer.step()\n    \n    if epoch % 2 == 0:\n        print(f'epoch {epoch}: loss={loss.item():.4f}')\n\nprint('训练完成')",
+      "solutionCode": "import torch\nimport torch.nn as nn\n\ntorch.manual_seed(42)\nmodel = TinyGPT(vocab_size=50)\noptimizer = torch.optim.Adam(model.parameters(), lr=1e-3)\ncriterion = nn.CrossEntropyLoss()\n\nfor epoch in range(10):\n    x = torch.randint(0, 50, (4, 8))\n    y = torch.randint(0, 50, (4, 8))\n    \n    logits = model(x)\n    loss = criterion(logits.reshape(-1, 50), y.reshape(-1))\n    \n    optimizer.zero_grad()\n    loss.backward()\n    optimizer.step()\n    \n    if epoch % 2 == 0:\n        print(f'epoch {epoch}: loss={loss.item():.4f}')\n\nprint('训练完成')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "前向→loss→zero_grad→backward→step。"
+        },
+        {
+          "order": 2,
+          "text": "CrossEntropyLoss 算预测 vs 目标。"
+        },
+        {
+          "order": 3,
+          "text": "reshape(-1, vocab) 把 batch+seq 展平。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "for epoch in range(n):\n    logits = model(x)\n    loss = criterion(logits, y)\n    loss.backward()\n    optimizer.step()"
+        }
+      ],
+      "terms": [
+        {
+          "name": "训练循环",
+          "definition": "前向+loss+反向+更新"
+        },
+        {
+          "name": "CrossEntropyLoss",
+          "definition": "分类损失函数"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t62-tiny-training-s3",
+      "taskId": "t62-tiny-training",
+      "order": 3,
+      "title": "生成文本",
+      "instruction": "### 目标\n理解**梯度下降的变体**:SGD→Momentum→Adam 的演进,知道为什么现代训练默认 Adam。\n\n### 背景: 优化器解决什么问题\n朴素 SGD `θ -= lr * grad` 的两个痛点:\n1. **峡谷震荡**:损失曲面像狭长峡谷,梯度在两侧来回弹,收敛慢\n2. **一刀切学习率**:所有参数用同一个 lr,但稀疏特征(很少出现的词)该大步更新,稠密特征该小步\n\n### 三代优化器\n- **Momentum**:梯度加权平均(惯性),峡谷里沿谷底方向加速、震荡方向抵消\n- **AdaGrad**:按历史梯度大小给每个参数调 lr(更新多的步长自动变小)\n- **Adam = Momentum + AdaGrad**:既平滑方向又自适应步长,95% 的场景默认选它\n\n### Adam 的超参直觉\n- lr:3e-4 是 LLM 微调的常用起点\n- β1=0.9, β2=0.999:动量与二阶矩的衰减系数,一般不动\n- **微调小模型时 lr 要比预训练小 1-2 个数量级**(如 1e-5)——预训练学知识,微调只是\"调口味\",步子大了会把学到的知识踩坏(灾难性遗忘)\n\n### 操作\n1. 实现 SGD 和 Adam 两个优化器(更新同一个二次函数的最小值)\n2. 记录两者的收敛轨迹,打印达到目标精度所需步数\n3. 直观感受 Adam 的自适应优势",
+      "starterCode": "import torch\nimport torch.nn.functional as F\n\n# (假设 model 已训练)\nmodel.eval()\n\ndef generate(model, prompt, max_new=10):\n    model.eval()\n    with torch.no_grad():\n        for _ in range(max_new):\n            # 前向得 logits\n            logits = model(prompt)  # [1, seq, vocab]\n            # 取最后一个位置\n            next_logits = logits[0, -1]  # [vocab]\n            # 采样\n            probs = F.softmax(next_logits, dim=-1)\n            next_token = torch.multinomial(probs, 1).unsqueeze(0)  # [1, 1]\n            # 加入序列\n            prompt = torch.cat([prompt, next_token], dim=1)\n    return prompt\n\nprompt = torch.randint(0, 50, (1, 3))\nresult = generate(model, prompt, max_new=5)\nprint(f'生成: {result[0].tolist()}')",
+      "solutionCode": "import torch\nimport torch.nn.functional as F\n\nmodel.eval()\n\ndef generate(model, prompt, max_new=10):\n    model.eval()\n    with torch.no_grad():\n        for _ in range(max_new):\n            logits = model(prompt)\n            next_logits = logits[0, -1]\n            probs = F.softmax(next_logits, dim=-1)\n            next_token = torch.multinomial(probs, 1).unsqueeze(0)\n            prompt = torch.cat([prompt, next_token], dim=1)\n    return prompt\n\nprompt = torch.randint(0, 50, (1, 3))\nresult = generate(model, prompt, max_new=5)\nprint(f'生成: {result[0].tolist()}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "取 logits 最后位置预测下一个。"
+        },
+        {
+          "order": 2,
+          "text": "softmax+multinomial 采样。"
+        },
+        {
+          "order": 3,
+          "text": "cat 拼接,循环生成。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "for _ in range(n):\n    logits = model(x)\n    next = sample(logits[0,-1])\n    x = cat([x, next])"
+        }
+      ],
+      "terms": [
+        {
+          "name": "自回归生成",
+          "definition": "逐步预测+拼接"
+        },
+        {
+          "name": "multinomial",
+          "definition": "按概率采样"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "generate",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

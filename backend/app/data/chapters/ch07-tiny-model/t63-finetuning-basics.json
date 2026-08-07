@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t63-finetuning-basics-s1",
+      "taskId": "t63-finetuning-basics",
+      "order": 1,
+      "title": "全参 vs 参数高效微调",
+      "instruction": "### 目标\n理解全参微调 vs 参数高效微调(PEFT)的区别。\n\n### 概念\n- **全参微调**:更新所有参数,效果好但贵。\n- **PEFT**:只更新少量参数(如 LoRA),省显存。\n- **LoRA**:低秩分解,只训练小矩阵。\n\n### 操作\n对比两者参数量",
+      "starterCode": "import torch\nimport torch.nn as nn\n\n# 模拟大模型\nclass BigModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.linear = nn.Linear(1000, 1000)\n\nmodel = BigModel()\ntotal_params = sum(p.numel() for p in model.parameters())\ntrainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)\nprint(f'全参微调:')\nprint(f'  总参数: {total_params}')\nprint(f'  可训练: {trainable_params}')\n\n# 冻结所有参数(模拟 PEFT)\nfor p in model.parameters():\n    p.requires_grad = False\n\n# 加 LoRA(只训练小矩阵)\nlora_A = nn.Parameter(torch.randn(1000, 8) * 0.01)\nlora_B = nn.Parameter(torch.zeros(8, 1000))\n\ntrainable_peft = lora_A.numel() + lora_B.numel()\nprint(f'\\nLoRA 微调:')\nprint(f'  可训练: {trainable_peft}')\nprint(f'  占比: {trainable_peft/total_params*100:.2f}%')",
+      "solutionCode": "import torch\nimport torch.nn as nn\n\nclass BigModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.linear = nn.Linear(1000, 1000)\n\nmodel = BigModel()\ntotal_params = sum(p.numel() for p in model.parameters())\ntrainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)\nprint(f'全参微调:')\nprint(f'  总参数: {total_params}')\nprint(f'  可训练: {trainable_params}')\n\nfor p in model.parameters():\n    p.requires_grad = False\n\nlora_A = nn.Parameter(torch.randn(1000, 8) * 0.01)\nlora_B = nn.Parameter(torch.zeros(8, 1000))\n\ntrainable_peft = lora_A.numel() + lora_B.numel()\nprint(f'\\nLoRA 微调:')\nprint(f'  可训练: {trainable_peft}')\nprint(f'  占比: {trainable_peft/total_params*100:.2f}%')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "全参微调更新所有参数,贵。"
+        },
+        {
+          "order": 2,
+          "text": "LoRA 冻结原参数,只训练小矩阵。"
+        },
+        {
+          "order": 3,
+          "text": "LoRA 参数量远小于全参。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# LoRA: 冻结原模型, 加 A/B 矩阵\nfor p in model.parameters(): p.requires_grad = False\nlora = A @ B  # 低秩"
+        }
+      ],
+      "terms": [
+        {
+          "name": "全参微调",
+          "definition": "更新所有参数,效果好但贵"
+        },
+        {
+          "name": "LoRA",
+          "definition": "低秩分解,只训练小矩阵"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "peft",
+          "role": "参数高效微调",
+          "description": "Parameter-Efficient Fine-Tuning 库,用 LoRA/Prefix-Tuning 等方法只训练极少参数即可微调大模型,大幅降低显存需求。",
+          "officialUrl": "https://github.com/huggingface/peft",
+          "category": "微调库",
+          "installHint": "pip install peft"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "BigModel",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t63-finetuning-basics-s2",
+      "taskId": "t63-finetuning-basics",
+      "order": 2,
+      "title": "LoRA 原理",
+      "instruction": "### 目标\n理解 LoRA 低秩分解原理。\n\n### 概念\n- 原始权重 W (d×d),更新 ΔW。\n- LoRA: ΔW = A×B,A 是 d×r,B 是 r×d(r 很小)。\n- 只训练 A,B,省参数。\n\n### 操作\n用 numpy 模拟 LoRA 前向",
+      "starterCode": "import numpy as np\n\nd = 100  # 原始维度\nr = 4    # LoRA 秩(很小)\n\n# 原始权重(冻结)\nW = np.random.randn(d, d) * 0.1\n\n# LoRA 参数(可训练)\nA = np.random.randn(d, r) * 0.01\nB = np.zeros((r, d))  # 初始0,保证开始 ΔW=0\n\nx = np.random.randn(1, d)\n\n# 原始前向\ny_orig = x @ W\n\n# LoRA 前向: y = x @ (W + A@B)\ndelta_W = \ny_lora = x @ (W + delta_W)\n\nprint(f'原始输出: {y_orig[0,:3]}')\nprint(f'LoRA 输出: {y_lora[0,:3]}')\nprint(f'差异(初始应≈0): {np.abs(y_lora - y_orig).max():.6f}')\nprint(f'\\n原始参数: {W.size} = {d*d}')\nprint(f'LoRA 参数: {A.size + B.size} = {d*r + r*d}')\nprint(f'压缩比: {(d*d)/(d*r*2):.1f}x')",
+      "solutionCode": "import numpy as np\n\nd = 100\nr = 4\n\nW = np.random.randn(d, d) * 0.1\nA = np.random.randn(d, r) * 0.01\nB = np.zeros((r, d))\n\nx = np.random.randn(1, d)\n\ny_orig = x @ W\n\ndelta_W = A @ B\ny_lora = x @ (W + delta_W)\n\nprint(f'原始输出: {y_orig[0,:3]}')\nprint(f'LoRA 输出: {y_lora[0,:3]}')\nprint(f'差异(初始应≈0): {np.abs(y_lora - y_orig).max():.6f}')\nprint(f'\\n原始参数: {W.size} = {d*d}')\nprint(f'LoRA 参数: {A.size + B.size} = {d*r + r*d}')\nprint(f'压缩比: {(d*d)/(d*r*2):.1f}x')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "LoRA: ΔW = A@B,A 是 d×r,B 是 r×d。"
+        },
+        {
+          "order": 2,
+          "text": "B 初始0,保证开始 ΔW=0(不改变原模型)。"
+        },
+        {
+          "order": 3,
+          "text": "参数量 d×r×2 << d×d。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# LoRA 前向\ny = x @ (W + A @ B)\n# A: d×r, B: r×d, r 很小"
+        }
+      ],
+      "terms": [
+        {
+          "name": "低秩分解",
+          "definition": "ΔW=A@B,用小矩阵近似大更新"
+        },
+        {
+          "name": "秩 r",
+          "definition": "LoRA 的低秩维度,越小越省"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "peft",
+          "role": "LoRA",
+          "description": "Parameter-Efficient Fine-Tuning 库,用 LoRA/Prefix-Tuning 等方法只训练极少参数即可微调大模型,大幅降低显存需求。",
+          "officialUrl": "https://github.com/huggingface/peft",
+          "category": "微调库",
+          "installHint": "pip install peft"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t63-finetuning-basics-s3",
+      "taskId": "t63-finetuning-basics",
+      "order": 3,
+      "title": "peft 库实践",
+      "instruction": "### 目标\n理解 **LoRA(低秩适配)** 的原理:为什么微调 7B 模型只需训练 0.1% 的参数。\n\n### 背景: 全参数微调的痛点\n7B 模型全参数微调:梯度和优化器状态都要占显存,7B×(4字节参数+4梯度+8 Adam状态)≈ **112GB 显存**——消费级显卡根本跑不动。\n\n### LoRA 的核心洞察\n微调的\"增量\"其实是**低秩**的:预训练模型已经会了绝大多数知识,微调只需在权重矩阵上加一个小小的修正 ΔW。而 ΔW 可以分解成两个小矩阵的乘积:\n```\nW' = W + ΔW = W + A·B    (A: d×r, B: r×d, r 通常 4~16)\n原 W 冻结不训练, 只训练 A 和 B\n参数量: d×d → 2×d×r。 d=4096, r=8 时, 从 16.7M 降到 65K —— 0.4%!\n```\n**显存账单**:冻结的 W 不用存梯度和优化器状态,可训练参数只有 AB——7B 模型 LoRA 微调,24GB 的消费卡就能跑。\n\n### 直觉类比\n原模型是写好的一本书,全参数微调是\"重排所有字\",LoRA 是在书页边缘**贴便签**做批注——便签很少,但足以改变书的\"读法\"。\n\n### 操作\n1. 用 numpy 模拟:随机矩阵 W(64×64),比较全量参数 vs LoRA(A/B, r=4)的可训练参数量\n2. 验证 W + A·B 的秩确实 ≤ r\n3. 打印参数压缩率",
+      "starterCode": "from transformers import AutoModelForCausalLM\nfrom peft import LoraConfig, get_peft_model\n\n# 加载小模型(用 distilbert 演示)\nmodel = AutoModelForCausalLM.from_pretrained('distilgpt2')\n\n# 配置 LoRA\nlora_config = LoraConfig(\n    r=8,  # 秩\n    lora_alpha=16,\n    target_modules=['q_proj', 'v_proj'],  # 应用到注意力的 Q/V\n    lora_dropout=0.1,\n    task_type='CAUSAL_LM',\n)\n\n# 应用 LoRA\nmodel = get_peft_model(model, lora_config)\nmodel.print_trainable_parameters()\n\nprint('\\nLoRA 应用完成, 只有少量参数可训练')",
+      "solutionCode": "from transformers import AutoModelForCausalLM\nfrom peft import LoraConfig, get_peft_model\n\nmodel = AutoModelForCausalLM.from_pretrained('distilgpt2')\n\nlora_config = LoraConfig(\n    r=8,\n    lora_alpha=16,\n    target_modules=['q_proj', 'v_proj'],\n    lora_dropout=0.1,\n    task_type='CAUSAL_LM',\n)\n\nmodel = get_peft_model(model, lora_config)\nmodel.print_trainable_parameters()\n\nprint('\\nLoRA 应用完成, 只有少量参数可训练')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "LoraConfig 配置 r/target_modules 等。"
+        },
+        {
+          "order": 2,
+          "text": "get_peft_model 给模型加 LoRA。"
+        },
+        {
+          "order": 3,
+          "text": "print_trainable_parameters 看可训练占比。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from peft import LoraConfig, get_peft_model\nconfig = LoraConfig(r=8, target_modules=['q_proj'])\nmodel = get_peft_model(model, config)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "peft",
+          "definition": "HuggingFace LoRA 库"
+        },
+        {
+          "name": "LoraConfig",
+          "definition": "LoRA 配置"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "peft",
+          "role": "LoRA",
+          "description": "Parameter-Efficient Fine-Tuning 库,用 LoRA/Prefix-Tuning 等方法只训练极少参数即可微调大模型,大幅降低显存需求。",
+          "officialUrl": "https://github.com/huggingface/peft",
+          "category": "微调库",
+          "installHint": "pip install peft"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 get_peft_model。",
+          "api": "get_peft_model",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

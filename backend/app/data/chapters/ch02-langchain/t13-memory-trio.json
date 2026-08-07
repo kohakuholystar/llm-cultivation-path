@@ -1,0 +1,459 @@
+{
+  "steps": [
+    {
+      "id": "t13-memory-trio-s1",
+      "taskId": "t13-memory-trio",
+      "order": 1,
+      "title": "全量记忆 Buffer:顾问的第一本流水账",
+      "instruction": "### 目标\n为「铸剑台」的接待顾问封装 `ForgeAdvisor` 类,用 `ConversationBufferMemory` 实现全量记忆:每一轮接待自动完成\"翻账 → 连账带问发给模型 → 问答记回账本\"的闭环,让顾问记得客人自报的姓名与需求。\n\n### 原理\n**LLM 本身是无状态的。** 每次 API 请求都是一次独立的 HTTP 调用,服务端不会替你保存上一轮对话——\"模型记得你\"这件事,是应用层把历史消息重新塞进本次请求的 messages 列表里\"伪造\"出来的。所以记忆的本质是一个**客户端账房**:决定存什么、取什么、以什么顺序拼进请求。看懂这一点,就看懂了所有记忆组件的工作方式。\n\n**`ConversationBufferMemory` 是最朴素的一本账:流水账,一字不丢。** 它内部维护一个 `chat_memory` 消息列表,`save_context({\"input\": ...}, {\"output\": ...})` 追加一对 Human/AI 消息,`load_memory_variables({})` 原样返回全部历史。保真度最高、实现最简单,代价是 token 开销随轮数**线性增长**——短对话无所谓,长对话会撞上下文上限、账单也会膨胀。这正是 Window 和 Summary 两种记忆存在的理由,本任务后面几步会逐一权衡。\n\n**`return_messages=True` 是对话模型的正确姿势。** 默认 False 时取出的是拼好的纯字符串,适合老式文本补全模型;对 ChatOpenAI 这类对话模型,应该取出消息对象列表,与本轮的 `HumanMessage` 直接拼接成 messages 发给模型。\n\n### 操作\n1. `__init__` 里创建 `ConversationBufferMemory(memory_key=\"history\", return_messages=True)` 存到 `self.memory`(参数 memory 不为 None 时直接用参数)\n2. `chat()` 三步走:`load_memory_variables({})[\"history\"]` 翻账;`model.invoke([*history, HumanMessage(content=user_input)])` 发问;`save_context` 记账后返回回复\n3. 运行 main:两轮接待后 `show_memory()` 摊开账本,确认 4 条消息(两问两答)都在\n4. 本地无 Key 可先 `MOCK_LLM=1` 离线演练,再填 Key 接真模型对比\n\n### 常见坑\n- 忘了 `save_context`:模型这轮答得再好,下一轮照样失忆——记忆不是自动发生的,记账是显式动作\n- `return_messages` 用默认的 False:取出来是字符串,和 `HumanMessage` 混排进 messages 列表会类型混乱甚至直接报错",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:记忆 = 客户端账房。chat() 里每轮要干三件事——取出历史、连同新输入发给模型、把这一问一答存回去。先想清楚这三步各自调用 memory 的哪个方法。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:取历史用 self.memory.load_memory_variables({})[\"history\"];存对话用 self.memory.save_context({\"input\": 用户话}, {\"output\": 模型回复});发消息用 self.model.invoke([*history, HumanMessage(content=user_input)]).content。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:__init__ 里 self.memory = memory or ConversationBufferMemory(memory_key=\"history\", return_messages=True);chat 三步依次是 load_memory_variables → invoke → save_context,最后 return reply。注意 return_messages=True 不能丢。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "手动记账与翻账",
+          "language": "python",
+          "code": "from langchain_classic.memory import ConversationBufferMemory\n\nmemory = ConversationBufferMemory(memory_key=\"history\", return_messages=True)\nmemory.save_context({\"input\": \"我叫阿岩\"}, {\"output\": \"幸会,阿岩!\"})\n\nvars_ = memory.load_memory_variables({})\nfor m in vars_[\"history\"]:\n    print(type(m).__name__, \"->\", m.content)",
+          "description": "不经过顾问类,直接操作记忆组件:save_context 记一对问答,load_memory_variables 取出全部历史。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "对话记忆 (Memory)",
+          "definition": "应用层保存对话历史并在下次请求时注入 messages 的组件。LLM 本身无状态,\"记得\"是客户端把历史重新塞进请求伪造出来的。"
+        },
+        {
+          "name": "无状态 (Stateless)",
+          "definition": "每次 API 调用互相独立、服务端不保留任何上下文的性质。对话连续性必须由应用层自己维护。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "LLM 应用编排框架",
+          "description": "提供 Memory、ChatModel、消息抽象等组件;LangChain 1.x 中经典 Memory 组件移至 langchain_classic.memory 命名空间。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "对话与摘要模型服务",
+          "description": "OpenAI 兼容的国产大模型 API,课程统一使用 deepseek-v4-pro;通过 OPENAI_API_KEY / OPENAI_BASE_URL 环境变量接入。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装 SDK 之外的依赖,配置 OPENAI_API_KEY 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 __init__ 的记忆创建与 chat() 的三步闭环。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "ForgeAdvisor",
+          "message": "请保留并实现 ForgeAdvisor 类。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "chat",
+          "message": "请实现 chat() 方法:翻账 → 发问 → 记账。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "ConversationBufferMemory",
+          "message": "本步要求使用 ConversationBufferMemory 全量记忆。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "message": "真实模型路径请使用 ChatOpenAI 接入 DeepSeek。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-trio-s2",
+      "taskId": "t13-memory-trio",
+      "order": 2,
+      "title": "滑动窗口 Window:只记最近 k 轮",
+      "instruction": "### 目标\n给记忆体系引入第二个后端 `ConversationBufferWindowMemory`(滑动窗口,k=2),用 `make_memory(backend)` 工厂统一后端创建,并用同一份四轮剧本做对照实验:亲眼看到客人第 1 轮报的姓名如何从窗口记忆里被挤出去。\n\n### 原理\n**滑动窗口是\"保真 vs 成本\"天平上偏向成本的一端。** Buffer 的 token 开销无界增长,Window 只保留最近 k 轮——token 开销有了可预期的上限(≤ 2k 条消息),代价是**旧信息硬丢失**:被挤出窗口的内容对模型而言从未存在过,没有回收站。选 k 就是在选\"记忆里程\":k 太小连上一轮的指代都接不住(\"那把剑\"是哪把?),k 太大则退化成 Buffer,失去成本控制的意义。\n\n**注意 k 的单位是\"轮\"不是\"条\"。** 一轮 = 一问一答 = 2 条消息,`k=2` 实际保留最近 4 条消息。底层实现类似一个定长队列:新问答进来,最旧的问答被**静默**挤出——没有回调、没有归档,挤出去就没了。排查\"模型怎么突然失忆\"时,第一反应应该是去看窗口大小,而不是怀疑模型。\n\n**工厂函数 `make_memory(backend)` 的价值是控制变量。** 对比实验要求除了\"记忆后端\"之外一切相同:同一个模型、同一份剧本、同一个顾问类。把后端的创建收敛到一个函数、用字符串参数切换,是保证实验公平的最简单手段——它也是后面 s3/s4 三方对比的基础设施。\n\n### 操作\n1. `make_memory()` 补上 `\"window\"` 分支:返回 `ConversationBufferWindowMemory(memory_key=\"history\", k=2, return_messages=True)`;未知后端 `raise ValueError`\n2. `ForgeAdvisor.__init__` 接收 `memory` 参数,默认 `make_memory(\"buffer\")`(s1 已完成,确认即可)\n3. main 里对 `\"buffer\"`/`\"window\"` 各跑一次:同一份 script 逐句 `advisor.chat(line)`,然后 `show_memory()` 摊开账本\n4. 观察输出:Buffer 八条全在;Window 只剩最近四条,第 1 轮的\"阿岩\"已消失\n\n### 常见坑\n- 把 `k` 当成消息条数:想保留最近 4 条消息应设 `k=2`,设 `k=4` 会保留 8 条——差一倍\n- 以为被挤出的历史\"暂时存到别处\":Window 没有任何兜底,丢失是静默且永久的,关键信息(姓名、订单号)不能指望窗口记忆长期持有",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:在 make_memory() 工厂里加 \"window\" 分支即可,ForgeAdvisor 不需要改——它只面向 memory 这个抽象工作,这正是工厂模式的好处。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:ConversationBufferWindowMemory(memory_key=\"history\", k=2, return_messages=True)。注意 k 的单位是「轮」(一问一答),k=2 保留最近 4 条消息;未知后端要 raise ValueError。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:main 里 for backend in (\"buffer\", \"window\"): 创建 ForgeAdvisor(get_chat_model(MOCK_REPLIES), make_memory(backend)),逐句 advisor.chat(line),再 advisor.show_memory()。window 账本应只剩 4 条。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "窗口的挤出效应",
+          "language": "python",
+          "code": "from langchain_classic.memory import ConversationBufferWindowMemory\n\nw = ConversationBufferWindowMemory(memory_key=\"history\", k=2, return_messages=True)\nfor i in range(4):\n    w.save_context({\"input\": f\"第{i+1}轮问题\"}, {\"output\": f\"第{i+1}轮回答\"})\n\nmsgs = w.load_memory_variables({})[\"history\"]\nprint(f\"剩余 {len(msgs)} 条\")  # 只剩最近 2 轮 = 4 条\nprint(\"最早幸存:\", msgs[0].content)  # 第1轮已被挤出",
+          "description": "k=2 的窗口记忆喂入 4 轮对话后,最早的两轮被静默挤出,只剩最近 4 条消息。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "滑动窗口 (Sliding Window)",
+          "definition": "只保留最近 k 轮对话的记忆策略:token 开销有上限,代价是被挤出窗口的旧信息对模型而言从未存在过。"
+        },
+        {
+          "name": "轮 (Turn)",
+          "definition": "对话的一来一回:一条用户消息 + 一条助手消息 = 1 轮 = 2 条消息。Window 记忆的 k 以轮为单位。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "LLM 应用编排框架",
+          "description": "提供 Memory、ChatModel、消息抽象等组件;LangChain 1.x 中经典 Memory 组件移至 langchain_classic.memory 命名空间。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "对话与摘要模型服务",
+          "description": "OpenAI 兼容的国产大模型 API,课程统一使用 deepseek-v4-pro;通过 OPENAI_API_KEY / OPENAI_BASE_URL 环境变量接入。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装 SDK 之外的依赖,配置 OPENAI_API_KEY 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 make_memory 的 window 分支与对照实验主流程。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "make_memory",
+          "message": "请保留并实现 make_memory 后端工厂。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "ConversationBufferWindowMemory",
+          "message": "本步要求使用 ConversationBufferWindowMemory 滑动窗口记忆。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "k\\s*=\\s*2",
+          "message": "窗口大小请设 k=2(保留最近 2 轮)。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "ForgeAdvisor",
+          "message": "请保留 ForgeAdvisor 类。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-trio-s3",
+      "taskId": "t13-memory-trio",
+      "order": 3,
+      "title": "token 账房:给两种记忆计价",
+      "instruction": "### 目标\n搭建\"token 账房\":用 tiktoken 给记忆账本计价,实现 `count_tokens(messages)` 与 `run_dialogue()`,再把同一份五轮剧本分别灌进 Buffer 与 Window 两种后端,用 `compare_backends()` 量出两种记忆的 token 增长曲线——Buffer 线性爬升,Window 到达平台期。\n\n### 原理\n**为什么用 token 而不是字符数衡量记忆成本?** 因为 LLM 的计费单位和上下文窗口上限都按 token 算。token 是模型分词器切出来的最小单位:英文约 4 个字符一个 token,中文约 1~2 个字一个 token。字符数相同的两种表达,token 数可能相差近一倍——只有 token 才是\"模型视角\"的真实成本。记忆方案之间的比较,只有换算成 token 才有意义。\n\n**tiktoken 在本地完成 BPE 分词,不调用任何模型 API。** `tiktoken.get_encoding(\"cl100k_base\")` 拿到编码表,`encoding.encode(text)` 把文本切成 token id 列表,列表长度即 token 数。唯一的网络需求:首次 get_encoding 会下载一个很小的编码文件(之后走本地缓存),完全离线时参考答案用 try/except 兜底为字符近似(1 字 ≈ 1 token),不影响曲线形状。还要注意:`cl100k_base` 并不是 DeepSeek 的原生分词器,所以计数是**近似值**——工程上的正确用法是按近似值做预算、再留 20% 左右余量,真实扣费以 API 返回的 usage 字段为准,别把它当精确账。\n\n**这是一个控制变量实验,读的是曲线形状。** 同一份剧本、同一个模型,唯一的变量是记忆后端。重点观察:Buffer 每轮都在涨(每轮记账,账越来越厚,第 N 轮的请求要背着前 N-1 轮的全部历史);Window 前 k 轮上涨、之后持平(新的进来旧的出去,账本厚度恒定)。\"平台期\"就是窗口记忆的核心卖点——无论客人聊多久,单次请求的记忆成本都有天花板。\n\n### 操作\n1. 实现 `count_tokens(messages)`:模块级 `ENCODING = tiktoken.get_encoding(\"cl100k_base\")` 已给出(带离线兜底),对每条消息 `len(ENCODING.encode(m.content)) + 4` 求和(+4 是角色等结构开销的经验值)\n2. 实现 `run_dialogue(advisor, script)`:逐轮 `advisor.chat(line)`,每轮后取 `load_memory_variables({})[\"history\"]` 计价,把每轮 token 数收进列表返回\n3. `compare_backends()` 已对两个后端各跑一遍并打印逐轮曲线,直接运行观察\n4. 确认 Window 曲线从第 3 轮起进入平台期,Buffer 曲线持续爬升\n\n### 常见坑\n- 把 tiktoken 的计数当精确账:它是近似值,DeepSeek 真实扣费以 API 返回的 usage 为准,做预算务必留余量\n- `encode()` 传入非字符串(比如把消息对象本身扔进去)会直接报 TypeError——记得取 `m.content` 再编码\n- 完全离线的环境里直接 `get_encoding` 会抛 ConnectionError——编码文件首次使用要下载;要么预置 TIKTOKEN_CACHE_DIR 缓存,要么像参考答案一样留字符近似兜底",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:成本比较必须换算成 token。count_tokens 负责\"一组消息多少钱\",run_dialogue 负责\"每轮过后账本多厚\",两条曲线一比,平台期自然现身。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:模块级 ENCODING = tiktoken.get_encoding(\"cl100k_base\");单条消息计 len(ENCODING.encode(m.content)) + 4(离线兜底按 len(m.content) + 4);账本取 advisor.memory.load_memory_variables({})[\"history\"],不要直接数 chat_memory 条数。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:count_tokens 就是 return sum(len(ENCODING.encode(m.content)) + 4 for m in messages);run_dialogue 里循环 advisor.chat(line) 后 growth.append(count_tokens(history)),最后 return growth。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "tiktoken 三十秒上手",
+          "language": "python",
+          "code": "import tiktoken\n\nencoding = tiktoken.get_encoding(\"cl100k_base\")\ntext = \"铸剑台\"\nids = encoding.encode(text)\nprint(ids)              # token id 列表\nprint(len(ids), \"个 token\")\nprint(encoding.decode(ids))  # 还能解码回来",
+          "description": "encode 把文本切成 token id 列表,长度即 token 数;decode 可逆,全程本地计算(仅首次 get_encoding 需下载编码文件,之后有本地缓存)。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Token",
+          "definition": "模型分词器切出的最小计费与上下文单位:英文约 4 字符 1 个,中文约 1~2 字 1 个。API 计费与上下文上限都按它算。"
+        },
+        {
+          "name": "BPE 分词",
+          "definition": "Byte Pair Encoding:通过反复合并高频字节对构建词表的分词算法,tiktoken 即其实现,可离线完成 token 计数。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "LLM 应用编排框架",
+          "description": "提供 Memory、ChatModel、消息抽象等组件;LangChain 1.x 中经典 Memory 组件移至 langchain_classic.memory 命名空间。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "tiktoken",
+          "role": "离线 BPE 分词器",
+          "description": "OpenAI 开源的快速分词库,可离线估算文本 token 数,用于记忆成本计价与预算控制(对 DeepSeek 为近似值)。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 count_tokens 与 run_dialogue。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "count_tokens",
+          "message": "请实现 count_tokens 计价函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "tiktoken\\.get_encoding",
+          "message": "请通过 tiktoken.get_encoding 获取编码器。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "(?i)encoding\\.encode",
+          "message": "请用 ENCODING.encode 做 token 计数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "run_dialogue",
+          "message": "请实现 run_dialogue 记录逐轮 token 曲线。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-trio-s4",
+      "taskId": "t13-memory-trio",
+      "order": 4,
+      "title": "摘要记忆 Summary:用 LLM 压缩旧账",
+      "instruction": "### 目标\n引入第三位剑客 `ConversationSummaryMemory`(摘要记忆):每当新问答入账,用一个 LLM 把\"旧摘要 + 新对话\"压缩成新摘要。把对比实验升级为三方对照,亲眼看到摘要记忆如何以近似恒定的 token 成本保住第 1 轮的\"阿岩\"。\n\n### 原理\n**摘要记忆的思路是\"用一次额外的 LLM 调用换 token 的近似恒定\"。** Buffer 无损无界、Window 有负有界,Summary 试图两全:旧对话既不丢弃也不原样保留,而是压缩成一段不断滚动的摘要。账本厚度取决于摘要长度而不是轮数,所以 token 曲线同样是平台期——但和 Window 的硬删除不同,早期的关键信息(姓名、预算)有机会在摘要里**幸存**下来。三种记忆构成一个完整谱系:无损无界 → 有损有界(硬删) → 有损有界(压缩)。\n\n**摘要是以 SystemMessage 的形式留在记忆里的。** `load_memory_variables` 返回的 history 中,那段摘要是一条系统消息,排在本轮输入之前——模型把它当作\"背景设定\"来读,而不是当作某一轮对话。这和 Buffer/Window 的 Human/AI 交替结构有本质不同,观察本步输出时留意这一点。\n\n**摘要是有损压缩,质量依赖摘要模型。** \"预算三百两\"可能被压成\"预算有限\",\"腊月前取货\"可能整个消失,而且丢失是静默的。工程结论:关键结构化字段(订单号、金额、交付日期)应另行结构化存储,不能只靠摘要记忆承载;摘要适合保留\"谈话大意\"。另外别忽略成本:每一轮 `save_context` 都触发一次额外的摘要 LLM 调用,延迟和费用都要计入总价。\n\n### 操作\n1. 实现 `get_summary_model()`:MOCK 时返回 `FakeListChatModel(responses=MOCK_SUMMARIES)`,真实环境返回 `ChatOpenAI`(temperature=0.2 求稳)\n2. `make_memory()` 补 `\"summary\"` 分支:`ConversationSummaryMemory(llm=get_summary_model(), memory_key=\"history\", return_messages=True)`\n3. `compare_backends()` 扩展为 buffer/window/summary 三方对照,summary 后端额外打印摘要原文,检查\"阿岩\"是否幸存\n4. 读输出:三条 token 曲线的形状对比,以及摘要保住了什么、可能丢了什么\n\n### 常见坑\n- 给 Summary 记忆也按 Human/AI 条数算账:它的 history 里主要是那条 SystemMessage 摘要,`chat_memory.messages` 可能已被清空,计价必须看 `load_memory_variables` 的返回值\n- 以为摘要\"记住了所以什么都没丢\":压缩是有损的,细节丢失静默发生——重要信息必须双重保障,不能只躺在摘要里",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:摘要记忆需要一个\"摘要专用\"模型——每轮 save_context 时它都会被调一次做滚动压缩。先写 get_summary_model(),再在 make_memory() 里加 \"summary\" 分支。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:ConversationSummaryMemory(llm=get_summary_model(), memory_key=\"history\", return_messages=True);摘要在 load_memory_variables({})[\"history\"][0] 里,是一条 SystemMessage。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:compare_backends 里 for backend in (\"buffer\", \"window\", \"summary\"): 各跑一次 run_dialogue 打印曲线;summary 分支额外打印 history[0].content 并用 \"阿岩\" in history[0].content 判断姓名是否幸存。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "摘要记忆的最小用法",
+          "language": "python",
+          "code": "from langchain_classic.memory import ConversationSummaryMemory\nfrom langchain_core.language_models.fake_chat_models import FakeListChatModel\n\n# 真实环境把 FakeListChatModel 换成 ChatOpenAI(deepseek-v4-pro)\nsm = ConversationSummaryMemory(\n    llm=FakeListChatModel(responses=[\"客人阿岩要铸轻剑,预算三百两。\"]),\n    memory_key=\"history\", return_messages=True,\n)\nsm.save_context({\"input\": \"我叫阿岩,想铸轻剑\"}, {\"output\": \"记下了\"})\nhistory = sm.load_memory_variables({})[\"history\"]\nprint(type(history[0]).__name__)  # SystemMessage:摘要是「背景设定」\nprint(history[0].content)",
+          "description": "摘要记忆把旧对话压缩成一条 SystemMessage;每次 save_context 都会调用摘要模型做一次滚动压缩。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "摘要记忆 (Summary Memory)",
+          "definition": "用一个 LLM 把「旧摘要 + 新对话」滚动压缩成新摘要的记忆策略:token 近似恒定且早期关键信息有机会幸存,代价是每轮多一次 LLM 调用。"
+        },
+        {
+          "name": "有损压缩",
+          "definition": "压缩过程中细节被静默丢弃的特性。摘要记忆是有损的——\"预算三百两\"可能变成\"预算有限\",关键字段不能只靠摘要承载。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "LLM 应用编排框架",
+          "description": "提供 Memory、ChatModel、消息抽象等组件;LangChain 1.x 中经典 Memory 组件移至 langchain_classic.memory 命名空间。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "对话与摘要模型服务",
+          "description": "OpenAI 兼容的国产大模型 API,课程统一使用 deepseek-v4-pro;通过 OPENAI_API_KEY / OPENAI_BASE_URL 环境变量接入。",
+          "officialUrl": "https://api.deepseek.com",
+          "category": "模型",
+          "installHint": "无需安装 SDK 之外的依赖,配置 OPENAI_API_KEY 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 get_summary_model、summary 分支与三方对照。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "ConversationSummaryMemory",
+          "message": "本步要求使用 ConversationSummaryMemory 摘要记忆。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "make_memory",
+          "message": "请在 make_memory 工厂中加入 summary 分支。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "load_memory_variables",
+          "message": "请通过 load_memory_variables 读取记忆内容(摘要在这里面)。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "message": "真实模型路径请使用 ChatOpenAI 接入 DeepSeek。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-trio-s5",
+      "taskId": "t13-memory-trio",
+      "order": 5,
+      "title": "生产版交付:token 上限 + 记忆落盘",
+      "instruction": "### 目标\n拆除对比实验的脚手架,交付生产版顾问:给 `ForgeAdvisor` 增加 `enforce_budget(max_tokens)`(token 上限控制)与 `save()/load()`(记忆持久化到 JSON 文件)——记忆既有成本天花板,又能跨进程重启存活,这是上线前记忆系统的最低配置。\n\n### 原理\n**内存里的记忆,进程一停就失忆。** 真实系统里对话记忆必须落盘:服务重启、容器漂移、水平扩容之后,客人的账本还要能找回来。最朴素的持久化就是序列化成 JSON 文件。LangChain 的消息对象不是原生可序列化的,`messages_to_dict()` 会给每条消息打上类型标签(human/ai)转成纯 dict,`messages_from_dict()` 再按标签复原成消息对象——这对组合是消息级持久化的标准件,换成数据库存储时同样适用(把 JSON 字符串存进字段即可)。\n\n**token 上限控制是生产记忆的另一半。** s3 的实验已经证明 Buffer 无界增长不可接受,生产上要给账本上锁:超过预算就淘汰。淘汰策略的关键细节是**成对删除**——Human/AI 必须一问一答一起删,否则会留下孤儿 AI 消息,破坏角色交替结构,有些模型 API 会直接拒绝角色错乱的消息序列。这里用最简单的 FIFO 淘汰;更高级的做法是\"淘汰前先摘要归档\",那正是 s4 摘要记忆的思想,两种手段可以叠加。\n\n**`ensure_ascii=False` 是中文落盘的门面。** `json.dump` 默认把中文转义成 `\\uXXXX`,文件没法直接阅读;加上它并保持 `encoding=\"utf-8\"` 读写,账本才是人可读的——这在 Windows 上尤其重要,平台默认编码是 GBK,不显式指定必乱码。\n\n### 操作\n1. 实现 `enforce_budget(max_tokens)`:`while len(msgs) > 2 and count_tokens(msgs) > max_tokens` 时 `del msgs[0:2]` 成对淘汰,返回淘汰条数\n2. 实现 `export_state()` 与 `save()`:`messages_to_dict` 导出状态,`json.dump(..., ensure_ascii=False, indent=2)` 落盘\n3. `load()` 已给出:读 JSON → 重建同后端记忆 → `add_messages(messages_from_dict(...))` 回放\n4. 运行 main:六轮剧本 → `enforce_budget(120)` 瘦身 → 落盘 → `ForgeAdvisor.load()` 模拟重启恢复 → 摊开账本验证条数与内容\n\n### 常见坑\n- 按单条删除做淘汰:留下孤儿消息破坏 Human/AI 交替,必须 `del msgs[0:2]` 成对删\n- `json.dump` 忘加 `ensure_ascii=False`:中文全变 `\\uXXXX` 转义,账本失去可读性;读写文件都要显式 `encoding=\"utf-8\"`,否则 Windows 默认 GBK 直接乱码",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:两件事——给账本上锁(enforce_budget:超预算就淘汰最早的账)和给账本备份(save/load:消息序列化成 JSON)。淘汰时一定要一问一答成对删。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:淘汰用 del msgs[0:2](msgs = self.memory.chat_memory.messages);序列化用 messages_to_dict(...) / messages_from_dict(...);落盘用 json.dump(state, f, ensure_ascii=False, indent=2),文件句柄要带 encoding=\"utf-8\"。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:enforce_budget 的循环条件是 while len(msgs) > 2 and count_tokens(msgs) > max_tokens;export_state 返回 {\"backend\": self.backend, \"messages\": messages_to_dict(self.memory.chat_memory.messages)}。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "消息序列化往返",
+          "language": "python",
+          "code": "import json\nfrom langchain_core.messages import HumanMessage, AIMessage\nfrom langchain_core.messages import messages_from_dict, messages_to_dict\n\nmsgs = [HumanMessage(content=\"我叫阿岩\"), AIMessage(content=\"幸会\")]\ntext = json.dumps(messages_to_dict(msgs), ensure_ascii=False)\nrestored = messages_from_dict(json.loads(text))\nprint([(type(m).__name__, m.content) for m in restored])",
+          "description": "messages_to_dict 给消息打类型标签转纯 dict 可入 JSON;messages_from_dict 按标签复原,完成一次落盘往返。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "持久化 (Persistence)",
+          "definition": "把内存中的状态序列化到磁盘/数据库,使进程重启后可恢复。记忆的最低生产要求:能落盘、能回放。"
+        },
+        {
+          "name": "序列化 (Serialization)",
+          "definition": "把对象转成可存储/可传输的字节或文本格式的过程;LangChain 用 messages_to_dict/messages_from_dict 处理消息对象的类型标签。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "LLM 应用编排框架",
+          "description": "提供 Memory、ChatModel、消息抽象等组件;LangChain 1.x 中经典 Memory 组件移至 langchain_classic.memory 命名空间。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "tiktoken",
+          "role": "离线 BPE 分词器",
+          "description": "OpenAI 开源的快速分词库,可离线估算文本 token 数,用于记忆成本计价与预算控制(对 DeepSeek 为近似值)。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请补全 enforce_budget、export_state 与 save。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "enforce_budget",
+          "message": "请实现 enforce_budget 做 token 上限控制。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "messages_to_dict",
+          "message": "请用 messages_to_dict 序列化消息。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "messages_from_dict",
+          "message": "请用 messages_from_dict 复原消息。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "ensure_ascii=False",
+          "message": "落盘请加 ensure_ascii=False,保持中文可读。",
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

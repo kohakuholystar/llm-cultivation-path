@@ -1,0 +1,506 @@
+{
+  "steps": [
+    {
+      "id": "t22-retrieval-rerank-s1",
+      "taskId": "t22-retrieval-rerank",
+      "order": 1,
+      "title": "本地向量库:相似度检索基线",
+      "instruction": "### 目标\n为「藏经阁」建起检索底座:把 t21 的本地 embedding 封装成一个可复用的 `VectorStore` 类,对 8 卷武功经书做余弦相似度 top-k 检索,并能打印带分数的排行榜。\n\n### 原理\n**为什么 embedding 之后检索就变成\"排序问题\"?** 向量化的本质是把\"语义相近\"翻译成\"几何相近\"。只要每卷经书和每个问题都被映射到同一个向量空间,检索就不再是字符串匹配,而是:算 query 向量与每卷经书向量的余弦相似度 → 按分数降序 → 取前 k 个。这个\"打分 + 排序 + 截断\"的三段式,是一切向量检索(包括 Chroma、FAISS)的内核,工业界管它叫 **top-k 最近邻检索**。\n\n**延续 t21 的本地方案**:我们仍用字符 unigram + bigram 的哈希 embedding(md5 定桶、随机符号、L2 归一化)。它不下载任何模型,沙箱离线可跑;归一化之后,余弦相似度退化为一次点积,`cosine()` 一行就能写完。\n\n**为什么检索\"标题 + 正文\"而不只检正文?** 经名(\"凌波微步·卷一\")本身携带极强的主题信号,拼进被编码文本,等于给向量注入先验。\n\n### 操作\n1. 通读已给出的 `tokenize` / `embed` / `cosine`(t21 老熟人,不用改)\n2. 补全 `VectorStore.search`:对 `self.items` 里每个 `(doc, vec)` 算 `cosine(qv, vec)`,按分数降序排,返回前 k 个 `(doc, score)`\n3. 运行,观察\"如何练成踏水而行的轻功\"的 TOP3 都是谁、分数差多少\n\n### 常见坑\n- **排序方向写反**:`sort(key=lambda x: x[1])` 默认升序,最低分反而排第一。余弦检索永远要 `reverse=True`。\n- **只对标题或只对正文编码**:库向量与查询向量必须在\"同一个语义配方\"下生成;`__init__` 里拼的是 `标题 + \"。\" + 正文`,查询侧虽不拼标题,但同一个 `embed` 函数保证了空间一致,别再给查询另写一套编码。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:search 就是「打分 → 降序排序 → 截前 k」三步,cosine() 已经给你了。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:列表推导 [(d, cosine(qv, v)) for d, v in self.items],再用 sort(key=lambda x: x[1], reverse=True)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:scored = [(d, cosine(qv, v)) for d, v in self.items]; scored.sort(key=lambda x: x[1], reverse=True); return scored[:k]"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "余弦相似度 top-k 的最小骨架",
+          "language": "python",
+          "code": "def search(self, query, k=3):\n    qv = embed(query)                                  # 查询也向量化\n    scored = [(d, cosine(qv, v)) for d, v in self.items]  # 逐个打分\n    scored.sort(key=lambda x: x[1], reverse=True)      # 降序!\n    return scored[:k]                                  # 截前 k",
+          "description": "所有向量数据库的 query 端都是这四步,区别只在打分用什么索引加速。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "top-k 最近邻检索",
+          "definition": "计算查询与库中全部向量的相似度,按分数降序取前 k 个结果的检索范式,是向量数据库 query 端的共同内核。"
+        },
+        {
+          "name": "余弦相似度",
+          "definition": "两向量夹角的余弦,范围 [-1,1];向量 L2 归一化后等价于点积,度量方向相似性而不受长度影响。"
+        },
+        {
+          "name": "哈希 embedding",
+          "definition": "把 token 经哈希函数投到固定维度并累加的本地向量化方案,无需模型、完全离线,表达力弱于神经网络 embedding 但适合教学与小语料。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "本地 embedding 与向量计算",
+          "description": "hashlib/md5 定桶 + math 归一化 + dataclass 建模,纯标准库实现离线 embedding 检索,沙箱零依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/",
+          "category": "库",
+          "installHint": "无需安装,Python 3.12 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没填:请补全 VectorStore.search 的打分排序逻辑。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "VectorStore",
+          "message": "请保留 VectorStore 类,检索能力要封装在里面。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "embed",
+          "message": "本地 embedding 函数 embed 不能丢。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "TOP1 .+ score=0\\.\\d{4}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印 TOP1..TOP3 且带 score=0.xxxx 格式的相似度分数。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-retrieval-rerank-s2",
+      "taskId": "t22-retrieval-rerank",
+      "order": 2,
+      "title": "MMR:给检索结果去冗余",
+      "instruction": "### 目标\n在 s1 的向量库上实现 **MMR(Maximal Marginal Relevance,最大边际相关性)**,并与纯相似度 top-k 正面对比:让学习者亲眼看到\"前两名被《凌波微步》卷一、卷二霸榜\"这种冗余是如何被打破的。\n\n### 原理\n**纯相似度检索的盲区**:top-k 只关心\"每个候选离 query 多近\",从不关心\"候选之间彼此多像\"。藏经阁里《凌波微步》有卷一、卷二两册,内容高度重叠 —— 纯相似度会把两册同时送上榜,等于用两个宝贵的上下文名额装同一份知识。对下游 LLM 来说,这是典型的\"上下文浪费\"。\n\n**MMR 的贪心平衡术**:每轮从候选池里选 `λ × 相关性 − (1−λ) × 冗余度` 最大的文档,其中冗余度 = 候选与**已选集**中任何一卷的最大相似度。λ=1 退化为纯相似度,λ=0 只顾多样不顾相关,工程上常用 0.5~0.7 折中。它的计算是贪心的(一轮挑一个),不保证全局最优,但 O(k·n) 的开销换\"结果集角度更分散\",非常划算。\n\n**怎么量化\"多样\"?** 看结果集内部的平均两两相似度:纯相似度榜单若全是同门经书,这个值会很高;MMR 榜单会明显更低。\n\n### 操作\n1. 补全 `mmr_search` 主循环:`max(pool, key=mmr_score)` 选最优、入 `selected`、从 `pool` 移除\n2. 运行,对比两个榜单的名单和\"内部平均相似度\"\n3. 把 `lambda_param` 调成 0.3 / 0.8 再跑,感受 λ 的调节作用\n\n### 常见坑\n- **冗余度忘了取 max 而是求和/平均**:MMR 论文定义是\"与已选集的最大相似度\"——只要和任何一本已选经书撞车就该被重罚,求和会随已选集变大而虚高,口径不稳定。\n- **空集报错**:第一轮 `selected` 为空,`max()` 空序列会抛 `ValueError`,务必给 `default=0.0`。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:MMR 是贪心循环 —— 每轮从 pool 里选「λ×相关性 − (1−λ)×冗余度」最大的,入选后从池里删掉。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:best = max(pool, key=mmr_score);冗余度用 max((cosine(v, sv) for _, sv, _ in selected), default=0.0)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return lambda_param * rel - (1 - lambda_param) * redundancy;入选后 pool = [c for c in pool if c[0].doc_id != best[0].doc_id]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "MMR 单轮选择的核心三行",
+          "language": "python",
+          "code": "redundancy = max((cosine(v, sv) for _, sv, _ in selected), default=0.0)\nscore = lambda_param * rel - (1 - lambda_param) * redundancy\nbest = max(pool, key=mmr_score)  # 选 mmr 分最高的候选",
+          "description": "与 LangChain 的 max_marginal_relevance_search 同宗:λ 越大越像纯相似度。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "MMR(最大边际相关性)",
+          "definition": "Maximal Marginal Relevance:在相关性与多样性之间做贪心权衡的重排算法,每轮选 λ×相关 − (1−λ)×冗余 最大的文档。"
+        },
+        {
+          "name": "冗余度",
+          "definition": "候选文档与已选结果集中任何文档的最大相似度,越高说明它携带的新信息越少。"
+        },
+        {
+          "name": "内部平均相似度",
+          "definition": "结果集内所有文档对的两两相似度均值,用于量化榜单的多样性,越低越多样。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "本地 embedding 与向量计算",
+          "description": "hashlib/md5 定桶 + math 归一化 + dataclass 建模,纯标准库实现离线 embedding 检索,沙箱零依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/",
+          "category": "库",
+          "installHint": "无需安装,Python 3.12 自带"
+        },
+        {
+          "name": "LangChain 检索思想",
+          "role": "概念映射(本任务不依赖)",
+          "description": "本任务手写的 VectorStore/MMR/rerank 分别对应 LangChain 的 VectorStoreRetriever、max_marginal_relevance_search 与 ContextualCompressionRetriever,学会原理后可直接迁移。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain(本任务沙箱内不需要)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没填:请补全 mmr_search 的贪心选择循环。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "mmr_search",
+          "message": "请实现 mmr_search 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "lambda_param",
+          "message": "MMR 需要 lambda_param 来权衡相关性与多样性。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "MMR\\(lambda=0\\.5\\) TOP3[\\s\\S]*内部平均相似度=0\\.\\d{4}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应同时打印纯相似度与 MMR 两个榜单及内部平均相似度。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-retrieval-rerank-s3",
+      "taskId": "t22-retrieval-rerank",
+      "order": 3,
+      "title": "score 阈值:宁可弃权,不可乱答",
+      "instruction": "### 目标\n给藏经阁的检索结果设一条\"及格线\":实现 `filter_by_threshold`,把 top-k 里分数不达标的候选拦在下游之外;当全部被拦下时,打印兜底话术而不是硬答。\n\n### 原理\n**top-k 的最大谎言:它永远给你 k 个结果,哪怕一个都不靠谱。** 用户问\"今天中午吃什么外卖\",向量库也会\"尽职尽责\"地返回三本分数只有 0.1 的经书 —— 如果直接塞给下游 LLM,模型会拿着无关经书一本正经地胡说八道,这就是 RAG 幻觉的重要来源之一。\n\n**阈值过滤的思想是\"弃权优于错答\"**:余弦相似度虽然不是一个严格校准过的概率,但在固定的 embedding 方案和语料分布下,它有稳定的经验区间 —— 相关文档通常聚在高段,无关查询全盘落在低段。设一条线(本任务取 0.12),线下一律丢弃,换来的是系统\"知道自己不知道\"。\n\n**阈值不是拍脑袋定的**:正确做法是拿一批已知相关/不相关的 query 扫一遍分数分布,找两类分布的分界带。本任务语料小,直接给了经验值;s5 的评估脚本会教你用数据验证它。\n\n### 操作\n1. 补全 `filter_by_threshold`:两行列表推导,把结果切成 `(kept, dropped)`\n2. 补全 `answer` 里的空结果兜底:`if not kept` 时打印\"未找到可靠结果\"\n3. 运行,确认正常查询有保留有丢弃,\"吃外卖\"查询被全拦并走兜底分支\n\n### 常见坑\n- **阈值写成全局真理**:0.12 只对\"当前 embedding + 当前语料\"成立;换 embedding 模型或换语料,分数分布整体漂移,阈值必须重新标定,千万别写死在业务代码深处。\n- **过滤后忘记空集分支**:kept 为空还继续走下游,等于把\"没有结果\"伪装成\"有结果\",比不过滤更危险。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:filter_by_threshold 就是把一个列表按条件拆成两个列表;空结果要有兜底分支。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:列表推导 [(d, s) for d, s in results if s >= threshold];空判断用 if not kept。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:kept = [(d, s) for d, s in results if s >= threshold];dropped 同理取 <;兜底打印「未找到可靠结果:请换个说法,或转人工查阅。」。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "阈值过滤 + 空集兜底",
+          "language": "python",
+          "code": "kept = [(d, s) for d, s in results if s >= threshold]\ndropped = [(d, s) for d, s in results if s < threshold]\nif not kept:\n    print(\"未找到可靠结果:请换个说法,或转人工查阅。\")",
+          "description": "RAG 防幻觉的第一道闸:低分内容不进 prompt。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "score 阈值过滤",
+          "definition": "对检索分数设及格线,低于阈值的候选一律丢弃,防止低质量内容进入下游生成环节。"
+        },
+        {
+          "name": "弃权优于错答",
+          "definition": "检索系统的设计原则:没有可靠结果时显式返回空并走兜底话术,优于返回低分噪声让 LLM 硬答。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "本地 embedding 与向量计算",
+          "description": "hashlib/md5 定桶 + math 归一化 + dataclass 建模,纯标准库实现离线 embedding 检索,沙箱零依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/",
+          "category": "库",
+          "installHint": "无需安装,Python 3.12 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没填:请补全 filter_by_threshold 与空结果兜底。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "filter_by_threshold",
+          "message": "请实现 filter_by_threshold 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "SCORE_THRESHOLD",
+          "message": "阈值应使用常量 SCORE_THRESHOLD,不要散落魔法数字。",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "\\[丢弃\\].+低于阈值[\\s\\S]*未找到可靠结果",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应看到被丢弃的低分结果,且馆外查询触发「未找到可靠结果」兜底。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-retrieval-rerank-s4",
+      "taskId": "t22-retrieval-rerank",
+      "order": 4,
+      "title": "交叉特征重排序:主题词 + 新鲜度",
+      "instruction": "### 目标\n实现**交叉特征重排序(cross-feature rerank)**:在纯语义分之上,叠加\"主题词命中\"与\"新鲜度\"两个业务特征,加权求出 final 分并重排,让《水上漂心法》这种\"问啥答啥还新\"的经书获得它应得的榜首。\n\n### 原理\n**单一向量分数表达不了业务偏好。** 语义分只回答\"内容像不像\",回答不了\"是不是用户问的那个专题\"、\"是不是修订过的新版\"。藏经阁给每卷经书画了人工主题词、记了更新天数 —— 这些**结构化信号**和向量分是正交的信息源,丢弃它们是对数据的浪费。\n\n**特征怎么设计?**\n- 主题词命中:`query 命中的主题词数 / 该书主题词总数`,归一到 [0,1],直接反映专题贴合度\n- 新鲜度:`exp(-距今更新天数 / τ)`,指数衰减 —— 刚修订的接近 1,τ=30 意味着一个月前的书约剩 0.37 的\"新鲜分\",一年前几乎归零\n- 线性加权:`final = α·语义 + β·主题词 + γ·新鲜度`,α+β+γ=1,语义仍占主导(0.6),业务特征只做\"纠偏\"不做\"颠覆\"\n\n**为什么不一步到位用交叉特征检索?** 向量检索的作用是从海量候选里快速圈出一个\"还不错的池子\"(召回);重排序是在小池子里精雕细琢(精排)。召回贵、精排便宜,两阶段分工是工业检索的标配。\n\n### 操作\n1. 补全 `rerank` 里的三特征计算与加权求和\n2. 运行,对比\"重排前 / 重排后\"两个榜单,看《水上漂心法》凭主题词双命中逆袭\n3. 把 `gamma` 调成 0.4 再跑,观察陈旧经书如何被进一步压下去\n\n### 常见坑\n- **特征量纲不统一就相加**:语义分在 [0,1]、命中数是整数、天数是几百 —— 不归一化直接加权,量大的特征会淹没其余。每个特征先压到 [0,1] 再谈权重。\n- **`kw in query` 写成 `query in kw`**:方向反了逻辑全错;另外中文主题词匹配是子串匹配,\"轻功\"能命中\"轻功心法\",这是特性不是 bug,但主题词表要克制,避免\"功\"这种单字词。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:对每条候选算三个 [0,1] 特征(语义分已是其一),按 α/β/γ 加权求 final,再按 final 重排。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:kw_score = sum(1 for kw in doc.keywords if kw in query) / len(doc.keywords);fresh = math.exp(-doc.updated_days_ago / tau)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:final = alpha * sem + beta * kw_score + gamma * fresh;reranked.append((doc, final, sem, kw_score, fresh))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "三特征加权的一行公式",
+          "language": "python",
+          "code": "kw_score = hits / max(len(doc.keywords), 1)   # 主题词命中率 [0,1]\nfresh = math.exp(-doc.updated_days_ago / tau)   # 新鲜度指数衰减 [0,1]\nfinal = alpha * sem + beta * kw_score + gamma * fresh  # 语义主导,业务纠偏",
+          "description": "特征先归一化再加权,权重和为 1,语义始终占主导。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "重排序(rerank)",
+          "definition": "在向量召回的小候选集上,叠加业务特征重新打分排序的精排阶段,与召回阶段分工协作。"
+        },
+        {
+          "name": "交叉特征",
+          "definition": "与向量语义分正交的结构化信号(主题词、时间、来源权威度等),用于表达单一向量无法承载的业务偏好。"
+        },
+        {
+          "name": "指数衰减",
+          "definition": "exp(-x/τ) 形式的衰减函数,τ 为时间常数;用于把「多久没更新」平滑映射为 [0,1] 的新鲜度分。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "本地 embedding 与向量计算",
+          "description": "hashlib/md5 定桶 + math 归一化 + dataclass 建模,纯标准库实现离线 embedding 检索,沙箱零依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/",
+          "category": "库",
+          "installHint": "无需安装,Python 3.12 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没填:请补全 rerank 的三特征加权。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "rerank",
+          "message": "请实现 rerank 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "math\\.exp",
+          "message": "新鲜度特征应使用 math.exp 指数衰减。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "重排后[\\s\\S]*final=0\\.\\d{4} \\(语义=0\\.\\d{4} 主题词=0\\.\\d{2} 新鲜=0\\.\\d{2}\\)",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印重排前后对比,重排后每行带 final/语义/主题词/新鲜四项分数。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-retrieval-rerank-s5",
+      "taskId": "t22-retrieval-rerank",
+      "order": 5,
+      "title": "检索命中率评估脚本",
+      "instruction": "### 目标\n为藏经阁写一个**检索命中率评估脚本**:用 5 条带标注的查询(EVAL_SET),在 k=1(榜首)口径下分别给\"纯相似度\"和\"加重排序\"两种策略打分,用数字证明前四步的优化到底值不值。\n\n### 原理\n**没有评估集的优化都是盲人摸象。** 前四步我们凭直觉加了 MMR、阈值、重排序,每个都\"听起来对\",但工程上只认一个东西:在标注数据上的指标变化。**Hit Rate@k**(命中率@k)是最直观的检索指标 —— 对每条标注 query,只要期望文档出现在前 k 条结果里就算命中,最后统计命中比例。它等价于\"召回率@k 的单标签版\",是 RAG 系统回归测试的最低配置。\n\n**标注集怎么来?** 从真实用户 query 里抽样,人工指认\"这个问题就该命中哪卷经书\"。本任务给了 5 条,覆盖轻功、掌法、疗伤、暗器、剑法五个专题。注意其中\"踏水而行能躲开唐门暗器吗\"是故意设计的**关键词驱动型 query**:\"踏水而行\"把语义分拉向《凌波微步》,但主题词\"唐门/暗器\"双命中能把《暴雨梨花针》救回榜首 —— 它就是为重排序策略准备的加分题。\n\n**为什么本步用 k=1 而不是 k=3?** 重排序主要改变的是\"榜首归属\",@3 口径下正确答案只要挤进前三就算命中,重排的价值被掩盖;@1 专考第一名,谁动榜首一目了然。跑评估时还要注意:重排的输入必须是\"宽召回池\"(本步取前 5),只在 top-1 上重排等于没排。\n\n**评估的纪律**:指标只对策略对比有意义,单看一个数字没有意义;跑评估的代码路径必须和线上检索路径完全一致,否则评的是\"另一个系统\"。\n\n### 操作\n1. 补全 `hit_rate_at_k` 的命中判断与逐条打印(`[HIT]` / `[MISS]`)\n2. 运行,对比两种策略的逐条结果和最终命中率\n3. 试着把某条标注改错(比如期望 d99),观察 MISS 如何暴露问题 —— 感受评估集的\"探针\"作用\n\n### 常见坑\n- **评估路径和线上路径不一致**:比如评估时忘了走阈值过滤,评出来的高分上线就露馅。本步为了对比纯粹先不滤,s6 会统一管线再评。\n- **k 的选择自欺欺人**:k=8(语料总共 8 卷)时命中率必然 100%,指标失去区分度;@3 看召回、@1 看榜首,要按你想验证的优化点选口径 —— 本步验证重排序,榜首才是它的战场。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:对每条标注 query 跑检索,看期望 doc_id 是否落在前 k 条的 id 列表里,统计比例。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:got = [d.doc_id for d, _ in results];ok = expected in got;打印用 f\"[{'HIT' if ok else 'MISS'}] ...\"。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:hits += ok;print(f\"  [{'HIT' if ok else 'MISS'}] {query} -> {got} (期望 {expected})\");循环外 return hits / len(eval_set)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Hit Rate@k 的判定核心",
+          "language": "python",
+          "code": "got = [d.doc_id for d, _ in results]   # 前 k 条的编号\nok = expected in got                    # 期望经书是否上榜\nhits += ok                              # bool 即 0/1,直接累加",
+          "description": "单标签场景下 Hit Rate@k 就是 Recall@k,RAG 回归测试的最低配置。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Hit Rate@k",
+          "definition": "命中率@k:期望文档出现在前 k 条结果中即记命中,统计全部标注 query 的命中比例,衡量检索召回质量。"
+        },
+        {
+          "name": "标注集(EVAL_SET)",
+          "definition": "由真实 query 与人工指认的期望文档组成的评估数据集,是一切检索策略对比的地基。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "本地 embedding 与向量计算",
+          "description": "hashlib/md5 定桶 + math 归一化 + dataclass 建模,纯标准库实现离线 embedding 检索,沙箱零依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/",
+          "category": "库",
+          "installHint": "无需安装,Python 3.12 自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没填:请补全 hit_rate_at_k 的命中判断。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "hit_rate_at_k",
+          "message": "请实现 hit_rate_at_k 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "EVAL_SET",
+          "message": "评估要基于 EVAL_SET 标注集。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "\\[HIT\\][\\s\\S]*命中率@1:纯相似度=\\d+% 加重排序=\\d+%",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应逐条打印 HIT/MISS,并输出两种策略的命中率对比。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t22-retrieval-rerank-s6",
+      "taskId": "t22-retrieval-rerank",
+      "order": 6,
+      "title": "藏经阁检索管线总装与总评测",
+      "instruction": "### 目标\n藏经阁竣工:把前五步的零件(向量检索 → MMR → 阈值过滤 → 交叉特征重排序)封装成 `CangjingRetriever` 管线类,支持 `plain / mmr / full` 三档策略,并用统一评估做三策略总评测,输出最终报告。\n\n### 原理\n**为什么要封装成\"管线\"而不是一摞散函数?** 散函数的问题是每个调用方都要自己记住\"先 MMR 再过滤再重排\"的顺序,顺序错一步(比如先截 top-3 再 MMR,候选池只剩 3 个,MMR 无从发挥)系统就悄悄退化。把编排收进一个类,对外只暴露 `retrieve(query, k, strategy)`,是把\"易错的协作\"变成\"可靠的组件\"。\n\n**策略分档是真实系统的常态**:线上要稳(full),A/B 实验要对照组(plain / mmr),调试时要能单独关掉某一段。用 `strategy` 参数切换而不是复制三份代码,保证三档共享同一个向量库、同一份语料,对比才公平。\n\n**候选池要大于 k**:MMR 和重排序都需要\"富余的候选\"才有腾挪空间,所以管线先取 `pool_size=6` 个候选,逐段加工,最后才截前 k。这是\"召回多、精排狠\"思想在代码里的落点。\n\n**评测口径取 k=1**:8 卷小语料上 @3 三档都会满分,看不出差异;@1 专考榜首归属。这里有一个必然现象值得玩味:**mmr 档的 @1 永远和 plain 相同** —— MMR 第一轮没有已选集可惩罚,第一名一定是纯相似度第一名,它的价值在榜单后段的多样性(s2 已见证);真正能动榜首的是 full 档的重排序。\n\n### 操作\n1. 补全 `CangjingRetriever.retrieve` 的三档分支:plain 直通;mmr 走 MMR+阈值;full 再叠重排序\n2. 运行,看三档策略的命中率@1 总评测(plain 与 mmr 持平、full 反超)和演示查询的最终榜单\n3. 把 `pool_size` 改成 3 再跑,观察候选池缩水对 full 策略的影响,并想想:为什么本语料上影响有限、什么情况下会致命\n\n### 常见坑\n- **先截 top-k 再进管线**:在 `search(query, k=3)` 的结果上做 MMR/重排,候选池只有 3 个,等于废掉两段加工的想象力;管线内部必须自己控制 pool_size。\n- **阈值过滤放在重排序之后**:重排序的 final 分混入了主题词和新鲜度,量纲和语义阈值不再兼容;过滤必须在语义分还有意义的时候(重排之前)做。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:retrieve 按 strategy 分三档 —— plain 直通 search;mmr 走 MMR→阈值;full 再叠 rerank,每档最后截前 k。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:mmr_search(self.store, query, k=self.pool_size, lambda_param=self.lambda_param) 先取 6 个候选;kept/dropped 用两行列表推导按 self.threshold 切。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:full 分支写 return rerank(kept, query)[:k], dropped;plain 分支提前 return self.store.search(query, k=k), []。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "三档策略的编排骨架",
+          "language": "python",
+          "code": "def retrieve(self, query, k=3, strategy=\"full\"):\n    if strategy == \"plain\":\n        return self.store.search(query, k=k), []\n    cands = mmr_search(self.store, query, k=self.pool_size, lambda_param=self.lambda_param)\n    kept = [(d, s) for d, s in cands if s >= self.threshold]\n    dropped = [(d, s) for d, s in cands if s < self.threshold]\n    if strategy == \"mmr\":\n        return kept[:k], dropped\n    return rerank(kept, query)[:k], dropped",
+          "description": "召回多(pool_size=6)、精排狠(截前 k),三档共享同一向量库保证对比公平。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "检索管线(retrieval pipeline)",
+          "definition": "把召回、去冗余、过滤、精排等阶段编排为固定顺序的组件,对外只暴露统一入口,避免调用方编排出错。"
+        },
+        {
+          "name": "候选池(pool_size)",
+          "definition": "召回阶段保留的候选数量,必须大于最终返回数 k,为 MMR 与重排序留出腾挪空间。"
+        },
+        {
+          "name": "A/B 策略分档",
+          "definition": "同一管线支持多档策略(如 plain/mmr/full)以便对照实验,共享数据与基座保证对比公平。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "本地 embedding 与向量计算",
+          "description": "hashlib/md5 定桶 + math 归一化 + dataclass 建模,纯标准库实现离线 embedding 检索,沙箱零依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/",
+          "category": "库",
+          "installHint": "无需安装,Python 3.12 自带"
+        },
+        {
+          "name": "LangChain 检索思想",
+          "role": "概念映射(本任务不依赖)",
+          "description": "本任务手写的 VectorStore/MMR/rerank 分别对应 LangChain 的 VectorStoreRetriever、max_marginal_relevance_search 与 ContextualCompressionRetriever,学会原理后可直接迁移。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain(本任务沙箱内不需要)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没填:请补全 CangjingRetriever.retrieve 的三档策略。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "class_def",
+          "name": "CangjingRetriever",
+          "message": "请把管线封装在 CangjingRetriever 类里。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "retrieve",
+          "message": "管线入口 retrieve 方法必须存在。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "策略 plain 命中率@1 = \\d+%[\\s\\S]*策略 full  命中率@1 = \\d+%[\\s\\S]*藏经阁检索管线就绪",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应输出三档策略命中率与「藏经阁检索管线就绪」。",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

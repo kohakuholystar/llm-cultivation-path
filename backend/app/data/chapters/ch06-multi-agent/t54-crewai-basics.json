@@ -1,0 +1,213 @@
+{
+  "steps": [
+    {
+      "id": "t54-crewai-basics-s1",
+      "taskId": "t54-crewai-basics",
+      "order": 1,
+      "title": "CrewAI 基础",
+      "instruction": "### 目标\n理解 CrewAI 的核心抽象:**Agent(角色) + Task(任务) + Crew(团队)** 三件套,并手写等价的最小实现。\n\n### 背景: CrewAI 的设计哲学\nCrewAI 把多 Agent 协作建模成\"公司团队\":\n- **Agent = 员工**:有 role(职位)、goal(目标)、backstory(背景故事)。backstory 不是装饰——它注入 system prompt,让 LLM 以特定视角思考(\"你是10年经验的数据分析师,对数据质量吹毛求疵\")\n- **Task = 工单**:有 description(做什么)、expected_output(交付物的明确规格)、agent(谁来干)\n- **Crew = 项目组**:把 Agent 和 Task 组装起来,按 process(sequential/hierarchical)执行\n\n### expected_output 是被低估的关键\n新手写 Task 只写 description(\"分析一下数据\"),结果交付物五花八门。**expected_output 是验收标准**:\"一份 500 字摘要,含 3 个关键指标和 1 张趋势描述,用中文\"——写清它,Agent 的输出质量立刻稳定。\n\n### 操作\n1. 用 dataclass 定义 Agent/Task/Crew 三个类\n2. Crew.kickoff():顺序执行每个 Task,前一个输出作为后一个上下文\n3. 组建\"研究员+作家\"两人团队完成一篇短文",
+      "starterCode": "from crewai import Agent, Task, Crew\n\nresearcher = Agent(\n    role='研究员', goal='研究AI主题', backstory='资深研究员',\n    llm='deepseek-v4-pro'\n)\nwriter = Agent(\n    role='写手', goal='写科普文章', backstory='资深写手',\n    llm='deepseek-v4-pro'\n)\n\n# 定义任务\ntask1 = Task(description='研究Transformer', agent=researcher, expected_output='3个要点')\ntask2 = Task(description=, agent=writer, expected_output='100字文章')\n\n# 组成 Crew 并运行\ncrew = Crew(agents=[researcher, writer], tasks=[task1, task2])\nresult = crew.kickoff()\nprint(result)",
+      "solutionCode": "from crewai import Agent, Task, Crew\n\nresearcher = Agent(role='研究员', goal='研究AI主题', backstory='资深研究员', llm='deepseek-v4-pro')\nwriter = Agent(role='写手', goal='写科普文章', backstory='资深写手', llm='deepseek-v4-pro')\n\ntask1 = Task(description='研究Transformer', agent=researcher, expected_output='3个要点')\ntask2 = Task(description='根据研究写100字科普', agent=writer, expected_output='100字文章')\n\ncrew = Crew(agents=[researcher, writer], tasks=[task1, task2])\nresult = crew.kickoff()\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Agent 有 role/goal/backstory/llm。"
+        },
+        {
+          "order": 2,
+          "text": "Task 有 description/agent/expected_output。"
+        },
+        {
+          "order": 3,
+          "text": "Crew(agents, tasks).kickoff() 运行。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from crewai import Agent, Task, Crew\ncrew = Crew(agents=[...], tasks=[...])\ncrew.kickoff()"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Crew",
+          "definition": "协作的 Agent 团队"
+        },
+        {
+          "name": "Agent",
+          "definition": "有角色的团队成员"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "crewai",
+          "role": "多Agent框架",
+          "description": "CrewAI 是多 Agent 协作框架,定义 Agent/Task/Crew 让多个角色分工协作完成复杂任务,适合自动化工作流。Crew/Agent/Task",
+          "officialUrl": "https://github.com/crewAIInc/crewAI",
+          "category": "多Agent框架",
+          "installHint": "pip install crewai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 Crew。",
+          "api": "Crew",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t54-crewai-basics-s2",
+      "taskId": "t54-crewai-basics",
+      "order": 2,
+      "title": "LangGraph StateGraph",
+      "instruction": "### 目标\n实现 Crew 的**上下文传递与依赖管理**:后续任务能拿到前面任务的结果,形成工作流。\n\n### 背景: 任务间的数据流\nCrewAI sequential 模式下,默认把**前一个任务的输出**传给下一个任务作为 context。但更精细的控制:\n- **显式依赖**:Task C 声明 `context=[task_a, task_b]`——只拿 A 和 B 的结果,不要中间无关步骤的输出(省 token,防干扰)\n- **输出持久化**:每个 Task 的 output 可以 `output_file` 落盘,断点续跑时直接读\n\n### 上下文污染的陷阱\n把前面**所有**任务输出无脑塞进下一个任务的 prompt,会导致:\n- token 爆炸(任务链长了根本装不下)\n- 重点稀释(关键信息淹没在无关输出里)\n**原则:只传下游真正需要的**,这就是为什么 CrewAI 提供显式 context 声明。\n\n### 操作\n1. Task 增加 `context` 字段(声明依赖的前置任务)\n2. Crew.kickoff() 按依赖解析执行顺序(拓扑排序)\n3. 实现\"研究→(写作+校对都依赖研究,但互不依赖)\"的 DAG 执行",
+      "starterCode": "from typing import TypedDict, Annotated\nfrom langgraph.graph import StateGraph, END\n\n# 定义共享状态\nclass State(TypedDict):\n    question: str\n    research: str\n    answer: str\n\ndef research_node(state):\n    # 研究节点, 写 state['research']\n    state['research'] = f'研究:{state[\"question\"]}'\n    return state\n\ndef answer_node(state):\n    state['answer'] = f'基于{state[\"research\"]}回答'\n    return state\n\n# 建图\ngraph = StateGraph(State)\ngraph.add_node('research', research_node)\ngraph.add_node('answer', answer_node)\ngraph.add_edge('research', 'answer')\ngraph.add_edge('answer', END)\ngraph.set_entry_point('research')\n\napp = graph.compile()\nresult = app.invoke({'question': '什么是AI?'})\nprint(result)",
+      "solutionCode": "from typing import TypedDict\nfrom langgraph.graph import StateGraph, END\n\nclass State(TypedDict):\n    question: str\n    research: str\n    answer: str\n\ndef research_node(state):\n    state['research'] = f'研究:{state[\"question\"]}'\n    return state\n\ndef answer_node(state):\n    state['answer'] = f'基于{state[\"research\"]}回答'\n    return state\n\ngraph = StateGraph(State)\ngraph.add_node('research', research_node)\ngraph.add_node('answer', answer_node)\ngraph.add_edge('research', 'answer')\ngraph.add_edge('answer', END)\ngraph.set_entry_point('research')\n\napp = graph.compile()\nresult = app.invoke({'question': '什么是AI?'})\nprint(result)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "StateGraph(State) 建图。"
+        },
+        {
+          "order": 2,
+          "text": "add_node 加节点,add_edge 加边。"
+        },
+        {
+          "order": 3,
+          "text": "compile() 编译,invoke 运行。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from langgraph.graph import StateGraph\ngraph = StateGraph(State)\ngraph.add_node('n', func)\ngraph.add_edge('n', END)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "StateGraph",
+          "definition": "状态图,节点是函数"
+        },
+        {
+          "name": "State",
+          "definition": "共享状态 TypedDict"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langgraph",
+          "role": "多Agent图",
+          "description": "LangGraph 是 LangChain 推出的有状态多 Agent 编排框架,基于图结构定义节点与边,支持循环/条件分支/人机协作,适合复杂 Agent 工作流。",
+          "officialUrl": "https://github.com/langchain-ai/langgraph",
+          "category": "框架",
+          "installHint": "pip install langgraph"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 StateGraph。",
+          "api": "StateGraph",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t54-crewai-basics-s3",
+      "taskId": "t54-crewai-basics",
+      "order": 3,
+      "title": "多 Agent 工作流总结",
+      "instruction": "### 目标\n对比 CrewAI 的两种 process:**sequential(顺序) vs hierarchical(层级)**,并用代码实现 hierarchical。\n\n### 背景: 两种执行模式\n- **sequential**:任务按声明顺序依次执行,像流水线。简单可预测,适合工序固定的场景\n- **hierarchical**:自动生成一个 manager Agent,它决定任务分派顺序、验收工人交付物、不合格打回——**就是 t52 的 Supervisor 模式,CrewAI 帮你内置了**\n\n### hierarchical 的工程细节\nmanager 不是免费的:\n- 每次分派/验收都是一次 LLM 调用,**成本约为 sequential 的 2-3 倍**\n- manager 的 system prompt 质量直接决定编排质量(CrewAI 默认 prompt 一般,生产建议自定义 manager_llm)\n- 打回循环必须有上限(max_iter),否则\"永远不满意\"循环烧钱\n\n### 选型建议\n工序固定(研究→写→审)→ sequential;任务边界模糊、需要临场判断(如\"尽调这家公司\")→ hierarchical。\n\n### 操作\n1. 在迷你 Crew 框架里加 `process` 字段\n2. sequential:按列表顺序跑;hierarchical:manager 动态选下一个任务+验收\n3. 同一组任务分别用两种模式跑,对比执行路径",
+      "starterCode": "# t54-s3: sequential vs hierarchical 两种 Crew 执行模式\nclass MiniCrew:\n    def __init__(self, tasks: list, process: str = \"sequential\", max_iter: int = 8):\n        self.tasks = {t[\"name\"]: t for t in tasks}\n        self.process = process\n        self.max_iter = max_iter\n\n    def kickoff(self) -> dict:\n        if self.process == \"sequential\":\n            return self._run_sequential()\n        return self._run_hierarchical()\n\n    def _run_sequential(self) -> dict:\n        # TODO: 按 tasks 声明顺序执行, 每个输出存入 results, 记录执行路径 path\n        return {}\n\n    def _run_hierarchical(self) -> dict:\n        # TODO: manager 循环决策:\n        #   1. 找未完成的任务里优先级最高的(模拟: 按声明顺序取第一个未完成)\n        #   2. 执行并\"验收\"(模拟: 结果长度>10 字算通过)\n        #   3. 全部完成或超 max_iter 结束\n        return {}\n\n\nTASKS = [\n    {\"name\": \"research\", \"desc\": \"调研注意力机制\", \"work\": lambda: \"资料: QKV点积加权求和\"},\n    {\"name\": \"write\", \"desc\": \"写科普文\", \"work\": lambda: \"科普文: 注意力就像读书时划重点\"},\n    {\"name\": \"review\", \"desc\": \"审校\", \"work\": lambda: \"审校通过: 准确且易懂\"},\n]\n\nif __name__ == \"__main__\":\n    for mode in [\"sequential\", \"hierarchical\"]:\n        result = MiniCrew(TASKS, process=mode).kickoff()\n        print(f\"=== {mode} ===\")\n        print(f\"  路径: {' → '.join(result.get('path', []))}\")\n        print(f\"  结果数: {len(result.get('results', {}))}\")\n        print()\n",
+      "solutionCode": "# t54-s3: sequential vs hierarchical 两种 Crew 执行模式\nclass MiniCrew:\n    def __init__(self, tasks: list, process: str = \"sequential\", max_iter: int = 8):\n        self.tasks = {t[\"name\"]: t for t in tasks}\n        self.order = [t[\"name\"] for t in tasks]  # 声明顺序\n        self.process = process\n        self.max_iter = max_iter\n\n    def kickoff(self) -> dict:\n        if self.process == \"sequential\":\n            return self._run_sequential()\n        return self._run_hierarchical()\n\n    def _run_sequential(self) -> dict:\n        results, path = {}, []\n        for name in self.order:\n            path.append(name)\n            results[name] = self.tasks[name][\"work\"]()\n        return {\"results\": results, \"path\": path, \"llm_calls\": len(self.order)}\n\n    def _run_hierarchical(self) -> dict:\n        results, path = {}, []\n        done = set()\n        llm_calls = 0\n        for _ in range(self.max_iter):\n            remaining = [n for n in self.order if n not in done]\n            if not remaining:\n                break\n            # manager 决策(模拟): 选第一个未完成的\n            chosen = remaining[0]\n            llm_calls += 1  # manager 分派 = 1次调用\n            path.append(f\"manager→{chosen}\")\n            output = self.tasks[chosen][\"work\"]()\n            # manager 验收(模拟): 输出长度>10字通过\n            llm_calls += 1  # 验收又1次调用\n            if len(output) > 10:\n                results[chosen] = output\n                done.add(chosen)\n                path.append(f\"{chosen}✓\")\n            else:\n                path.append(f\"{chosen}✗打回\")\n        return {\"results\": results, \"path\": path, \"llm_calls\": llm_calls}\n\n\nTASKS = [\n    {\"name\": \"research\", \"desc\": \"调研注意力机制\", \"work\": lambda: \"资料: QKV点积加权求和\"},\n    {\"name\": \"write\", \"desc\": \"写科普文\", \"work\": lambda: \"科普文: 注意力就像读书时划重点\"},\n    {\"name\": \"review\", \"desc\": \"审校\", \"work\": lambda: \"审校通过: 准确且易懂\"},\n]\n\nif __name__ == \"__main__\":\n    for mode in [\"sequential\", \"hierarchical\"]:\n        r = MiniCrew(TASKS, process=mode).kickoff()\n        print(f\"=== {mode} ===\")\n        print(f\"  路径: {' → '.join(r['path'])}\")\n        print(f\"  LLM调用数: {r['llm_calls']}\")\n        print()\n    print(\"结论: hierarchical 多了 manager 的分派+验收调用, 成本约2倍, 但获得动态编排能力\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "CrewAI 角色化,线性协作易用。"
+        },
+        {
+          "order": 2,
+          "text": "LangGraph 图结构,灵活支持复杂流转。"
+        },
+        {
+          "order": 3,
+          "text": "线性用 CrewAI,复杂用 LangGraph。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# CrewAI: 角色驱动\n# LangGraph: 图驱动"
+        }
+      ],
+      "terms": [
+        {
+          "name": "CrewAI",
+          "definition": "角色化多Agent框架"
+        },
+        {
+          "name": "LangGraph",
+          "definition": "图结构工作流框架"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langgraph",
+          "role": "多Agent图",
+          "description": "LangGraph 是 LangChain 推出的有状态多 Agent 编排框架,基于图结构定义节点与边,支持循环/条件分支/人机协作,适合复杂 Agent 工作流。",
+          "officialUrl": "https://github.com/langchain-ai/langgraph",
+          "category": "框架",
+          "installHint": "pip install langgraph"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 MiniCrew。",
+          "astType": "class_def",
+          "name": "MiniCrew",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 _run_hierarchical。",
+          "astType": "function_def",
+          "name": "_run_hierarchical",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

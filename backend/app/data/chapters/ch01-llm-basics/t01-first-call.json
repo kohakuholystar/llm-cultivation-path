@@ -1,0 +1,219 @@
+{
+  "steps": [
+    {
+      "id": "t01-first-call-s1",
+      "taskId": "t01-first-call",
+      "order": 1,
+      "title": "配置客户端与发送第一条消息",
+      "instruction": "### 目标\n完成第一次 LLM API 调用:配置客户端、发送消息、拿到回复。这是后续一切的基础——**所有 Agent 魔法,拆到底都是这一步的循环调用**。\n\n### 背景: openai SDK 为什么能调国产模型\nDeepSeek/通义/Moonshot 都实现了 **OpenAI 兼容协议**(同样的端点路径、同样的请求/响应 JSON 结构)。所以:\n- `base_url` 决定调哪家:`api.deepseek.com` = DeepSeek;改一个域名就换厂商\n- `api_key` 是你在对应平台申请的密钥\n- 学会这一套,等于学会了所有国产模型的调用方式\n\n### 三个必懂参数\n| 参数 | 作用 | 本任务取值 |\n|------|------|-----------|\n| model | 调哪个模型 | deepseek-v4-pro |\n| messages | 对话历史(角色+内容) | [{\"role\":\"user\",\"content\":\"...\"}] |\n| temperature | 随机性(0=确定,越大越发散) | 先不管,用默认 |\n\n### 响应结构\n`response.choices[0].message.content` 是回复文本。choices 是数组(可以要多个候选回复),一般取第 0 个。\n\n### 操作\n1. 从环境变量读 api_key/base_url(**密钥永不写进代码**——进了 git 就是泄漏)\n2. 创建 OpenAI 客户端,发送\"你好,世界!\"\n3. 打印回复文本",
+      "starterCode": "import os\nfrom openai import OpenAI\n\n# 从环境变量读取配置(兼容国内 OpenAI 兼容接口, 沙箱运行时自动注入)\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=model,\n    messages=[{\"role\": \"user\", \"content\": \"你好,世界!\"}]\n)\n\n# TODO: 提取并打印回复内容\n# 提示: print(response.choices[0].message.content)\n",
+      "solutionCode": "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ[\"OPENAI_API_KEY\"],\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=model,\n    messages=[{\"role\": \"user\", \"content\": \"你好,世界!\"}]\n)\n\nprint(response.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "response.choices[0].message.content 获取回复文本。"
+        },
+        {
+          "order": 2,
+          "text": "base_url 决定调哪个 AI(改这个就能切换 DeepSeek/通义/Moonshot)。"
+        },
+        {
+          "order": 3,
+          "text": "os.environ 从环境变量读,避免硬编码 key。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 切换模型只改 base_url + model\n# DeepSeek: base_url='https://api.deepseek.com', model='deepseek-v4-pro'\n# 通义: base_url='https://dashscope.aliyuncs.com/compatible-mode/v1', model='qwen-max'"
+        }
+      ],
+      "terms": [
+        {
+          "name": "base_url",
+          "definition": "API 地址,决定调哪个 AI"
+        },
+        {
+          "name": "OpenAI 兼容",
+          "definition": "国内 AI 用同一 SDK,只改 base_url"
+        },
+        {
+          "name": "MODEL_NAME",
+          "definition": "模型名,如 deepseek-v4-pro/qwen-max"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需调用 OpenAI。",
+          "api": "OpenAI",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需调用 chat.completions.create。",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出模型回复。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t01-first-call-s2",
+      "taskId": "t01-first-call",
+      "order": 2,
+      "title": "理解角色与多轮对话",
+      "instruction": "### 目标\n理解 messages 数组的**角色体系**:system / user / assistant 三种角色各自的语义。\n\n### 背景: 对话不是一句话,是一个剧本\nLLM 没有\"记忆\"——它看到的永远是**完整的 messages 数组**。三种角色:\n- **system**:导演给演员的\"人设说明书\"。整场对话生效,定义模型行为边界(\"你是严谨的代码助手,只回答技术问题\")\n- **user**:用户说的话\n- **assistant**:模型之前说过的话。多轮对话 = 把模型每轮回复也塞回 messages,它才知道\"自己刚才说过什么\"\n\n### system prompt 的威力\n同一个模型,system 不同就是不同产品:\n- \"你是小学老师,用孩子能懂的话解释\" → 科普 Bot\n- \"你是资深后端,回答给出代码并指出坑\" → 技术助手\n- \"你只输出 JSON\" → 结构化提取器\n**提示词工程的主战场就是 system prompt**——第 2 章的模板、第 4 章的 Agent 人设,都是它的延伸。\n\n### 操作\n1. 构造含 system + user 的 messages\n2. system 里给模型一个明确人设\n3. 对比:同一句 user,换两个不同 system,观察回复风格差异",
+      "starterCode": "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ[\"OPENAI_API_KEY\"],\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\n# 构造 system + user 消息(system 设定 AI 行为, user 是你的提问)\nmessages = [\n    {\"role\": \"system\", \"content\": \"你是一个友好的助手,用简短语言回答。\"},\n    {\"role\": \"user\", \"content\": \"介绍一下你自己。\"}\n]\n\nresponse = client.chat.completions.create(model=model, messages=messages)\nprint(response.choices[0].message.content)\n",
+      "solutionCode": "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ[\"OPENAI_API_KEY\"],\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nmessages = [\n    {\"role\": \"system\", \"content\": \"你是一个友好的助手,用简短语言回答。\"},\n    {\"role\": \"user\", \"content\": \"介绍一下你自己。\"}\n]\n\nresponse = client.chat.completions.create(model=model, messages=messages)\nprint(response.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "system 消息放第一个,设定角色。"
+        },
+        {
+          "order": 2,
+          "text": "user 消息跟后面,提问。"
+        },
+        {
+          "order": 3,
+          "text": "messages 是列表,按对话顺序。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "messages = [{'role':'system','content':'...'}, {'role':'user','content':'...'}]"
+        }
+      ],
+      "terms": [
+        {
+          "name": "System",
+          "definition": "设定 AI 行为角色"
+        },
+        {
+          "name": "User",
+          "definition": "用户输入消息"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "ast_structure",
+          "message": "需 assign。",
+          "astType": "assign",
+          "name": "messages",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行成功并输出回复。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t01-first-call-s3",
+      "taskId": "t01-first-call",
+      "order": 3,
+      "title": "控制回复长度与温度",
+      "instruction": "### 目标\n掌握控制生成的关键参数:**max_tokens 与 temperature**,理解它们对成本和行为的影响。\n\n### 背景: 两个最常用旋钮\n- **max_tokens**:生成上限。注意:它是\"上限\"不是\"目标\"——模型想说多少说多少,到这里被截断。设小了回答被切,设大了不会变话痨但**计费按实际生成算**\n- **temperature**:采样温度。0 = 永远选概率最高的词(确定、稳定、可能死板);1 = 按概率自然采样;>1 = 更随机\n\n### 工程取值建议\n- 代码/JSON/数学:**temperature=0**(错一个字符就废,必须确定)\n- 客服/问答:0.3-0.7\n- 创意写作:0.8-1.2\n- **排错第一步**:模型输出不稳定?先把 temperature 调 0 排除随机性干扰\n\n### token 计费直觉\nDeepSeek 约 ¥1-2/百万输入 token、¥8/百万输出 token(以官网为准)。**输出比输入贵**——让模型\"闭嘴\"是省钱第一招。\n\n### 操作\n1. 设置 max_tokens=50,观察回复被截断的效果\n2. temperature=0 连发 2 次同样的问题,验证回复完全一致\n3. temperature=1.5 再发 2 次,观察差异",
+      "starterCode": "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ[\"OPENAI_API_KEY\"],\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=model,\n    messages=[{\"role\": \"user\", \"content\": \"请用一句话描述AI的未来。\"}],\n    # 设置 max_tokens=50  (提示: max_tokens=50,)\n    # 设置 temperature=0.0  (提示: temperature=0.0,)\n)\n\nprint(response.choices[0].message.content)\n",
+      "solutionCode": "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ[\"OPENAI_API_KEY\"],\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=model,\n    messages=[{\"role\": \"user\", \"content\": \"请用一句话描述AI的未来。\"}],\n    max_tokens=50,\n    temperature=0.0,\n)\n\nprint(response.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "max_tokens 限制回复长度(整数)。"
+        },
+        {
+          "order": 2,
+          "text": "temperature 控制随机性(0.0 最确定)。"
+        },
+        {
+          "order": 3,
+          "text": "create 的关键字参数。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "response = client.chat.completions.create(..., max_tokens=50, temperature=0.0)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "max_tokens",
+          "definition": "回复最大 token 数"
+        },
+        {
+          "name": "temperature",
+          "definition": "随机性 0-2,0 最确定"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK,提供 ChatCompletion/Embedding 等接口。通过 base_url 参数可切换到 DeepSeek/通义/Moonshot 等国内兼容接口,同一套代码调不同模型。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "regex_in_code",
+          "message": "需设 max_tokens。",
+          "pattern": "max_tokens\\s*=\\s*\\d+",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需设 temperature。",
+          "pattern": "temperature\\s*=\\s*[0-9.]+",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,234 @@
+{
+  "steps": [
+    {
+      "id": "t72-capstone-implement-s1",
+      "taskId": "t72-capstone-implement",
+      "order": 1,
+      "title": "文档上传与切分",
+      "instruction": "### 目标\n实现 ingest 链路的第一步:**文档加载 + 智能切分**。这是 RAG 质量的源头——切分烂,后面检索再强也救不回来。\n\n### 背景: 切分策略的工程权衡\n- **固定长度切分**(每 500 字一刀):简单但会把一句话拦腰切断\n- **递归字符切分**(LangChain 默认):优先按 `\\n\\n` → `\\n` → `。` → `` 的层级切,尽量保住语义完整\n- **重叠(overlap)**:相邻切片重叠 10-15%,防止关键句恰好落在边界被切断。**重叠不是浪费,是保险**\n\n### 本步实现\n手写一个简化版递归切分器(不依赖 LangChain),理解它的核心逻辑:\n1. 按分隔符优先级尝试切分\n2. 每片不超过 `chunk_size`\n3. 相邻片保留 `overlap` 字符重叠\n4. 记录每片来源(文档+序号)——为引用功能铺路\n\n### 常见坑\n- chunk_size 太小(<200):语义破碎,检索噪声大\n- chunk_size 太大(>1000): embedding 对长文本的表征被\"平均化\",检索不精准\n- 中文按字符切没问题,英文按字符会切断单词(生产环境英文按 token 切)",
+      "starterCode": "# 毕业设计 Step7: 递归字符切分器\ndef recursive_split(text: str, chunk_size: int = 200, overlap: int = 30,\n                    separators=None) -> list:\n    \"\"\"递归切分: 按分隔符优先级切, 超长继续降一级切, 片间保留重叠。\"\"\"\n    if separators is None:\n        separators = [\"\\n\\n\", \"\\n\", \"。\", \" \", \"\"]\n\n    # TODO: 1. 选第一个能把 text 切开的分隔符\n    # TODO: 2. 按它切分, 把碎片合并成 <= chunk_size 的块\n    # TODO: 3. 对超长块用下一级分隔符递归\n    # TODO: 4. 相邻块之间保留 overlap 字符重叠\n    chunks = []\n    return chunks\n\n\n# 自测: 一篇模拟论文段落\npaper = (\n    \"注意力机制是 Transformer 的核心。它允许模型关注输入的不同位置。\\n\\n\"\n    \"QKV 是三个可学习矩阵。查询与键做点积得到注意力分数。\\n\\n\"\n    \"多头注意力把 d_model 拆成 h 个头并行。每个头学习不同的关注模式。\"\n)\n\nif __name__ == \"__main__\":\n    chunks = recursive_split(paper)\n    for i, c in enumerate(chunks):\n        print(f\"[{i}] ({len(c)}字) {c[:30]}...\")\n    print(f\"共 {len(chunks)} 片\")\n",
+      "solutionCode": "# 毕业设计 Step7: 递归字符切分器\ndef recursive_split(text: str, chunk_size: int = 200, overlap: int = 30,\n                    separators=None) -> list:\n    \"\"\"递归切分: 按分隔符优先级切, 超长继续降一级切, 片间保留重叠。\"\"\"\n    if separators is None:\n        separators = [\"\\n\\n\", \"\\n\", \"。\", \" \", \"\"]\n    if len(text) <= chunk_size:\n        return [text] if text.strip() else []\n\n    # 1. 选第一个能切开 text 的分隔符(空串=按字符硬切, 保底)\n    sep = separators[-1]\n    for s in separators:\n        if s == \"\" or s in text:\n            sep = s\n            break\n\n    # 2. 按选定分隔符切\n    parts = text.split(sep) if sep else list(text)\n\n    # 3. 贪心合并碎片成 <= chunk_size 的块, 超长块递归降一级\n    chunks, current = [], \"\"\n    for part in parts:\n        piece = part + sep if sep else part  # 把分隔符粘回去保住语义\n        if len(current) + len(piece) <= chunk_size:\n            current += piece\n        else:\n            if current.strip():\n                chunks.append(current)\n            # 单个 piece 就超长 → 用下一级分隔符递归\n            if len(piece) > chunk_size:\n                idx = separators.index(sep)\n                chunks.extend(recursive_split(piece, chunk_size, overlap, separators[idx + 1:]))\n                current = \"\"\n            else:\n                current = piece\n    if current.strip():\n        chunks.append(current)\n\n    # 4. 相邻块加 overlap 重叠(从前一块尾部借字符)\n    if overlap > 0 and len(chunks) > 1:\n        overlapped = [chunks[0]]\n        for i in range(1, len(chunks)):\n            prev_tail = chunks[i - 1][-overlap:]\n            overlapped.append(prev_tail + chunks[i])\n        return overlapped\n    return chunks\n\n\npaper = (\n    \"注意力机制是 Transformer 的核心。它允许模型关注输入的不同位置。\\n\\n\"\n    \"QKV 是三个可学习矩阵。查询与键做点积得到注意力分数。\\n\\n\"\n    \"多头注意力把 d_model 拆成 h 个头并行。每个头学习不同的关注模式。\"\n)\n\nif __name__ == \"__main__\":\n    chunks = recursive_split(paper)\n    for i, c in enumerate(chunks):\n        print(f\"[{i}] ({len(c)}字) {c[:30]}...\")\n    print(f\"共 {len(chunks)} 片\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "UploadFile 接收文件。"
+        },
+        {
+          "order": 2,
+          "text": "RecursiveCharacterTextSplitter 切分。"
+        },
+        {
+          "order": 3,
+          "text": "chunk_size/overlap 调参。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from langchain_text_splitters import RecursiveCharacterTextSplitter\nsplitter = RecursiveCharacterTextSplitter(chunk_size=500)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "文档切分",
+          "definition": "把长文档拆成小片段"
+        },
+        {
+          "name": "UploadFile",
+          "definition": "FastAPI 文件上传"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "fastapi",
+          "role": "Web框架",
+          "description": "现代 Python Web 框架,基于类型注解自动生成 API 文档与校验。用于把 LLM 应用部署成 HTTP 服务。",
+          "officialUrl": "https://fastapi.tiangolo.com",
+          "category": "Web 框架",
+          "installHint": "pip install fastapi"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 recursive_split。",
+          "astType": "function_def",
+          "name": "recursive_split",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t72-capstone-implement-s2",
+      "taskId": "t72-capstone-implement",
+      "order": 2,
+      "title": "嵌入与存储",
+      "instruction": "### 目标\n实现**向量化 + 相似度检索**——RAG 的\"R\"。不依赖现成向量库,用 numpy 手写核心逻辑,理解向量检索的本质。\n\n### 背景: 向量检索的数学本质\n1. **Embedding**:把文本映射到高维向量(如 384 维),语义相近的文本向量距离近\n2. **余弦相似度**:`cos(a,b) = a·b / (|a||b|)`,衡量两个向量方向的一致性。范围 [-1,1],越接近 1 越相似。**为什么用余弦不用欧氏距离**:余弦只看方向不看长度,对文本长度差异更鲁棒\n3. **top-k 检索**:对 query 向量与库里所有向量算相似度,取最大的 k 个\n\n### 本步实现\n用 `hash` 模拟一个伪 embedding(教学用,真实场景换 BGE/OpenAI),手写:\n- `cosine_similarity()`:余弦相似度\n- `VectorStore` 类:`add()` 存向量+文本+元数据,`search()` 返回 top-k\n\n### 工程提示\n真实项目里这一步换成 `sentence-transformers` 算向量 + ChromaDB 存取,但**相似度计算和 top-k 的逻辑完全一样**——理解了手写版,用库就是换个 API。",
+      "starterCode": "# 毕业设计 Step8: 手写向量检索(理解本质)\nimport math\nimport hashlib\n\n\ndef pseudo_embed(text: str, dim: int = 64) -> list:\n    \"\"\"教学用伪embedding(已给全): 真实场景换sentence-transformers, 接口不变。\"\"\"\n    h = hashlib.sha256(text.encode()).digest()\n    vec = [(b / 255.0) - 0.5 for b in h] * (dim // len(h) + 1)\n    return vec[:dim]\n\n\ndef cosine_similarity(a: list, b: list) -> float:\n    \"\"\"余弦相似度: cos(a,b)=a·b/(|a||b|)。\"\"\"\n    # TODO: 点积 / (a的模 * b的模), 注意除零\n    return 0.0\n\n\nclass VectorStore:\n    \"\"\"最简向量库: 存(向量, 文本, 元数据), 支持top-k余弦检索。\"\"\"\n\n    def __init__(self):\n        self.items = []\n\n    def add(self, text: str, metadata: dict):\n        # TODO: pseudo_embed(text) 后与 text/metadata 一起存入 items\n        pass\n\n    def search(self, query: str, top_k: int = 3) -> list:\n        # TODO: query向量化 → 与库中每个向量算相似度 → 排序取top_k\n        return []\n\n\nif __name__ == \"__main__\":\n    store = VectorStore()\n    store.add(\"注意力机制让模型关注输入的不同位置\", {\"doc\": \"t.pdf\", \"page\": 3})\n    store.add(\"今天天气适合散步\", {\"doc\": \"d.txt\", \"page\": 1})\n    for score, text, meta in store.search(\"什么是注意力\", top_k=1):\n        print(f\"{score:.3f} | {text[:20]}\")\n",
+      "solutionCode": "# 毕业设计 Step8: 手写向量检索(理解本质)\nimport math\nimport hashlib\n\n\ndef pseudo_embed(text: str, dim: int = 64) -> list:\n    \"\"\"教学用伪embedding: 由文本hash生成确定性向量。\n    真实场景换成 sentence-transformers/OpenAI, 接口不变。\"\"\"\n    h = hashlib.sha256(text.encode()).digest()\n    vec = [(b / 255.0) - 0.5 for b in h[:dim % len(h)]] * (dim // len(h) + 1)\n    return vec[:dim]\n\n\ndef cosine_similarity(a: list, b: list) -> float:\n    \"\"\"余弦相似度: cos(a,b)=a·b/(|a||b|), 只看方向不看长度。\"\"\"\n    dot = sum(x * y for x, y in zip(a, b))\n    na = math.sqrt(sum(x * x for x in a))\n    nb = math.sqrt(sum(y * y for y in b))\n    return dot / (na * nb) if na and nb else 0.0\n\n\nclass VectorStore:\n    \"\"\"最简向量库: 存(向量, 文本, 元数据), 支持top-k余弦检索。\"\"\"\n\n    def __init__(self):\n        self.items = []  # [(vector, text, metadata)]\n\n    def add(self, text: str, metadata: dict):\n        self.items.append((pseudo_embed(text), text, metadata))\n\n    def search(self, query: str, top_k: int = 3) -> list:\n        qv = pseudo_embed(query)\n        scored = [(cosine_similarity(qv, v), t, m) for v, t, m in self.items]\n        scored.sort(key=lambda x: x[0], reverse=True)\n        return scored[:top_k]\n\n\n# ===== 自测: 存入课程相关句子, 检索 =====\nstore = VectorStore()\ndocs = [\n    (\"注意力机制让模型关注输入的不同位置\", {\"doc\": \"transformer.pdf\", \"page\": 3}),\n    (\"QKV矩阵通过点积计算注意力分数\", {\"doc\": \"transformer.pdf\", \"page\": 3}),\n    (\"今天的天气适合出门散步\", {\"doc\": \"diary.txt\", \"page\": 1}),\n    (\"多头注意力把向量拆成多个头并行计算\", {\"doc\": \"transformer.pdf\", \"page\": 4}),\n]\nfor text, meta in docs:\n    store.add(text, meta)\n\nfor score, text, meta in store.search(\"什么是注意力\", top_k=2):\n    print(f\"相似度 {score:.3f} | {meta['doc']} p{meta['page']} | {text[:20]}\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "Chroma.from_texts 嵌入+存储。"
+        },
+        {
+          "order": 2,
+          "text": "persist_directory 持久化。"
+        },
+        {
+          "order": 3,
+          "text": "similarity_search 检索。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from langchain_community.vectorstores import Chroma\nvs = Chroma.from_texts(texts, embed, persist_directory='./db')"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Chroma",
+          "definition": "向量数据库"
+        },
+        {
+          "name": "persist_directory",
+          "definition": "持久化路径"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "chromadb",
+          "role": "向量库",
+          "description": "Chroma 是开源的本地向量数据库,支持存储文档+嵌入向量并做相似度检索。提供 Collection/add_texts/query 等接口,适合本地 RAG 场景。",
+          "officialUrl": "https://www.trychroma.com",
+          "category": "向量数据库",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 VectorStore。",
+          "astType": "class_def",
+          "name": "VectorStore",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 cosine_similarity。",
+          "astType": "function_def",
+          "name": "cosine_similarity",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t72-capstone-implement-s3",
+      "taskId": "t72-capstone-implement",
+      "order": 3,
+      "title": "问答链集成",
+      "instruction": "### 目标\n把前两步拼成**完整 RAG 问答链路**:文档→切分→入库→检索→拼 prompt→(模拟)生成→带引用输出。\n\n### 背景: RAG prompt 的工程要点\n一个健壮的 RAG prompt 模板必须包含:\n1. **角色与任务约束**:\"基于给定资料回答,资料没有就说没有\" —— 防幻觉的核心指令\n2. **结构化注入检索片段**:每段标注来源 `[资料1: doc p3]`,模型才知道引用谁\n3. **要求输出引用标记**:让模型在答案里写 `[1]`,后端再映射回真实来源\n\n### 引用解析的两段式\n模型输出的是 `[1][2]` 标记,不能直接给用户看。后端要:\n1. 正则提取答案中的引用标记\n2. 把标记映射回检索时的资料列表,生成结构化 `citations`\n3. 最终响应 = 答案文本 + 结构化引用数组\n\n### 本步实现\n实现 `RAGPipeline` 类串起全部环节,用 `mock_llm()` 模拟生成(真实环境换 DeepSeek API)。重点是把**引用映射逻辑**写对——这是 MVP 的核心功能。",
+      "starterCode": "# 毕业设计 Step9: 完整 RAG 问答链路\nimport math\nimport hashlib\nimport re\n\n\ndef pseudo_embed(text: str, dim: int = 64) -> list:\n    h = hashlib.sha256(text.encode()).digest()\n    vec = [(b / 255.0) - 0.5 for b in h] * (dim // len(h) + 1)\n    return vec[:dim]\n\n\ndef cosine(a, b):\n    dot = sum(x * y for x, y in zip(a, b))\n    na = math.sqrt(sum(x * x for x in a)); nb = math.sqrt(sum(y * y for y in b))\n    return dot / (na * nb) if na and nb else 0.0\n\n\nclass VectorStore:\n    def __init__(self): self.items = []\n    def add(self, text, meta): self.items.append((pseudo_embed(text), text, meta))\n    def search(self, query, k=3):\n        qv = pseudo_embed(query)\n        return sorted(((cosine(qv, v), t, m) for v, t, m in self.items),\n                      key=lambda x: x[0], reverse=True)[:k]\n\n\ndef mock_llm(prompt: str) -> str:\n    return \"注意力机制是对输入不同位置赋予权重的机制[1], QKV点积计算注意力分数[2]。\"\n\n\nclass RAGPipeline:\n    PROMPT_TMPL = \"基于资料回答, 用[编号]标注引用。\\n{context}\\n问题: {question}\"\n\n    def __init__(self, store: VectorStore):\n        self.store = store\n\n    def ask(self, question: str, top_k: int = 3) -> dict:\n        # TODO: 1. self.store.search 检索\n        # TODO: 2. 给每段资料编号 [资料i: doc pX] 拼成 context\n        # TODO: 3. mock_llm 生成答案\n        # TODO: 4. re.findall(r\"\\[(\\d+)\\]\", answer) 提取引用标记,\n        #          映射回检索结果生成 citations 列表\n        return {\"answer\": \"\", \"citations\": []}\n\n\nif __name__ == \"__main__\":\n    store = VectorStore()\n    store.add(\"注意力机制让模型关注输入的不同位置\", {\"doc\": \"t.pdf\", \"page\": 3})\n    store.add(\"QKV矩阵通过点积计算注意力分数\", {\"doc\": \"t.pdf\", \"page\": 3})\n    result = RAGPipeline(store).ask(\"什么是注意力机制?\")\n    print(\"回答:\", result[\"answer\"])\n    for c in result[\"citations\"]:\n        print(f\"  引用[{c['ref']}] {c['doc']} p{c['page']}\")\n",
+      "solutionCode": "# 毕业设计 Step9: 完整 RAG 问答链路\nimport math\nimport hashlib\nimport re\n\n\n# ---- 复用前两步的组件(精简版) ----\ndef pseudo_embed(text: str, dim: int = 64) -> list:\n    h = hashlib.sha256(text.encode()).digest()\n    vec = [(b / 255.0) - 0.5 for b in h] * (dim // len(h) + 1)\n    return vec[:dim]\n\n\ndef cosine(a, b):\n    dot = sum(x * y for x, y in zip(a, b))\n    na = math.sqrt(sum(x * x for x in a)); nb = math.sqrt(sum(y * y for y in b))\n    return dot / (na * nb) if na and nb else 0.0\n\n\nclass VectorStore:\n    def __init__(self): self.items = []\n    def add(self, text, meta): self.items.append((pseudo_embed(text), text, meta))\n    def search(self, query, k=3):\n        qv = pseudo_embed(query)\n        return sorted(((cosine(qv, v), t, m) for v, t, m in self.items),\n                      key=lambda x: x[0], reverse=True)[:k]\n\n\ndef mock_llm(prompt: str) -> str:\n    \"\"\"模拟LLM: 真实环境换成 DeepSeek API。返回带[1]引用标记的答案。\"\"\"\n    return \"注意力机制是对输入不同位置赋予权重的机制[1], QKV点积计算注意力分数[2]。\"\n\n\nclass RAGPipeline:\n    PROMPT_TMPL = (\n        \"基于以下资料回答问题, 资料里没有就说'知识库中未找到'。\\n\"\n        \"回答中用 [编号] 标注引用来源。\\n\\n{context}\\n\\n问题: {question}\"\n    )\n\n    def __init__(self, store: VectorStore):\n        self.store = store\n\n    def ask(self, question: str, top_k: int = 3) -> dict:\n        # 1. 检索\n        hits = self.store.search(question, top_k)\n        # 2. 构造带编号的上下文\n        ctx = \"\\n\".join(f\"[资料{i+1}: {m['doc']} p{m['page']}] {t}\"\n                         for i, (_, t, m) in enumerate(hits))\n        # 3. 拼prompt → 生成\n        answer = mock_llm(self.PROMPT_TMPL.format(context=ctx, question=question))\n        # 4. 引用标记 → 结构化citations\n        citations = []\n        for mark in set(re.findall(r\"\\[(\\d+)\\]\", answer)):\n            idx = int(mark) - 1\n            if 0 <= idx < len(hits):\n                _, text, meta = hits[idx]\n                citations.append({\"ref\": mark, \"doc\": meta[\"doc\"], \"page\": meta[\"page\"],\n                                  \"snippet\": text[:30]})\n        return {\"answer\": answer, \"citations\": citations}\n\n\nstore = VectorStore()\nstore.add(\"注意力机制让模型关注输入的不同位置\", {\"doc\": \"t.pdf\", \"page\": 3})\nstore.add(\"QKV矩阵通过点积计算注意力分数\", {\"doc\": \"t.pdf\", \"page\": 3})\nstore.add(\"今天天气适合散步\", {\"doc\": \"d.txt\", \"page\": 1})\n\nresult = RAGPipeline(store).ask(\"什么是注意力机制?\")\nprint(\"回答:\", result[\"answer\"])\nfor c in result[\"citations\"]:\n    print(f\"  引用[{c['ref']}] {c['doc']} p{c['page']}: {c['snippet']}...\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "create_retrieval_chain 组合检索+生成。"
+        },
+        {
+          "order": 2,
+          "text": "API 接收 question 返回 answer+sources。"
+        },
+        {
+          "order": 3,
+          "text": "端到端:上传→问答。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "@app.post('/api/ask')\ndef ask(q):\n    result = rag_chain.invoke({'input': q})\n    return result['answer']"
+        }
+      ],
+      "terms": [
+        {
+          "name": "RAG 链",
+          "definition": "检索+生成端到端"
+        },
+        {
+          "name": "问答 API",
+          "definition": "HTTP 问答接口"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "RAG框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 RAGPipeline。",
+          "astType": "class_def",
+          "name": "RAGPipeline",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 ask。",
+          "astType": "function_def",
+          "name": "ask",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

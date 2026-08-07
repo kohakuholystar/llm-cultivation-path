@@ -1,0 +1,729 @@
+{
+  "steps": [
+    {
+      "id": "t01-s1",
+      "taskId": "t01-deepseek-connect",
+      "order": 1,
+      "title": "环境变量与配置加载:给灵讯通一块基石",
+      "instruction": "### 目标\n为「灵讯通」打下第一块基石:编写 `APIConfig` 配置模块,从环境变量读取 DeepSeek 的 Key、端点与模型名,并能安全地打印(Key 打码)。\n\n### 原理\n**为什么 Key 绝不写进代码?** 源码会进 git、会被分享、会出现在 CI 日志里——硬编码的 Key 等于把钱包贴在公告栏。工程界的共识(12-Factor App)是:代码不变,配置随环境走,密钥只存在于环境变量中。`os.environ` 就是 Python 读取环境变量的入口。\n\n**为什么 base_url 也要做成配置?** DeepSeek、通义、Moonshot 都实现了 OpenAI 兼容协议——同样的请求格式,只换域名。把 base_url 外置,你的工具就天然支持所有兼容厂商,这是\"一次学习、处处可用\"的关键设计。\n\n**为什么用 dataclass?** 配置不是几个散装变量,而是一个有结构的概念:Key、端点、模型、超时永远成组出现。用 `@dataclass` 把它固化成类型,后续每一步都在它之上扩展。\n\n### 操作\n1. 定义 `APIConfig` dataclass:api_key / base_url / model / timeout 四个字段\n2. 实现 `from_env()`:读 `OPENAI_API_KEY`(必选)、`OPENAI_BASE_URL` 与 `MODEL_NAME`(给 DeepSeek 默认值)\n3. 实现 `masked_key()`:Key 只露首尾 4 位\n4. 运行,确认配置打印正确且 Key 已打码\n\n### 常见坑\n- `os.environ[\"KEY\"]` 取不到会抛 `KeyError`——文件顶部已做判空保护,不要删\n- 直接 `print(api_key)` 是新手最常犯的安全事故:终端历史、录屏、日志都会让它泄漏\n- `from_env` 忘记 `return`:函数会返回 `None`,运行时报 `AttributeError: 'NoneType' object has no attribute 'base_url'`——看到这个错,先检查是不是漏了 `return cls(...)`",
+      "todoItems": [
+        {
+          "title": "定义 APIConfig dataclass，包含 api_key / base_url / model / timeout 四个字段",
+          "target": "APIConfig 类（文件顶部空壳）",
+          "code": "@dataclass",
+          "expect": "运行后不报 NameError"
+        },
+        {
+          "title": "实现 from_env()：Key 必选，base_url / model 给 DeepSeek 默认值",
+          "target": "APIConfig.from_env() 类方法",
+          "code": "os.environ[\"OPENAI_API_KEY\"]\nos.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")",
+          "expect": "打印的 base_url 为 https://api.deepseek.com"
+        },
+        {
+          "title": "实现 masked_key()：Key 只露首尾 4 位",
+          "target": "masked_key() 方法",
+          "code": "f\"{key[:4]}****{key[-4:]}\"",
+          "expect": "打印的 api_key 形如 sk-****xxxx，绝不出现完整 Key"
+        },
+        {
+          "title": "运行脚本，确认配置打印正确且 Key 已打码",
+          "target": "文件底部 main 入口",
+          "expect": "终端输出配置信息，退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:配置 = 一个四字段的 dataclass + 一个 from_env 类方法;读环境变量用 os.environ。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:必选 Key 用 os.environ[\"OPENAI_API_KEY\"] 直接取;可选的 base_url / model 用 os.environ.get(名字, 默认值)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return cls(api_key=os.environ[\"OPENAI_API_KEY\"], base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"));打码用切片 f\"{key[:4]}****{key[-4:]}\""
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "读取环境变量的两种姿势",
+          "language": "python",
+          "code": "import os\n\n# 必选项:不存在就抛 KeyError(适合入口处已判空的场景,失败要早)\napi_key = os.environ[\"OPENAI_API_KEY\"]\n\n# 可选项:给默认值,常见于 base_url / model 这类\"有合理缺省\"的配置\nbase_url = os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\")\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")",
+          "description": "必选配置用 [] 让错误尽早暴露;可选配置用 .get() 给默认值。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "环境变量",
+          "definition": "操作系统级别的键值配置,进程启动时注入;密钥等敏感配置的 standard 存放位置,Python 中用 os.environ 读取。"
+        },
+        {
+          "name": "base_url",
+          "definition": "API 的基础地址,决定 SDK 把请求发给哪家厂商;OpenAI 兼容服务之间切换只需改它。"
+        },
+        {
+          "name": "12-Factor App",
+          "definition": "云原生应用方法论,其中'配置存环境'原则要求密钥等配置外置于代码,程序任何环境下运行同一份代码。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK(本步先为它准备配置)",
+          "description": "OpenAI 官方 Python SDK,通过 base_url 可接入 DeepSeek 等兼容服务;本步先学会把它的连接配置管理起来。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "DeepSeek 提供的 OpenAI 兼容大模型 API,本课程默认模型为 deepseek-v4-pro,端点 https://api.deepseek.com。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,在平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请实现 from_env 与 masked_key。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "from_env",
+          "message": "请保留并实现 from_env 类方法。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "os\\.environ",
+          "message": "必须通过 os.environ 从环境变量读取配置,不要硬编码。",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "灵讯通|请先在右上角",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印配置信息(或未配置 Key 的引导),退出码为 0。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t01-s2",
+      "taskId": "t01-deepseek-connect",
+      "order": 2,
+      "title": "客户端封装:create_client 与超时保险丝",
+      "instruction": "### 目标\n把\"创建客户端\"封装成 `create_client()` 函数:读取全局配置常量,返回一个指向 DeepSeek、带超时保护的 OpenAI 兼容客户端。\n\n### 原理\n**OpenAI 兼容协议是国产模型的\"通用插座\"。** DeepSeek 的 API 与 OpenAI 使用同一套请求/响应格式,因此官方 openai SDK 只要把 `base_url` 指向 `https://api.deepseek.com` 即可直接使用——换厂商 = 换配置,而不是换代码。这就是上一步把 base_url 做成配置的回报。\n\n**timeout 不是可选项。** 网络请求默认可能无限等待:对端宕机、网关丢包,程序就挂死在那里。显式设置 `timeout=30` 相当于给程序装保险丝——超过时限主动断开,把控制权还给代码(第 5 步会专门处理这种超时异常)。\n\n**为什么关闭 SDK 内建重试(max_retries=0)?** SDK 默认会自动重试 2 次,但它把重试过程藏了起来。学习阶段先关掉,第 4 步亲手实现一套看得见、可控制的退避重试——先理解原理,再享受自动化。\n\n### 操作\n1. 配置已从环境变量就绪:全局常量 API_KEY / BASE_URL / MODEL / TIMEOUT 与基础校验见代码顶部(具体字段含义见 s1)\n2. 实现 `create_client`:OpenAI(api_key=API_KEY, base_url=BASE_URL, timeout=TIMEOUT, max_retries=0)\n3. 在 main 中创建客户端,打印就绪信息\n\n### 常见坑\n- base_url 写成 `https://api.deepseek.com/v1/chat/completions`——base_url 只到域名,端点路径由 SDK 自动拼接,写全路径会 404\n- 不传 timeout,调试时程序\"卡住不动\",其实是在无限等待对端响应",
+      "todoItems": [
+        {
+          "title": "实现 create_client：将四个全局配置常量传给 OpenAI()",
+          "target": "create_client() 函数",
+          "code": "OpenAI(api_key=..., base_url=..., timeout=..., max_retries=0)",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "设置 timeout 超时保护并关闭内建重试",
+          "target": "create_client() 的 OpenAI(...) 参数",
+          "code": "timeout=TIMEOUT\nmax_retries=0",
+          "expect": "网络异常时不会无限卡住等待"
+        },
+        {
+          "title": "main 中调用 create_client 创建客户端，打印就绪信息",
+          "target": "main 入口",
+          "code": "client = create_client()",
+          "expect": "打印客户端就绪信息"
+        },
+        {
+          "title": "运行脚本，确认就绪信息打印、退出码为 0",
+          "target": "文件底部 main 入口",
+          "expect": "终端输出就绪信息（或未配置 Key 的引导），退出码 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:create_client 只做一件事——把四个全局配置常量传给 OpenAI 构造函数。"
+        },
+        {
+          "order": 2,
+          "text": "关键签名:OpenAI(api_key=..., base_url=..., timeout=..., max_retries=0),四个关键字参数都来自全局常量。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return OpenAI(api_key=API_KEY, base_url=BASE_URL, timeout=TIMEOUT, max_retries=0)"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "base_url 只到域名",
+          "language": "python",
+          "code": "# 正确:SDK 会自动拼接 /chat/completions 等端点路径\nOpenAI(api_key=\"...\", base_url=\"https://api.deepseek.com\")\n\n# 错误:把端点路径写全,SDK 再拼一次,最终 404\nOpenAI(api_key=\"...\", base_url=\"https://api.deepseek.com/v1/chat/completions\")",
+          "description": "base_url 是'服务区地址',不是'具体窗口';路径拼接交给 SDK。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "OpenAI 兼容协议",
+          "definition": "与 OpenAI API 相同的请求/响应格式约定;DeepSeek 等厂商实现它后,可直接复用 openai SDK,仅改 base_url 与 Key。"
+        },
+        {
+          "name": "timeout(超时)",
+          "definition": "网络请求的最长等待时间;超时后主动断开并抛异常,防止程序因对端无响应而永久挂起。"
+        },
+        {
+          "name": "max_retries",
+          "definition": "SDK 内建自动重试次数;本任务设为 0 以便在第 4 步亲手实现可控的退避重试。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions 等接口;通过 base_url 参数接入 DeepSeek 兼容端点,同一套代码可切换不同厂商。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请实现 create_client。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "OpenAI(",
+          "minCount": 1,
+          "message": "请用 OpenAI(...) 构造客户端。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "create_client",
+          "message": "请实现 create_client 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "timeout\\s*=",
+          "message": "别忘了给客户端设置 timeout。",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "expectedStdout": "灵讯通|请先在右上角",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "message": "运行后应打印客户端就绪信息(或未配置 Key 的引导),退出码为 0。",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t01-s3",
+      "taskId": "t01-deepseek-connect",
+      "order": 3,
+      "title": "首次对话:messages 剧本与响应结构",
+      "instruction": "### 目标\n实现 `chat_once(client, question)`:发送单轮提问,从响应结构中取出回复文本,完成灵讯通的第一次真实对话。\n\n### 原理\n**LLM 是无状态的。** 模型不记得你是谁,它每轮能看到的只有这一次请求里的 `messages` 数组——所谓\"多轮对话\",本质是客户端把历史消息越攒越长地反复发送。理解这一点,后面 Agent 的记忆、上下文压缩才学得动。\n\n**messages 是一个剧本。** `system` 是导演给的人设(整场对话生效),`user` 是用户台词,`assistant` 是模型之前说过的台词。本步先写 system + user 两条,让灵讯通有个基本人格。\n\n**响应不是字符串,是结构体。** `response.choices[0].message.content` 这条链的含义:choices 是候选回复列表(默认只有 1 个),取第 0 个候选的 message,再取其 content 才是文本。第 6 步你还会用到同一个响应里的 `usage` 字段——一次请求,信息远不止文本。\n\n### 操作\n1. 复用 s2 的全局配置与客户端代码(见代码顶部)\n2. 构造 messages:system 给\"灵讯通\"人设,user 放本轮提问\n3. 调用 `client.chat.completions.create(model=MODEL, messages=...)`\n4. 取出 choices[0].message.content 并打印对话\n\n### 常见坑\n- messages 里每条必须是 `{\"role\": ..., \"content\": ...}` 字典,漏掉 role 会被服务端 400 拒绝\n- 把 response 或 choices 直接 print,打出来的是一长串对象结构——真正的文本在 `.message.content`",
+      "todoItems": [
+        {
+          "title": "构造 messages 剧本：system 给灵讯通人设，user 放本轮提问",
+          "target": "chat_once() 的 messages 列表",
+          "code": "{\"role\": \"system\", \"content\": \"...\"}",
+          "expect": "每条消息都是 role/content 字典，不缺 role"
+        },
+        {
+          "title": "调用 client.chat.completions.create 发送单轮请求",
+          "target": "chat_once() 调用处",
+          "code": "client.chat.completions.create(model=MODEL, messages=messages)",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "从 response.choices[0].message.content 取出回复文本",
+          "target": "chat_once() 的返回值",
+          "code": "response.choices[0].message.content",
+          "expect": "打印真正的回复文本，不是一长串对象结构"
+        },
+        {
+          "title": "运行脚本，完成灵讯通首次真实对话",
+          "target": "文件底部 main 入口",
+          "expect": "终端打印带人设的回复，退出码 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:回复文本不在 response 顶层,藏在 response.choices[0].message.content 这条链的尽头。"
+        },
+        {
+          "order": 2,
+          "text": "关键调用:client.chat.completions.create(model=MODEL, messages=[{\"role\": \"system\", ...}, {\"role\": \"user\", \"content\": question}])"
+        },
+        {
+          "order": 3,
+          "text": "初学者坑:create() 的参数名是 messages(复数)——漏写 s 写成 message,调用时会直接报 TypeError(unexpected keyword argument 'message')"
+        },
+        {
+          "order": 4,
+          "text": "接近答案:response = client.chat.completions.create(model=MODEL, messages=[...]); return response.choices[0].message.content"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "messages 剧本的三种角色",
+          "language": "python",
+          "code": "messages = [\n    # 人设与规则,整场对话生效,放最前\n    {\"role\": \"system\", \"content\": \"你是灵讯通,回答不超过三句话。\"},\n    # 用户的提问\n    {\"role\": \"user\", \"content\": \"什么是大语言模型?\"},\n    # 模型上一轮的回复(多轮对话时由客户端追加回去)\n    {\"role\": \"assistant\", \"content\": \"大语言模型是……\"},\n]",
+          "description": "模型无记忆:多轮对话 = 把历史消息全部塞回 messages 再发一次。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "无状态(stateless)",
+          "definition": "LLM 服务端不保存对话历史,每次请求相互独立;'记忆'完全由客户端通过 messages 数组重建。"
+        },
+        {
+          "name": "system / user / assistant",
+          "definition": "messages 中消息的三种角色:system 设定行为边界,user 是用户输入,assistant 是模型此前的回复。"
+        },
+        {
+          "name": "choices",
+          "definition": "响应中的候选回复列表;默认只生成 1 个候选,取 choices[0].message.content 即回复文本。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;chat.completions.create 是最核心的对话接口,通过 base_url 接入 DeepSeek。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 chat_once 的调用与取值。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 1,
+          "message": "请调用 client.chat.completions.create 发送请求。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "chat_once",
+          "message": "请实现 chat_once 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "choices\\[0\\]\\.message\\.content",
+          "message": "回复文本在 response.choices[0].message.content。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t01-s4",
+      "taskId": "t01-deepseek-connect",
+      "order": 4,
+      "title": "连接自测:ping 探活与指数退避重试",
+      "instruction": "### 目标\n实现 `health_check(client, retries=3)`:正式对话前先发一条成本极低的 ping 请求探活,失败时按指数退避自动重试,全部失败则拒绝进入对话。\n\n### 原理\n**为什么要自测?** 失败分两种:快速失败(fail fast)和拖到用户体验崩了才失败。CLI 工具启动时探活,能在用户输入第一句话之前就发现 Key 失效、网络不通——把错误暴露在成本最低的时刻。这是所有生产级 Agent 的标配动作。\n\n**为什么重试要\"指数退避\"?** 网络抖动大多是瞬时的,立刻重试大概率成功;但如果服务端真的过载,密集重试等于雪上加霜。等待 1s → 2s → 4s 的指数退避(exponential backoff)给服务端喘息时间,是分布式系统的通行礼仪。注意第 2 步关掉了 SDK 内建重试——现在你亲手把它实现出来,而且每一次等待都看得见。\n\n**自测请求要抠门。** ping 设 `max_tokens=8`:只要证明链路通,不为废话付费(输出 token 比输入贵,第 6 步细讲)。\n\n### 操作\n1. 循环 retries 次:try 发送 ping 请求,成功则打印并 return True\n2. 失败时打印异常类型名,按 `2 ** (attempt - 1)` 秒退避后再进入下一次(最后一次不必睡)\n3. 全部失败 return False;main 中自测不通过就 `sys.exit(1)`\n4. 跑通后做一次“故障注入”验证:把 BASE_URL 末尾加个 x 再运行,亲眼看到失败 → 1s → 2s → 4s 退避 → 三次后 return False → 退出码 1,然后改回来\n\n### 常见坑\n- except 里只顾重试忘了 `time.sleep`——瞬时故障会被你的密集重试打成持续故障\n- ping 不设 max_tokens,模型客气地回一大段,自测成本翻倍\n\n### 常见报错源(看到报错先认类别,别慌)\n- **401 Unauthorized**:Key 失效或填错——服务端不认识你的凭据。回右上角 ⚙️ 检查 Key 是否复制完整、是否过期\n- **429 Too Many Requests**:请求过密被限流,或额度用尽(DeepSeek 常见是余额不足)。稍等再试,或去控制台充值\n- **5xx(500/502/503)**:服务端自身出错/过载——不是你的问题,重试最有效,这正是本步指数退避的用武之地\n- **连接失败(ConnectionError/超时)**:网络不通、BASE_URL 打错、域名解析失败。检查网络与配置\n- 本步 except 里的 `type(exc).__name__` 打出来的就是上面这些异常类型——先认出是哪一类,再对症下药",
+      "todoItems": [
+        {
+          "title": "循环 retries 次发送 ping 请求，成功打印并 return True",
+          "target": "health_check() 函数",
+          "code": "for attempt in range(1, retries + 1):",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "ping 请求限制 max_tokens=8 节约成本",
+          "target": "health_check() 的 create 调用",
+          "code": "max_tokens=8",
+          "expect": "自测请求不生成冗长回复"
+        },
+        {
+          "title": "失败时打印异常类型名并按 2 的幂次退避",
+          "target": "health_check() 的 except 分支",
+          "code": "time.sleep(2 ** (attempt - 1))",
+          "expect": "等待 1s→2s→4s，不做密集重试"
+        },
+        {
+          "title": "全部失败 return False；main 自测不过则 sys.exit(1)",
+          "target": "health_check() 与 main 入口",
+          "code": "sys.exit(1)",
+          "expect": "探活失败时程序以非 0 码退出"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:for attempt in range(1, retries+1) 循环里 try 发 ping,成功 return True,失败 sleep 后进入下一次。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:ping 用 client.chat.completions.create(model=..., messages=[...], max_tokens=8);退避用 time.sleep(2 ** (attempt - 1))。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:except Exception as exc: wait = 2 ** (attempt - 1); print(f'第 {attempt} 次失败: {type(exc).__name__}'); time.sleep(wait)"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "指数退避的标准写法",
+          "language": "python",
+          "code": "for attempt in range(1, retries + 1):\n    try:\n        do_request()\n        break  # 成功就离开循环\n    except Exception:\n        wait = 2 ** (attempt - 1)  # 1s → 2s → 4s → 8s ...\n        time.sleep(wait)           # 给服务端喘息时间,别立刻再打",
+          "description": "等待时间随失败次数指数增长,是分布式系统重试的通行礼仪。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "健康检查(health check)",
+          "definition": "正式流量前发送的轻量探活请求,用于在成本最低的时刻发现链路故障。"
+        },
+        {
+          "name": "指数退避(exponential backoff)",
+          "definition": "重试间隔按 2 的幂增长(1s、2s、4s…)的策略,避免密集重试压垮已过载的服务端。"
+        },
+        {
+          "name": "fail fast",
+          "definition": "尽早暴露错误的设计原则:启动时自测失败就立刻退出,而不是等用户操作时才崩。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;max_retries=0 关闭内建重试后,重试策略完全由你的代码掌控。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 ping 请求与退避重试。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "health_check",
+          "message": "请实现 health_check 函数。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "chat.completions.create",
+          "minCount": 2,
+          "message": "health_check 的 ping 与 chat_once 都应调用 chat.completions.create。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "time\\.sleep",
+          "message": "重试前需要 time.sleep 退避等待。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "max_tokens\\s*=\\s*8",
+          "message": "ping 请求建议限制 max_tokens=8 以节约成本。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t01-s5",
+      "taskId": "t01-deepseek-connect",
+      "order": 5,
+      "title": "错误分类:把异常翻译成行动建议",
+      "instruction": "### 目标\n实现 `friendly_error(exc)`、`chat_safely()` 与三个故障注入函数:把 SDK 抛出的各类异常翻译成用户看得懂、知道怎么办的中文提示,并让自测只对\"值得重试\"的错误重试;再故意制造三类故障,亲眼验证错误处理真的在干活。\n\n### 原理\n**不是所有错误都生而平等。** 401(AuthenticationError)是\"钥匙不对\"——重试一万次也没用,该做的是提示检查 Key;429(RateLimitError)是\"太忙了\"——退避后重试合情合理;超时(APITimeoutError)与连接失败(APIConnectionError)多是瞬时网络问题,值得重试。**错误分类的本质是按\"对策\"分组**,而不是背诵异常名。\n\n**openai SDK 的异常继承体系。** 所有 API 错误都继承自 `APIError`;带 HTTP 状态码的(401/429/500)属于 `APIStatusError`,可用 `exc.status_code` 取状态码;超时与断连是网络层错误,独立于状态码体系。判断时要从具体到宽泛排列,先抓特殊、最后兜底。\n\n**给用户的是\"行动建议\",不是堆栈。** \"认证失败(401):请检查右上角 AI 配置\"比一屏 traceback 有价值得多——这就是工程化封装的意义。\n\n**错误处理代码也要验货。** 正常路径永远不会走进异常分支——你的 try/except 是不是摆设,只有制造错误才知道。s5 把\"故障注入\"写进代码:三个小函数各改一个全局参数(参数 = 全局变量 + 故障注入),让三类错误真实发生。\n\n### 操作\n1. 从 openai 导入 AuthenticationError / RateLimitError / APITimeoutError / APIConnectionError\n2. 实现 friendly_error:isinstance 逐类判断,返回对应中文建议\n3. 实现 chat_safely:调 chat_once,异常时打印友好提示并返回 None\n4. 升级 health_check:只对限流/超时/连接错误退避重试,其余(如 401)直接放弃\n5. 实现三个故障注入函数,每个只改一个全局参数(参数 = 全局变量 + 故障注入),再调 chat_safely:\n   - fault_bad_key:api_key = API_KEY + \"x\" → 认证失败(401)\n   - fault_bad_url:base_url = BASE_URL + \"x\" → 连接失败\n   - fault_tiny_timeout:timeout = TIMEOUT / 3000 → 请求超时\n6. main 编排:health_check 通过后,依次跑三个故障注入\n\n### 常见坑\n- `APITimeoutError` 是 `APIConnectionError` 的子类——判断顺序写反,超时就永远落入\"连接失败\"分支\n- `except Exception` 一把抓后对一切错误重试:401 也重试 3 次,白等十几秒还误导用户\n- 故障注入函数没改参数就拿真客户端去测——错不到任何分支,验证形同虚设\n\n### 故障注入验证:让错误处理现出原形\n运行 `python main.py`,你会依次看到三条友好提示,每一条都是你的代码亲手翻译出来的:\n- `[灵讯通] 认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。`\n- `[灵讯通] 连接失败:请检查网络、代理与 base_url 配置。`\n- `[灵讯通] 请求超时:网络不佳或服务繁忙,可调大 LLM_TIMEOUT 后重试。`\n429 需要真实命中限流,本地无法触发,概念理解即可(退避逻辑已在 s4 亲手验过)",
+      "todoItems": [
+        {
+          "title": "从 openai 导入四类异常",
+          "target": "文件顶部 import 区",
+          "code": "from openai import AuthenticationError, RateLimitError, APITimeoutError, APIConnectionError",
+          "expect": "不报 ImportError"
+        },
+        {
+          "title": "实现 friendly_error：逐类判断异常并返回中文行动建议",
+          "target": "friendly_error() 函数",
+          "code": "isinstance(exc, AuthenticationError)",
+          "expect": "401 输出‘检查 Key’类提示，而不是一屏 traceback"
+        },
+        {
+          "title": "实现 chat_safely：异常时打印友好提示并返回 None",
+          "target": "chat_safely() 函数",
+          "code": "except Exception as exc:",
+          "expect": "调用出错程序不崩溃，返回 None"
+        },
+        {
+          "title": "升级 health_check：只对限流/超时/断连重试，401 直接放弃",
+          "target": "health_check() 的 except",
+          "code": "except (RateLimitError, APITimeoutError, APIConnectionError):",
+          "expect": "APITimeoutError 判断在 APIConnectionError 之前"
+        },
+        {
+          "title": "实现三个故障注入函数：每个只改一个全局参数制造故障",
+          "target": "fault_bad_key / fault_bad_url / fault_tiny_timeout",
+          "code": "API_KEY + \"x\"",
+          "expect": "运行 main 依次看到 认证失败(401)/连接失败/请求超时 三条友好提示"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:按'对策'分类——401 提示检查 Key(别重试),429/超时/断连可退避重试,其余兜底。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:from openai import AuthenticationError, RateLimitError, APITimeoutError, APIConnectionError;用 isinstance(exc, X) 逐类判断,APITimeoutError 必须写在 APIConnectionError 之前。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:if isinstance(exc, AuthenticationError): return '认证失败(401):...';health_check 里用 except RETRYABLE_ERRORS as exc 单独捕获可重试错误。"
+        },
+        {
+          "order": 4,
+          "text": "故障注入模板:bad = OpenAI(api_key=API_KEY + \"x\", base_url=BASE_URL, timeout=TIMEOUT, max_retries=0),再 chat_safely(bad, question);三个函数只改一个参数:key / url / timeout。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "异常判断的顺序就是优先级",
+          "language": "python",
+          "code": "from openai import APITimeoutError, APIConnectionError\n\n# 正确:子类(APITimeoutError)在前,父类(APIConnectionError)在后\ntry:\n    ...\nexcept APITimeoutError:\n    return \"请求超时\"\nexcept APIConnectionError:\n    return \"连接失败\"\n\n# 写反的话,超时永远落入\"连接失败\"分支,上面那个 except 是死代码",
+          "description": "except/isinstance 从具体到宽泛排列,先抓特殊、最后兜底。"
+        },
+        {
+          "title": "故障注入:参数 = 全局变量 + 故障注入",
+          "language": "python",
+          "code": "bad_client = OpenAI(\n    api_key=API_KEY + \"x\",  # 只改这一个参数\n    base_url=BASE_URL,\n    timeout=TIMEOUT,\n    max_retries=0,\n)\nchat_safely(bad_client, question)\n# 输出: [灵讯通] 认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。",
+          "description": "每次只改一个参数:错到哪类,就应看到哪类提示——错误处理是否在干活,一眼便知。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "401 认证错误",
+          "definition": "HTTP 状态码 401,表示 API Key 无效、过期或缺失;对策是检查密钥,重试无意义。SDK 中对应 AuthenticationError。"
+        },
+        {
+          "name": "429 限流",
+          "definition": "HTTP 状态码 429,表示请求频率超限或额度不足;对策是退避后重试或检查账户余额。SDK 中对应 RateLimitError。"
+        },
+        {
+          "name": "异常继承体系",
+          "definition": "openai SDK 中所有 API 错误继承自 APIError;网络层错误(超时/断连)与状态码错误(401/429)分属不同分支,捕获顺序需从具体到宽泛。"
+        },
+        {
+          "name": "故障注入(fault injection)",
+          "definition": "故意给输入或配置制造错误(如改错 Key、域名、超时),让异常分支真实执行,用来验证错误处理代码是否按预期工作。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;其 exceptions 模块定义了 AuthenticationError / RateLimitError / APITimeoutError 等结构化异常,是错误分类处理的基础。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 friendly_error / chat_safely / health_check。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "AuthenticationError",
+          "minCount": 1,
+          "message": "需要处理 401 认证错误(AuthenticationError)。",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "RateLimitError",
+          "minCount": 1,
+          "message": "需要处理 429 限流错误(RateLimitError)。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "friendly_error",
+          "message": "请实现 friendly_error 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "APITimeoutError[\\s\\S]{0,400}APIConnectionError",
+          "message": "APITimeoutError 的判断应出现在 APIConnectionError 之前(它是子类)。",
+          "blocking": false
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "fault_bad_key",
+          "message": "请实现 fault_bad_key 故障注入函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "fault_bad_url",
+          "message": "请实现 fault_bad_url 故障注入函数。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "fault_tiny_timeout",
+          "message": "请实现 fault_tiny_timeout 故障注入函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "API_KEY\\s*\\+\\s*\"[^\"]+\"",
+          "message": "fault_bad_key 需要 api_key=API_KEY + \"x\" 制造 401。",
+          "blocking": false
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "BASE_URL\\s*\\+\\s*\"[^\"]+\"",
+          "message": "fault_bad_url 需要 base_url=BASE_URL + \"x\" 制造连接失败。",
+          "blocking": false
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "TIMEOUT\\s*/\\s*\\d+",
+          "message": "fault_tiny_timeout 需要 timeout=TIMEOUT / 3000 压出请求超时。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t01-s6",
+      "taskId": "t01-deepseek-connect",
+      "order": 6,
+      "title": "用量与延迟:给灵讯通装上第一块仪表盘",
+      "instruction": "### 目标\n实现 `chat_with_metrics()`:在对话的同时采集延迟与 token 用量,打印一份调用报告——给灵讯通装上第一块\"仪表盘\"。\n\n### 原理\n**你不能优化你看不见的东西。** 延迟和成本是 LLM 应用的两条命脉:用户嫌慢、账单超标,都是先死于\"没数据\"。每次调用顺手记录耗时与 token 数,就是最小可行的可观测性(observability),后续章节的完整观测体系将从这里长出来。\n\n**usage 字段是账单明细。** 响应里的 `response.usage` 给出 `prompt_tokens`(输入)、`completion_tokens`(输出)、`total_tokens`(合计)。记住一个反直觉的事实:**输出 token 通常比输入贵数倍**——生成要逐字串行计算,输入却可以并行处理。所以\"让模型闭嘴\"是最有效的省钱手段,这也是第 4 步 ping 要限 max_tokens 的原因。\n\n**延迟怎么测才准?** 用 `time.perf_counter()`(单调高精度时钟)在调用前后打点,别用 `time.time()`——后者会被系统校时污染。总延迟 ≈ 网络往返 + 排队 + 逐 token 生成;想细分\"首字延迟\"需要流式输出,那是后续任务的内容。\n\n### 操作\n1. 定义 `CallMetrics` dataclass:latency_ms / prompt_tokens / completion_tokens / total_tokens\n2. chat_with_metrics:create 前后用 perf_counter 打点,从 response.usage 取三项用量\n3. 失败时复用上一步的 friendly_error;main 打印延迟、token 明细与生成速度\n\n### 常见坑\n- 部分异常/截断场景 `response.usage` 可能为 None,生产代码取值前要判空\n- 用 total_tokens 算\"生成速度\"会虚高——速度只该用 completion_tokens 除以耗时",
+      "todoItems": [
+        {
+          "title": "定义 CallMetrics dataclass，记录延迟与三项 token 用量",
+          "target": "CallMetrics 类（文件顶部空壳）",
+          "code": "@dataclass",
+          "expect": "能创建实例并访问 .latency_ms 等字段"
+        },
+        {
+          "title": "chat_with_metrics：调用前后用 perf_counter 打点，从 response.usage 取用量",
+          "target": "chat_with_metrics() 函数",
+          "code": "start = time.perf_counter()\nusage = response.usage",
+          "expect": "打印的延迟是正数（别用会被校时污染的 time.time）"
+        },
+        {
+          "title": "main 打印延迟、token 明细与生成速度",
+          "target": "main 入口",
+          "code": "usage.total_tokens",
+          "expect": "输出形如 latency=1234ms prompt=.. completion=.. total=.. 的调用报告"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:延迟 = 调用前后 time.perf_counter() 打点相减;用量 = response.usage 的三个字段。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:usage.prompt_tokens / usage.completion_tokens / usage.total_tokens;生成速度 = completion_tokens ÷ 耗时秒数。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:latency_ms = (time.perf_counter() - start) * 1000; metrics = CallMetrics(latency_ms, usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "perf_counter 计时模板",
+          "language": "python",
+          "code": "import time\n\nstart = time.perf_counter()      # 单调时钟:只增不减,不受系统校时影响\nresponse = call_something()\nlatency_ms = (time.perf_counter() - start) * 1000\n\n# 别用 time.time():系统校时(NTP 同步)会让它\"跳变\",测出的延迟可能是负数",
+          "description": "测间隔用 perf_counter,测'现在是几点'才用 time.time。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "token 用量(usage)",
+          "definition": "响应中的计费明细:prompt_tokens(输入)、completion_tokens(输出)、total_tokens(合计);输出通常比输入贵数倍。"
+        },
+        {
+          "name": "可观测性(observability)",
+          "definition": "通过日志、指标、追踪了解系统内部状态的能力;记录每次调用的延迟与用量是最小可行实践。"
+        },
+        {
+          "name": "time.perf_counter",
+          "definition": "Python 的单调高精度时钟,专为测量时间间隔设计,不受系统时间校准影响。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "openai",
+          "role": "LLM SDK",
+          "description": "OpenAI 官方 Python SDK;响应对象的 usage 字段提供 token 计费明细,是成本观测的数据源。",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成 CallMetrics 与 chat_with_metrics。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "chat_with_metrics",
+          "message": "请实现 chat_with_metrics 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "response\\.usage",
+          "message": "请从 response.usage 读取 token 用量。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "perf_counter",
+          "message": "计时请使用 time.perf_counter()。",
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

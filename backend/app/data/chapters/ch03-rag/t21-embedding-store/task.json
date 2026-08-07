@@ -1,0 +1,579 @@
+{
+  "steps": [
+    {
+      "id": "t21-embedding-store-s1",
+      "taskId": "t21-embedding-store",
+      "order": 1,
+      "title": "手写 TF-IDF 嵌入器(numpy)",
+      "instruction": "### 目标\n为「藏经阁」数字化工程打造第一块基石:一个零依赖、纯 numpy 的 TF-IDF 嵌入器,把秘籍经文变成可计算相似度的向量,并验证\"刚猛的内功心法\"能命中《降龙十八掌》。\n\n### 原理\n**为什么不用 sentence-transformers?** 生产环境的首选是 `SentenceTransformer(\"BAAI/bge-small-zh\")` 这类语义模型:它把文本编码成稠密向量,能理解\"掌法刚猛\"与\"拳势威猛\"字面不同但语义相近。但它要下载几百 MB 模型权重,本沙箱无网、也没有 torch。工程上正确的做法不是放弃,而是**把嵌入器抽象成统一接口**(fit/encode):先用 TF-IDF 顶住,联网后只换一个类,上层入库与检索代码一行不改。这就是\"接口先行、实现可换\"的分层思想。\n\n**TF-IDF 的本质**:一个词对文档的代表性 = 词频(TF,出现越多越重要) × 逆文档频率(IDF,越罕见越能区分文档)。本步骤用平滑版公式 `idf = log((1+N)/(1+df)) + 1`,避免除零,也保证高频词权重不为零。\n\n**中文分词难题**:没有 jieba 时,字符二元组(bigram)是最稳的兜底——\"九阳神功\"切成 九阳/阳神/神功,不依赖词典,对古文和武侠术语都鲁棒。\n\n**为什么 L2 归一化**:归一化之后,向量点积就等于余弦相似度,省去每次开方;这也是 ChromaDB cosine 空间的标准前置处理。\n\n### 操作\n1. 通读 `char_ngrams` 与 `TfidfEmbedder.fit`,理解词表与 IDF 如何建立\n2. 补全 `encode`:TF×IDF 加权、零范数保护、L2 归一化\n3. 补全 `main` 里的相似度计算与 TOP1 打印\n4. 运行,确认输出词表大小与 TOP1《降龙十八掌》\n\n### 常见坑\n- **零向量除零**:查询词在词表里一个都不命中时整行是 0,直接除会得 nan——必须把 0 范数替换成 1.0。\n- **查询绝不能单独 fit**:fit 会重建词表,查询和文档就落在两个毫不相干的向量空间里,相似度毫无意义。查询必须走建库时同一个 embedder 的 encode。\n- **未登录词要跳过**:encode 遇到词表外的 token 应忽略,强行写入会 IndexError。",
+      "todoItems": [
+        {
+          "title": "补全 encode:TF×IDF 加权 + 零范数保护 + L2 归一化",
+          "target": "encode()",
+          "code": "mat *= self.idf;norms = np.linalg.norm(mat, axis=1, keepdims=True);mat = mat / np.where(norms == 0, 1, norms)",
+          "expect": "返回归一化矩阵,词表大小打印正确"
+        },
+        {
+          "title": "补全 main:计算文档与查询的余弦相似度并打印 TOP3",
+          "target": "main()",
+          "code": "sims = (doc_vecs @ q_vec.T).ravel();top = np.argsort(-sims)[:3]",
+          "expect": "TOP1 是《降龙十八掌》,输出相似度分数"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:encode 的三步是 计数(TF) → 乘以 idf → 除以每行 L2 范数。相似度利用'归一化向量点积=余弦相似度'这一性质。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:np.linalg.norm(mat, axis=1, keepdims=True) 求行范数;norms[norms == 0.0] = 1.0 防除零;相似度用 (doc_vecs @ q_vec.T).ravel()。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:mat *= self.idf; norms = np.linalg.norm(...); return mat / norms。排序用 np.argsort(-sims)[:3] 取前三名。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "联网后一行换成 sentence-transformers",
+          "language": "python",
+          "code": "# 生产环境替换:接口一致,上层代码零改动\nfrom sentence_transformers import SentenceTransformer\n\nclass STEmbedder:\n    def __init__(self):\n        self.model = SentenceTransformer(\"BAAI/bge-small-zh\")\n    def fit(self, texts):\n        return self  # 预训练模型无需 fit\n    def encode(self, texts):\n        return self.model.encode(texts, normalize_embeddings=True)",
+          "description": "嵌入器抽象成 fit/encode 接口后,TF-IDF 与语义模型可以无缝互换。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "TF-IDF",
+          "definition": "词频-逆文档频率:一个词在当前文档出现越多、在全语料越罕见,权重越高,是最经典的稀疏文本表示。"
+        },
+        {
+          "name": "字符 n-gram",
+          "definition": "把文本按连续 n 个字符切片的分词方式(如 bigram),不依赖词典,是中文无分词器时的稳健兜底。"
+        },
+        {
+          "name": "L2 归一化",
+          "definition": "把向量除以其欧氏长度使模长为 1;归一化后向量点积等于余弦相似度。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "NumPy",
+          "role": "向量计算库",
+          "description": "用矩阵运算实现 TF-IDF 加权、L2 归一化与批量点积相似度,是手写嵌入器的全部依赖。",
+          "officialUrl": "https://numpy.org/doc/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        },
+        {
+          "name": "sentence-transformers",
+          "role": "生产级语义嵌入(替换目标)",
+          "description": "本任务的 TF-IDF 嵌入器是它的沙箱替身,接口对齐 encode(),联网后可直接替换。",
+          "officialUrl": "https://sbert.net/",
+          "category": "库",
+          "installHint": "pip install sentence-transformers(沙箱不可装,仅演示接口)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全代码,替换 TODO 占位部分",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 TfidfEmbedder 类",
+          "astType": "class_def",
+          "name": "TfidfEmbedder",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "L2 归一化应使用 np.linalg.norm",
+          "pattern": "np\\.linalg\\.norm",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出 TOP1 命中结果",
+          "expectedStdout": "TOP1 《.+》 相似度 0\\.\\d{4}",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t21-embedding-store-s2",
+      "taskId": "t21-embedding-store",
+      "order": 2,
+      "title": "创建 ChromaDB 集合并写入向量",
+      "instruction": "### 目标\n把第 1 步算出的 TF-IDF 向量正式存入向量数据库:创建 ChromaDB 集合 `cangjingge`,显式传入 embeddings 完成首次写入,并抽查确认数据落库。\n\n### 原理\n**Collection 是什么**:ChromaDB 的集合(collection)相当于关系库里的一张表,每行由四元组构成——`ids`(主键)、`embeddings`(向量)、`documents`(原文)、`metadatas`(结构化标签)。RAG 检索时返回的就是这四样的组合,所以入库时就要想清楚每一项放什么。\n\n**为什么显式传 embeddings=**:ChromaDB 的 `add()` 如果不传向量,会调用集合绑定的 embedding function 自动计算——默认实现是 onnx 版 MiniLM,**首次运行要联网下载模型**,沙箱里必然失败。我们已经在第 1 步算好了向量,显式传入即可完全绕开默认 embedding function。这也正是换 sentence-transformers 时的推荐姿势:向量在外部算好,ChromaDB 只负责存和查。\n\n**EphemeralClient vs PersistentClient**:沙箱用 `EphemeralClient()` 纯内存模式,进程结束数据消失,适合实验;生产环境换 `PersistentClient(path=\"./db\")` 落盘,API 完全一致。\n\n**距离度量**:建集合时 `metadata={\"hnsw:space\": \"cosine\"}` 指定余弦距离,与我们 L2 归一化的向量配套;注意这个设置**只能在创建时定**,事后改不了。\n\n### 操作\n1. 复用第 1 步的 TfidfEmbedder,对八本秘籍 fit + encode\n2. 补全 `get_or_create_collection`,指定 cosine 空间\n3. 补全 `collection.add`,注意 numpy 矩阵要 `.tolist()`\n4. 运行,确认\"已写入: 8 条秘籍\"与 metadata 抽查结果\n\n### 常见坑\n- **numpy 数组直接传给 add 会报序列化错误**:ChromaDB 接受 list[list[float]],必须先 `.tolist()`。\n- **ids/embeddings/documents/metadatas 四个列表必须等长且顺序对应**,错位一条,metadata 就张冠李戴。\n- **集合名有规范**:3-512 个字符,仅限字母数字、`._-`,且首尾必须是字母数字——中文名会报 InvalidArgumentError。",
+      "todoItems": [
+        {
+          "title": "补全 get_or_create_collection:创建 cosine 空间集合",
+          "target": "get_or_create_collection()",
+          "code": "client.get_or_create_collection(name=\"cangjingge\", metadata={\"hnsw:space\": \"cosine\"})",
+          "expect": "拿到可用的 collection 句柄"
+        },
+        {
+          "title": "补全 collection.add:向量转 list 一次性写入",
+          "target": "collection.add()",
+          "code": "collection.add(ids=ids, embeddings=doc_vecs.tolist(), documents=corpus, metadatas=metadatas)",
+          "expect": "输出「已写入: 8 条秘籍」,metadata 抽查正确"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:集合 = 向量库里的表。先建集合(指定 cosine 距离),再把 ids/向量/原文/metadata 四个等长列表一次性 add 进去。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:client.get_or_create_collection(name=..., metadata={\"hnsw:space\": \"cosine\"});collection.add(ids=..., embeddings=..., documents=..., metadatas=...)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:embeddings=doc_vecs.tolist();metadatas 用列表推导 [{\"title\": d[\"title\"], \"category\": d[\"category\"]} for d in SCRIPTURES];写完后 collection.count() 应为 8。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "生产环境:落盘 + 指定存储目录",
+          "language": "python",
+          "code": "import chromadb\n\n# 换 PersistentClient 即落盘,集合 API 完全一样\nclient = chromadb.PersistentClient(path=\"./cangjingge_db\")\ncollection = client.get_or_create_collection(\n    name=\"cangjingge\",\n    metadata={\"hnsw:space\": \"cosine\"},\n)\nprint(collection.count())  # 重启进程数据仍在",
+          "description": "EphemeralClient 与 PersistentClient 只有一行之差,沙箱实验与生产部署可平滑切换。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Collection(集合)",
+          "definition": "ChromaDB 中存储向量的基本单元,类似数据库表,每行包含 id、embedding、document、metadata 四元组。"
+        },
+        {
+          "name": "embedding function",
+          "definition": "集合绑定的向量化函数;不显式传 embeddings 时由它自动计算,默认实现需下载模型,离线环境应显式传向量绕过。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "ChromaDB",
+          "role": "向量数据库",
+          "description": "嵌入式向量库,负责向量存储、ANN 索引与相似度检索,支持内存与落盘两种模式。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "工具",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全代码,替换 TODO 占位部分",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 get_or_create_collection 创建集合",
+          "pattern": "get_or_create_collection",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要调用 collection.add 写入数据",
+          "pattern": "collection\\.add\\(",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出已写入 8 条秘籍",
+          "expectedStdout": "已写入: 8 条秘籍",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t21-embedding-store-s3",
+      "taskId": "t21-embedding-store",
+      "order": 3,
+      "title": "批量入库:分批写入与进度管理",
+      "instruction": "### 目标\n把\"一次性 add\"升级成工程化的批量入库:实现 `batch_add` 分批写入,观察逐批进度,并亲手验证 ChromaDB 对重复 ID 的真实行为——**静默忽略,不报错**。\n\n### 原理\n**为什么要分批**:真实语料是几十万到几百万条。一次性 `add` 意味着把所有向量、原文、metadata 同时驻留内存并塞进一次事务,轻则内存暴涨,重则超时失败,而且中途出错前功尽弃。分批写入把内存峰值压到一个批次的大小,每批成功即落库,失败也只需重跑当前批。批次大小是工程权衡:太小则网络/事务开销占比高,太大则失去分批意义,常见取值 100~5000(本任务数据小,用 3 演示机制)。\n\n**进度可见性**:批量任务动辄几分钟到几小时,每批打印进度不是锦上添花,而是排障刚需——卡在哪一批、写了多少,一眼定位。\n\n**重复 ID 的真实行为(本步骤实测)**:旧版 ChromaDB 对重复 `add` 抛 `DuplicateIDError`,而新版(1.x)会**静默忽略**。这个变化很危险:你以为写进去了,其实数据被悄悄丢弃。结论——**不能把数据正确性押在数据库的默认行为上**,第 4 步我们会用内容哈希自己掌控 ID 与去重。\n\n### 操作\n1. 补全 `batch_add` 的分批循环:四列表同步切片,逐批 `collection.add`\n2. 每批打印\"批次 N: 写入 X 条 (进度 end/total)\"\n3. 运行,观察 3 批写满 8 条,以及重复 add 后数量仍是 8\n\n### 常见坑\n- **四个列表切片不同步**:ids 切了 [start:end] 而 metadatas 忘了切,一批之内数据全部错位——切片逻辑要四个列表共用同一对 start/end。\n- **末批越界**:最后一批不足 batch_size 时 end 要取 min(start+batch_size, total),否则索引越界或重复写。\n- **以为重复 add 会报错**:新版 ChromaDB 静默忽略,排查\"数据少了\"时先怀疑这一点。",
+      "todoItems": [
+        {
+          "title": "补全 batch_add 分批循环:四列表同步切片逐批写入",
+          "target": "batch_add()",
+          "code": "for start in range(0, total, batch_size):end = min(start + batch_size, total);collection.add(ids=ids[start:end], embeddings=embeddings[start:end], ...)",
+          "expect": "3 批写满 8 条,重复 add 后数量仍是 8"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:经典分批模式 for start in range(0, total, batch_size),每批算 end = min(start + batch_size, total),四个列表用同一对下标切片。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:collection.add(ids=ids[start:end], embeddings=vectors[start:end], documents=documents[start:end], metadatas=metadatas[start:end])。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:循环体里 add 之后打印 f\"  批次 {start // batch_size + 1}: 写入 {end - start} 条 (进度 {end}/{total})\";最后重复 add ids[0] 观察 count 不变。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "生产级分批:带失败重试的骨架",
+          "language": "python",
+          "code": "import time\n\ndef robust_batch_add(collection, rows, batch_size=500, retries=3):\n    for start in range(0, len(rows), batch_size):\n        batch = rows[start:start + batch_size]\n        for attempt in range(retries):\n            try:\n                collection.add(**batch)\n                break\n            except Exception:\n                if attempt == retries - 1:\n                    raise\n                time.sleep(2 ** attempt)  # 指数退避\n        print(f\"进度 {min(start + batch_size, len(rows))}/{len(rows)}\")",
+          "description": "真实工程在分批之外还要加失败重试与指数退避,本任务聚焦分批机制本身。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "批量写入(batch ingestion)",
+          "definition": "把大数据集切成固定大小的批次逐批写入,控制内存峰值、便于断点续传与进度追踪。"
+        },
+        {
+          "name": "静默忽略(silent ignore)",
+          "definition": "API 不报错也不执行请求的操作;ChromaDB 1.x 对重复 ID 的 add 即如此,是数据正确性隐患。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "ChromaDB",
+          "role": "向量数据库",
+          "description": "本步骤使用其 collection.add 的批量接口,理解其重复 ID 处理策略是设计去重方案的前提。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "工具",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全代码,替换 TODO 占位部分",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 batch_add 函数",
+          "astType": "function_def",
+          "name": "batch_add",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "分批循环应使用 range(0, total, batch_size)",
+          "pattern": "range\\(0, total, batch_size\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出分批进度并写满 8 条",
+          "expectedStdout": "进度 8/8",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t21-embedding-store-s4",
+      "taskId": "t21-embedding-store",
+      "order": 4,
+      "title": "增量更新与内容哈希去重",
+      "instruction": "### 目标\n藏经阁送来第二批扫描件:一份重复、一份修订版、一份新发现。实现 `sync_documents` 增量同步——用**内容哈希做 ID**,自动区分\"新增/更新/跳过\",让入库操作幂等。\n\n### 原理\n**内容寻址 ID**:不用 `js-001` 这种顺序号,而是用 `sha1(经文)[:12]` 做 ID。同一段文本永远算出同一个 ID——这就是**幂等性**的来源:同一批数据同步十遍,结果和同步一遍完全一样,重跑、断点续传、多机并发都安全。git 用 commit 哈希、Docker 用镜像哈希,都是同一个思想。\n\n**三态判定**:对每条待入库文档——\n1. **同 ID 已在库** → 内容一字未变,**跳过**(连向量都不用重算,省算力);\n2. **同书名、不同哈希** → 修订版,先 `delete` 旧条目再 `upsert` 新版,记为**更新**;不删旧版会导致同一本书新旧两版并存,检索时被召回两次;\n3. **都没有** → **新增**。\n\n**upsert vs add**:`upsert` 是\"存在即更新、不存在即插入\",配合内容哈希 ID 让写入路径完全幂等;而 `add` 对重复 ID 要么报错要么静默忽略(版本而异),都不适合增量场景。\n\n**metadata 里存 content_hash**:把哈希一并写入 metadata,后续可以用它做变更审计、跨库对账,是值得养成的习惯。\n\n### 操作\n1. 补全 `doc_id`:sha1 哈希截断 12 位\n2. 补全 `sync_documents` 的三态判定与 upsert\n3. 运行:首次同步新增 8 条;二次同步应输出 新增['神照经']、更新['太极剑']、跳过两份《九阳神功》,最终库藏 9 条\n\n### 常见坑\n- **修订版只 upsert 不删旧版**:新哈希 = 新 ID,旧条目还在库里,同一本书召回两遍——必须先按书名删掉旧条目。\n- **哈希前不做归一化**:一个全角/半角空格差异就会算出不同哈希,把\"同文不同格式\"误判为修订;生产中应先统一清洗再哈希。\n- **fit 语料没覆盖新词**:embedder 的词表来自 fit 语料,新文档的独有词会被忽略——本步骤 fit 时把两批语料都喂进去了,生产中要定期重 fit 或换预训练模型。",
+      "todoItems": [
+        {
+          "title": "补全 doc_id:sha1 摘要截断 12 位",
+          "target": "doc_id()",
+          "code": "hashlib.sha1(text.encode(\"utf-8\")).hexdigest()[:12]",
+          "expect": "同一内容得到稳定 ID,不同内容 ID 不同"
+        },
+        {
+          "title": "补全 sync_documents 三态判定与 upsert",
+          "target": "sync_documents()",
+          "code": "同 ID 存在记\"跳过\";同标题不同哈希先删旧版再 upsert 记\"更新\";否则 upsert 记\"新增\"",
+          "expect": "首次同步新增 8 条;二次同步输出新增['神照经']、更新['太极剑']、跳过两份《九阳神功》,库藏 9 条"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:三态判定——先按哈希 ID 查(命中=跳过),再按书名查(命中=删旧+记更新),否则记新增,最后统一 upsert。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:hashlib.sha1(text.encode(\"utf-8\")).hexdigest()[:12];collection.get(ids=[did], include=[]) 只取 ID;collection.get(where={\"title\": ...}, include=[]) 按 metadata 过滤;collection.delete(ids=...)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:collection.upsert(ids=[did], embeddings=embedder.encode([text]).tolist(), documents=[text], metadatas=[{\"title\": d[\"title\"], \"category\": d[\"category\"], \"content_hash\": did}])。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "内容哈希 ID:git 同款思想",
+          "language": "python",
+          "code": "import hashlib\n\ndef doc_id(text: str) -> str:\n    # 同一段文本永远得到同一个 ID -> 写入天然幂等\n    # 12 位截断对百万级语料碰撞概率可忽略(生日界约 2^24 条)\n    return hashlib.sha1(text.encode(\"utf-8\")).hexdigest()[:12]\n\nprint(doc_id(\"九阳神功。他强由他强\"))  # 任何机器、任何时刻,结果一致",
+          "description": "内容寻址让入库操作幂等:重复执行不会产生重复数据,这是增量同步的地基。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "幂等(idempotent)",
+          "definition": "同一操作执行一次与执行多次效果相同;内容哈希 ID + upsert 让向量入库具备幂等性。"
+        },
+        {
+          "name": "upsert",
+          "definition": "update + insert:记录存在则更新、不存在则插入,是增量同步场景的标准写入方式。"
+        },
+        {
+          "name": "内容寻址(content addressing)",
+          "definition": "用内容的哈希值作为标识符,内容变则 ID 变,git/Docker 均采用此思想。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "hashlib",
+          "role": "哈希计算(Python 标准库)",
+          "description": "提供 sha1/sha256 等哈希算法,用于生成内容寻址 ID,零第三方依赖。",
+          "officialUrl": "https://docs.python.org/zh-cn/3/library/hashlib.html",
+          "category": "库",
+          "installHint": "标准库,无需安装"
+        },
+        {
+          "name": "ChromaDB",
+          "role": "向量数据库",
+          "description": "使用 get/where 过滤、delete、upsert 完成三态增量同步。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "工具",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全代码,替换 TODO 占位部分",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 sync_documents 函数",
+          "astType": "function_def",
+          "name": "sync_documents",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 hashlib.sha1 生成内容哈希 ID",
+          "pattern": "hashlib\\.sha1",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出二次同步的三态报告与最终 9 条库藏",
+          "expectedStdout": "最终库藏: 9 条",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t21-embedding-store-s5",
+      "taskId": "t21-embedding-store",
+      "order": 5,
+      "title": "语义检索:Top-K 与元数据过滤",
+      "instruction": "### 目标\n让藏经阁真正\"可查\":实现 `search`——查询向量化、Top-K 相似度召回、`where` 元数据过滤,并把距离换算成人类可读的相似度分数。\n\n### 原理\n**检索与入库必须共用同一个嵌入器**:向量空间由 fit 时的词表与 IDF 决定,查询若用另一个 embedder 编码,等于拿拼音去查五笔字典。真实工程里嵌入模型(或 TF-IDF 词表)必须随库持久化、随检索加载;本任务在同一进程内复用对象,所以直接沿用即可。\n\n**collection.query 的工作方式**:传入查询向量,ChromaDB 在 HNSW 近似最近邻索引上找出距离最近的 `n_results` 条,返回 ids/documents/metadatas/distances。小数据下 ANN 与暴力搜索结果一致,数据上到百万级时 ANN 用微小精度换数量级的速度。\n\n**距离 ≠ 相似度**:集合建的是 cosine 空间,ChromaDB 返回的 distance 是**余弦距离 = 1 − 余弦相似度**。展示给用户前要做 `score = 1.0 - dist` 的换算,方向别搞反:距离越小越相似,相似度越大越相似。\n\n**元数据过滤是预过滤**:`where={\"category\": \"剑法\"}` 在向量比较之前先把候选集收窄到剑法类目,等价于 SQL 的 WHERE。RAG 实战里它用来做租户隔离、时间范围、文档类型筛选,是比\"纯向量召回再后过滤\"更高效的姿势。\n\n### 操作\n1. 补全 `search`:query → 距离换算 → 组装命中列表\n2. 运行查询\"刚猛的掌法\",TOP1 应是《降龙十八掌》\n3. 观察带 `category=\"剑法\"` 过滤的查询:候选只剩两本剑谱\n\n### 常见坑\n- **把距离当相似度直接展示**:余弦距离越小越好,直接当\"分数\"展示会误导用户;务必换算。\n- **查询和入库用了不同 embedder**:TF-IDF 词表不一致时相似度全是噪声,且不会报任何错——这是最隐蔽的坑。\n- **where 过滤字段忘了进 metadata**:入库时没写 category,过滤就永远查空;入库 schema 要按检索需求设计。",
+      "todoItems": [
+        {
+          "title": "补全 search:query → 距离换算 → 组装命中列表",
+          "target": "search()",
+          "code": "result = collection.query(query_embeddings=[q.tolist()], n_results=top_k, include=[\"documents\", \"metadatas\", \"distances\"]);score = 1.0 - dist",
+          "expect": "「刚猛的掌法」TOP1 是《降龙十八掌》;带 category=\"剑法\" 过滤时候选只剩两本剑谱"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:query 返回的 distances 是余弦距离,score = 1.0 - dist;where 参数是预过滤,在向量比较前收窄候选。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:collection.query(query_embeddings=q_vec, n_results=top_k, where={\"category\": category} if category else None, include=[\"metadatas\", \"distances\"]);结果用 result[\"metadatas\"][0] 与 result[\"distances\"][0] 成对 zip。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:hits.append({\"title\": meta[\"title\"], \"category\": meta[\"category\"], \"score\": round(1.0 - dist, 4)}),注意 result 的每个字段都是按查询个数嵌套的列表,单查询取下标 [0]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "RAG 标准用法:召回结果拼进 Prompt",
+          "language": "python",
+          "code": "hits = search(collection, embedder, user_question, top_k=3)\ncontext = \"\\n\\n\".join(h[\"title\"] for h in hits)\nprompt = f\"根据以下秘籍内容回答:\\n{context}\\n\\n问题:{user_question}\"\n# prompt -> LLM(deepseek-v4-pro) 生成最终答案",
+          "description": "本步骤的 search 就是 RAG 中的 R(Retrieval),下一任务将把它接入完整检索链。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Top-K 召回",
+          "definition": "按相似度从高到低取前 K 条候选;K 是召回率与噪声的权衡,RAG 常用 3~10。"
+        },
+        {
+          "name": "余弦距离",
+          "definition": "1 − 余弦相似度;ChromaDB cosine 空间返回的距离,需换算成相似度再展示。"
+        },
+        {
+          "name": "元数据过滤(metadata filtering)",
+          "definition": "在向量比较前用 where 条件收窄候选集的预过滤机制,用于类目、租户、时间等约束。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "ChromaDB",
+          "role": "向量数据库",
+          "description": "collection.query 基于 HNSW 索引完成 Top-K 相似度召回,where 参数提供元数据预过滤。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "工具",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全代码,替换 TODO 占位部分",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 search 函数",
+          "astType": "function_def",
+          "name": "search",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要调用 collection.query 做相似度检索",
+          "pattern": "collection\\.query\\(",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出两个查询的 TOP 结果",
+          "expectedStdout": "TOP1 《降龙十八掌》",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t21-embedding-store-s6",
+      "taskId": "t21-embedding-store",
+      "order": 6,
+      "title": "封装 ScriptureStore 向量库组件",
+      "instruction": "### 目标\n把前五步的散装代码收敛成一个可复用组件 `ScriptureStore`:`build_index`(建库)、`sync`(增量同步)、`search`(检索)三个方法一站封装,作为章项目「藏经阁」的正式向量库模块。\n\n### 原理\n**为什么要封装**:前五步的代码能跑,但调用方要懂 TF-IDF、哈希 ID、距离换算才能用对——每多一个使用方就多一份用错的风险。封装把\"词表必须先 fit\"\"查询与入库共用 embedder\"\"ID 必须是内容哈希\"这些**不变量收进类内部**,调用方只面对三个语义清晰的方法。这正是工程与脚本的分水岭:不是功能更多,而是**误用的空间更小**。\n\n**替换点显式化**:好的封装把未来的变化点留成明牌——本类只有两个:(1)`EphemeralClient` → `PersistentClient(path=...)` 实现落盘;(2)`TfidfEmbedder` → `SentenceTransformer` 实现语义级向量。两处替换都不动 build_index/sync/search 的一行逻辑,因为前面五步我们一直在用统一接口编程。这就是\"面向接口而不是面向实现\"的回报。\n\n**状态归属**:embedder 为什么是实例属性而不是全局变量?因为词表/IDF 是这个集合的私有状态——两个不同集合用同一词表会互相污染。类把状态和行为绑在一起,天然防止这类串扰。\n\n### 操作\n1. 补全 `build_index`:fit 词表 → 全量 encode → 分批 upsert → 返回 count\n2. 补全 `sync`(第 4 步三态逻辑)与 `search`(第 5 步检索逻辑)\n3. 运行:建库 6 条 → 增量同步(1 重复跳过 + 1 新增)→ 检索\"刚猛的武功\"命中《降龙十八掌》\n\n### 常见坑\n- **build_index 忘了 fit**:直接 encode 会因 idf 为 None 抛 RuntimeError——顺序必须是 fit 在前。\n- **把同步报告写成 print 而不是 return**:组件方法应返回结构化数据(dict),让调用方决定展示还是落日志;在库里 print 是脚本思维的残留。\n- **search 的 where 拼错类型**:category 为 None 时要传 None 而不是空 dict `{}`,部分版本对空过滤条件行为不一致。",
+      "todoItems": [
+        {
+          "title": "补全 build_index:fit → 全量 encode → 分批 upsert → 返回 count",
+          "target": "build_index()",
+          "code": "texts = [self._full_text(d) for d in docs];vecs = self.embedder.encode(texts).tolist();按 batch_size 分批 upsert",
+          "expect": "建库 6 条并返回入库数量"
+        },
+        {
+          "title": "补全 sync 三态逻辑与 search 检索",
+          "target": "sync() / search()",
+          "code": "同 ID 记\"跳过\";同书名不同哈希先删旧再 upsert 记\"更新\";否则 upsert 记\"新增\";search 复用第 5 步检索三部曲",
+          "expect": "增量同步 1 重复跳过 + 1 新增;「刚猛的武功」命中《降龙十八掌》"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:三个方法分别是第 2/3 步(分批 upsert)、第 4 步(三态同步)、第 5 步(query+距离换算)的类内搬运,注意把全局变量换成 self.collection / self.embedder。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:build_index 里 self.embedder.fit([self._full_text(d) for d in docs]);分批 for start in range(0, len(docs), batch_size):self.collection.upsert(...)。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:sync 返回 {\"新增\": n1, \"更新\": n2, \"跳过\": n3} 计数 dict;search 返回 [{\"title\": m[\"title\"], \"score\": round(1.0 - dist, 4)} ...]。预期输出:建库完成: 6 条秘籍;增量同步报告: {'新增': 1, '更新': 0, '跳过': 1}。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "组件用法(作为模块被 import)",
+          "language": "python",
+          "code": "# 另一个文件里:\nfrom scripture_store import ScriptureStore\n\nstore = ScriptureStore(name=\"cangjingge\")\nstore.build_index(new_scriptures)\nreport = store.sync(daily_scans)          # 每日扫描件增量入库\nhits = store.search(\"疗伤的内功\", top_k=3, category=\"内功\")\nfor h in hits:\n    print(h[\"title\"], h[\"score\"])",
+          "description": "封装后调用方无需了解 TF-IDF、哈希 ID、距离换算任何细节,三个方法覆盖全部场景。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "组件封装",
+          "definition": "把一组相关操作与私有状态收进类,对外只暴露语义清晰的接口,压缩调用方的误用空间。"
+        },
+        {
+          "name": "面向接口编程",
+          "definition": "依赖抽象接口(fit/encode)而非具体实现,使 TfidfEmbedder 可无缝替换为 SentenceTransformer。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "ChromaDB",
+          "role": "向量数据库",
+          "description": "ScriptureStore 的底层存储引擎,封装其 collection 的 upsert/query/delete API。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "工具",
+          "installHint": "pip install chromadb"
+        },
+        {
+          "name": "NumPy",
+          "role": "向量计算库",
+          "description": "TF-IDF 嵌入器的计算底座,封装后对外完全隐藏。",
+          "officialUrl": "https://numpy.org/doc/",
+          "category": "库",
+          "installHint": "pip install numpy"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请补全代码,替换 TODO 占位部分",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要定义 ScriptureStore 类",
+          "astType": "class_def",
+          "name": "ScriptureStore",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "ScriptureStore 需要封装 search 方法",
+          "pattern": "def search\\(self",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出建库条数、同步报告与检索结果",
+          "expectedStdout": "建库完成: 6 条秘籍",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

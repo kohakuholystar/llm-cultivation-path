@@ -1,0 +1,215 @@
+{
+  "steps": [
+    {
+      "id": "t30-tools-basics-s1",
+      "taskId": "t30-tools-basics",
+      "order": 1,
+      "title": "用 @tool 装饰器定义简单工具",
+      "instruction": "## 目标\n学会使用 `@tool` 装饰器将一个 Python 函数转换为 LLM 可调用的工具。\n\n## 概念\n- **@tool 装饰器**：来自 `langchain.tools`，它会自动从函数的签名和文档字符串中提取工具的名称、描述和参数信息。\n- **Tool 对象**：装饰后的函数会变成一个 `Tool` 实例，包含 `name`、`description`、`args_schema` 等属性。\n\n## 操作指引\n1. 导入 `from langchain.tools import tool`。\n2. 定义一个函数 `get_current_time`，接收一个可选参数 `timezone`（字符串，默认 'UTC'），返回当前时间的字符串表示。\n3. 在函数上方添加 `@tool` 装饰器。\n4. 函数体内，使用 `datetime.now(timezone)` 获取当前时间（注意处理时区）。\n5. 返回格式化的时间字符串。\n\n**为什么这样写？** 装饰器让 LLM 能够识别该函数为可用工具，并在需要时自动调用。参数 `timezone` 会被自动提取为工具的参数。",
+      "starterCode": "from langchain.tools import tool\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\n\n    Args:\n        timezone: 时区名称，例如 'Asia/Shanghai', 'US/Eastern'。默认为 'UTC'。\n    \"\"\"\n    # TODO: 获取指定时区的当前时间并返回格式化的字符串\n# 提示: Args:\n    pass\n\n# 测试工具是否被正确创建\nif __name__ == \"__main__\":\n    print(get_current_time.name)\n    print(get_current_time.description)\n    print(get_current_time.args)",
+      "solutionCode": "from langchain.tools import tool\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\n\n    Args:\n        timezone: 时区名称，例如 'Asia/Shanghai', 'US/Eastern'。默认为 'UTC'。\n    \"\"\"\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\nif __name__ == \"__main__\":\n    print(get_current_time.name)\n    print(get_current_time.description)\n    print(get_current_time.args)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "使用 `pytz.timezone` 获取时区对象，然后用 `datetime.now` 传入时区。"
+        },
+        {
+          "order": 2,
+          "text": "确保函数有文档字符串，并且参数有类型注解。"
+        },
+        {
+          "order": 3,
+          "text": "替换 `pass` 为正确的实现：获取时区，获取当前时间，格式化返回。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "基本 @tool 用法",
+          "language": "python",
+          "code": "from langchain.tools import tool\n\n@tool\ndef add(a: int, b: int) -> int:\n    \"\"\"Add two numbers.\"\"\"\n    return a + b\n\nprint(add.name)  # 'add'\nprint(add.description)  # 'add(a: int, b: int) -> int - Add two numbers.'",
+          "description": "展示 @tool 如何从函数签名生成工具"
+        }
+      ],
+      "terms": [
+        {
+          "name": "@tool 装饰器",
+          "definition": "LangChain 提供的装饰器，将函数转换为 Tool 对象，自动提取名称、描述和参数。"
+        },
+        {
+          "name": "Tool 对象",
+          "definition": "表示一个可被 LLM 调用的工具，包含 name、description、args_schema 等属性。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 @tool 装饰器和 Tool 类",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        },
+        {
+          "name": "pytz",
+          "role": "时区处理",
+          "description": "时区处理库,提供全球时区数据库与转换。用于工具函数获取指定时区时间。",
+          "officialUrl": "https://pythonhosted.org/pytz/",
+          "category": "时区库",
+          "installHint": "pip install pytz"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符，实现 get_current_time 函数。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "unit_test",
+          "message": "工具应该返回正确的格式。",
+          "testCode": "from langchain.tools import tool\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\nresult = get_current_time('Asia/Shanghai')\nassert 'Asia/Shanghai' in result or 'CST' in result, f\"Unexpected result: {result}\"\nprint('Test passed')",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t30-tools-basics-s2",
+      "taskId": "t30-tools-basics",
+      "order": 2,
+      "title": "使用 Tool 类手动定义工具",
+      "instruction": "## 目标\n学会直接使用 `Tool` 类创建工具，手动指定 `name`、`description` 和 `func`。\n\n## 概念\n- **Tool 类**：来自 `langchain.tools`，可以手动实例化，需要提供 `name`、`description` 和 `func`（可调用对象）。\n- **args_schema**：可选参数，用于定义输入参数的 JSON Schema，通常用 Pydantic 模型。\n\n## 操作指引\n1. 导入 `from langchain.tools import Tool`。\n2. 定义一个普通函数 `multiply`，接收两个整数 `a` 和 `b`，返回它们的乘积。\n3. 使用 `Tool` 类创建一个工具实例，指定 `name=\"multiply\"`，`description=\"将两个整数相乘\"`，`func=multiply`。\n4. 打印工具的 `name`、`description` 和 `args`（注意 `args` 可能为空，因为没有定义 `args_schema`）。\n\n**为什么这样写？** 手动定义工具让你完全控制工具的元数据，适用于需要自定义参数模式或函数不是装饰器场景。",
+      "starterCode": "from langchain.tools import Tool\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"将两个整数相乘\"\"\"\n    # TODO: 返回 a 和 b 的乘积\n# 提示: return a * b\n    pass\n\n# 使用 Tool 类创建工具实例\nmultiply_tool = Tool(\n    name=\"multiply\",\n    description=\"将两个整数相乘\",\n    func=multiply\n)\n\n# 测试工具\nif __name__ == \"__main__\":\n    print(multiply_tool.name)\n    print(multiply_tool.description)\n    print(multiply_tool.args)\n    # 调用工具\n    print(multiply_tool.run({\"a\": 3, \"b\": 4}))",
+      "solutionCode": "from langchain.tools import Tool\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"将两个整数相乘\"\"\"\n    return a * b\n\nmultiply_tool = Tool(\n    name=\"multiply\",\n    description=\"将两个整数相乘\",\n    func=multiply\n)\n\nif __name__ == \"__main__\":\n    print(multiply_tool.name)\n    print(multiply_tool.description)\n    print(multiply_tool.args)\n    print(multiply_tool.run({\"a\": 3, \"b\": 4}))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "函数 multiply 需要返回 a * b。"
+        },
+        {
+          "order": 2,
+          "text": "Tool 的 run 方法接受一个字典参数，键对应函数参数名。"
+        },
+        {
+          "order": 3,
+          "text": "确保函数有返回语句，否则 run 会返回 None。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Tool 类基本用法",
+          "language": "python",
+          "code": "from langchain.tools import Tool\n\ndef greet(name: str) -> str:\n    return f\"Hello {name}!\"\n\ngreet_tool = Tool(\n    name=\"greet\",\n    description=\"向某人打招呼\",\n    func=greet\n)\n\nprint(greet_tool.run({\"name\": \"Alice\"}))  # Hello Alice!",
+          "description": "展示 Tool 类手动创建工具"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Tool 类",
+          "definition": "LangChain 中表示工具的核心类，需要手动指定 name、description 和 func。"
+        },
+        {
+          "name": "args_schema",
+          "definition": "可选的 Pydantic 模型，用于定义工具输入参数的 JSON Schema。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符，实现 multiply 函数。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "工具运行结果应为 12。",
+          "text": "12",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t30-tools-basics-s3",
+      "taskId": "t30-tools-basics",
+      "order": 3,
+      "title": "让 LLM 使用工具：绑定工具并调用",
+      "instruction": "## 目标\n将定义好的工具绑定到 LLM，让模型在需要时自主调用工具。\n\n## 概念\n- **bind_tools**：ChatModel 的方法，将工具列表绑定到模型，使模型能够输出工具调用。\n- **AIMessage.tool_calls**：模型返回的消息中包含的调用信息，包含工具名称和参数。\n\n## 操作指引\n1. 使用前两步定义的 `get_current_time` 和 `multiply_tool`（或重新定义）。\n2. 初始化一个 ChatOpenAI 模型（假设环境变量 OPENAI_API_KEY 已配置）。\n3. 使用 `model.bind_tools([get_current_time, multiply_tool])` 绑定工具。\n4. 发送一条需要调用工具的消息，例如“现在北京时间是多少？”，并打印模型响应。\n5. 观察 `response.tool_calls` 是否包含工具调用。\n\n**为什么这样写？** 绑定工具后，LLM 会在需要时自动决定调用哪个工具并生成参数，实现自主行动。",
+      "starterCode": "import os\nfrom langchain.tools import tool\nfrom langchain.tools import Tool\nfrom langchain_openai import ChatOpenAI\nfrom datetime import datetime\nimport pytz\n\n# 定义工具（复用之前的）\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\"\"\"\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"将两个整数相乘\"\"\"\n    return a * b\n\nmultiply_tool = Tool(\n    name=\"multiply\",\n    description=\"将两个整数相乘\",\n    func=multiply\n)\n\n# 初始化模型\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\n# 绑定工具\nmodel_with_tools = model.bind_tools([get_current_time, multiply_tool])\n\n# 发送消息\nresponse = model_with_tools.invoke(\"现在北京时间是多少？\")\n\n# 打印 response 的 tool_calls 属性\nprint(response)\n",
+      "solutionCode": "import os\nfrom langchain.tools import tool\nfrom langchain.tools import Tool\nfrom langchain_openai import ChatOpenAI\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\"\"\"\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"将两个整数相乘\"\"\"\n    return a * b\n\nmultiply_tool = Tool(\n    name=\"multiply\",\n    description=\"将两个整数相乘\",\n    func=multiply\n)\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\nmodel_with_tools = model.bind_tools([get_current_time, multiply_tool])\n\nresponse = model_with_tools.invoke(\"现在北京时间是多少？\")\nprint(response.tool_calls)\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "模型响应是一个 AIMessage 对象，它有 tool_calls 属性。"
+        },
+        {
+          "order": 2,
+          "text": "打印 response.tool_calls 可以看到调用的工具名称和参数。"
+        },
+        {
+          "order": 3,
+          "text": "如果模型没有调用工具，可以尝试更明确的提示，如“请使用 get_current_time 工具获取北京时间”。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "bind_tools 示例",
+          "language": "python",
+          "code": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.tools import tool\n\n@tool\ndef add(a: int, b: int) -> int:\n    \"\"\"Add two numbers.\"\"\"\n    return a + b\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\nmodel_with_tools = model.bind_tools([add])\nresponse = model_with_tools.invoke(\"What is 2+3?\")\nprint(response.tool_calls)",
+          "description": "展示 bind_tools 和 tool_calls"
+        }
+      ],
+      "terms": [
+        {
+          "name": "bind_tools",
+          "definition": "ChatModel 的方法，将工具列表绑定到模型，使模型能够输出工具调用。"
+        },
+        {
+          "name": "tool_calls",
+          "definition": "AIMessage 的属性，包含模型决定调用的工具列表，每个元素有 name 和 args。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 bind_tools 和工具调用支持",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        },
+        {
+          "name": "LangChain OpenAI",
+          "role": "模型集成",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。提供 ChatOpenAI 模型",
+          "officialUrl": "https://python.langchain.com/docs/integrations/chat/openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符，打印 tool_calls。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 'get_current_time' 工具调用。",
+          "text": "get_current_time",
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

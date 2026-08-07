@@ -1,0 +1,431 @@
+{
+  "steps": [
+    {
+      "id": "t63-finetune-distill-s1",
+      "taskId": "t63-finetune-distill",
+      "order": 1,
+      "title": "低秩分解:LoRA 的数学雏形",
+      "instruction": "### 目标\n\n本步做一件数学上很优雅的事:把一个巨大的权重矩阵 W,用两个瘦长小矩阵 A、B 的乘积近似出来(W ≈ A@B),并观察近似误差与参数压缩之间的关系。这正是 LoRA「用低秩旁路替代大矩阵更新量」的数学雏形——理解了这一步,后面所有 LoRA 的代码都只是它的应用场景。\n\n### 原理\n\n预训练好的权重矩阵往往「外强中干」:表面有几百上千个参数,但奇异值谱显示能量高度集中在少数几个主方向上,其余方向近似噪声。SVD(奇异值分解)把 W 拆成 U·S·Vᵀ,奇异值按从大到小排序后,只保留前 r 个、把其余截断为 0,就得到 W 的最佳 r 秩近似 A·B。其中 A 取 u[:, :r]·s[:r],B 取 vt[:r, :],两者合计参数 r·(d+d),远小于 d²。用相对误差 ||W−A·B||_F / ||W||_F 衡量逼近质量:秩 r 选得越大误差越小,但参数也越多、压缩率越低——这就是低秩近似最核心的「容量 vs 精度」权衡,也是后来 LoRA 选择秩 r 时的直觉来源。本步构造一个「6 个主方向 + 微噪声」的权重,让奇异值谱的衰减肉眼可见:前 6 个奇异值远大于其余,截断误差随 r 逼近噪声下限。\n\n### 操作\n\n1. 用 make_structured_weight 构造有结构的权重(已给出),打印其奇异值谱,确认能量集中;\n2. 实现 low_rank_factorize:对 w 做 SVD,截断前 r 个奇异值,返回 A、B 两个瘦长因子;\n3. 在 main 里对 r 依次取 2、4、6,计算重建误差、分解参数与压缩率,打印成表格,观察误差随秩增大而下降、参数随之上升的权衡。\n\n### 常见坑\n\n- np.linalg.svd 默认返回完整矩阵,务必加 full_matrices=False,形状才与瘦长因子对得上;\n- 奇异值数组是降序的,直接截断前 r 个即可,不要用索引倒序;\n- 相对误差的分母必须是 ||W||(归一化),否则不同量级的矩阵之间无法比较;\n- 截断时要按 s[:r] 缩放 u 的列(写成 u[:, :r] * s[:r]),漏乘奇异值等于没做分解。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "低秩分解就是 SVD 截断:u, s, vt = np.linalg.svd(w, full_matrices=False),然后 A = u[:, :r] * s[:r],B = vt[:r, :]。"
+        },
+        {
+          "order": 2,
+          "text": "相对重建误差:np.linalg.norm(w - a @ b) / np.linalg.norm(w),分母归一化后误差才有可比性。"
+        },
+        {
+          "order": 3,
+          "text": "压缩率 = 原矩阵参数 / 分解参数 = w.size / (a.size + b.size);秩越大误差越小,压缩率越低,这就是权衡。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "SVD 截断:两行拿到瘦长因子",
+          "language": "python",
+          "code": "u, s, vt = np.linalg.svd(w, full_matrices=False)\na = u[:, :r] * s[:r]   # (d, r)\nb = vt[:r, :]          # (r, d)\n# w ≈ a @ b,参数从 d*d 降到 2*r*d",
+          "description": "只保留前 r 个奇异值,其余截断为 0,得到最佳 r 秩近似。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "低秩分解",
+          "definition": "用两个瘦长小矩阵的乘积近似一个大矩阵,如 W ≈ A@B(A 为 d×r,B 为 r×d,r << d);参数从 d² 降到 2rd。"
+        },
+        {
+          "name": "SVD(奇异值分解)",
+          "definition": "把矩阵 W 分解为 U·S·Vᵀ,奇异值按降序排列;截断前 r 个即可得到最佳 r 秩近似。"
+        },
+        {
+          "name": "重建误差",
+          "definition": "用 ||W − A@B||_F / ||W||_F 衡量低秩近似与原矩阵的差距,越小表示逼近越好。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy.linalg.svd",
+          "usage": "奇异值分解,低秩分解的数学引擎。"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 low_rank_factorize 低秩分解函数。",
+          "astType": "function_def",
+          "name": "low_rank_factorize",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 np.linalg.svd 完成分解。",
+          "pattern": "np.linalg.svd",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印奇异值谱与重建误差表格。",
+          "expectedStdout": "重建后的权重仍能还原主体结构",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t63-finetune-distill-s2",
+      "taskId": "t63-finetune-distill",
+      "order": 2,
+      "title": "冻结主干:LoRALayer 入炉",
+      "instruction": "### 目标\n\n把「低秩旁路」变成真正的代码:实现一个 LoRALayer 类,它冻结预训练主干 W,在旁边挂可训练的低秩因子 A、B,前向时输出 x@(W + alpha/r·A@B)。本步要验证两件事:可训练参数占比极低;B 零初始化时,旁路不改变模型原有行为——微调前后模型输出保持一致。\n\n### 原理\n\nLoRA 的核心洞见:微调不是从零重学,而是在冻结主干旁「加一条窄路」。权重更新量 ΔW 被建模成两个小矩阵的乘积 A@B,缩放系数 scale = alpha/r 控制旁路强度。为什么 B 必须零初始化?因为微调开始前,模型输出必须和预训练时完全一致——如果 A、B 都随机初始化,模型一启动就被随机扰动带偏,预训练学到的能力瞬间丢失。B 全零 ⇒ ΔW = 0 ⇒ 前向输出等于冻结主干的输出,训练过程才能平滑起步。可训练参数只有 A、B 的 r·d + r·d 个,主干 W 的 d² 个参数永不更新——这就是「参数高效」四个字的来源。本步还要直观感受旁路「活了」的过程:手动扰动 B 之后,ΔW 的秩、输出的偏移都肉眼可见。\n\n### 操作\n\n1. 在 __init__ 里初始化:w 用正态分布(冻结主干),a 用小幅正态分布(旁路左因子),b 全零(旁路右因子),并算出 scale = alpha / r;\n2. 实现 delta():返回 scale*(a@b),即低秩增量矩阵;\n3. 实现 forward():返回 x@(w+delta());\n4. 在 main 里打印参数统计,扰动 B 后观察 ΔW 的秩与输出差异(已给出)。\n\n### 常见坑\n\n- 冻结不是魔法,是纪律:只要代码里不出现 self.w 的赋值或原地更新,它就天然冻结——微调时千万别手滑写 self.w -= ...;\n- scale 必须整体乘在 A@B 的乘积上,不能分别乘给 A、B 再相乘,否则数值上不再等价于缩放 ΔW;\n- 随机种子要固定(default_rng(seed)),否则每次初始化不同,后续对比失真;\n- B 用 np.zeros 而不是 rng.normal:零初始化是 LoRA 能「无缝接管」预训练模型的关键。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "四样东西在 __init__ 里初始化:scale = alpha / r;w 用 rng.normal(0.0, 0.3, (d, d));a 用 rng.normal(0.0, 0.05, (d, r));b 用 np.zeros((r, d))。"
+        },
+        {
+          "order": 2,
+          "text": "forward 就一行:return x @ (self.w + self.delta());B 全零时结果与 x @ self.w 完全一致。"
+        },
+        {
+          "order": 3,
+          "text": "验证旁路生效:layer.b += 0.01 后,matrix_rank(layer.delta()) 应为 r,输出与 base 的差不再为 0。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "LoRA 前向的两种等价写法",
+          "language": "python",
+          "code": "# 写法一:先合并再相乘(省一次大矩阵乘)\nreturn x @ (self.w + self.scale * (self.a @ self.b))\n\n# 写法二:分两条路相加(便于观察旁路贡献)\nreturn x @ self.w + self.scale * (x @ self.a @ self.b)",
+          "description": "两者数值等价;实现上常用写法一。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "冻结参数",
+          "definition": "训练时完全不更新其梯度的权重;LoRA 中预训练主干 W 被冻结,只更新旁路 A、B。"
+        },
+        {
+          "name": "低秩旁路",
+          "definition": "挂在冻结主干旁的可训练低秩分支 ΔW = scale·A@B,r << d,参数量远小于主干。"
+        },
+        {
+          "name": "零初始化",
+          "definition": "把 B 初始化为全零,使 ΔW 从 0 起步,微调开始时不改变预训练模型的行为。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy",
+          "usage": "矩阵乘法与正态/零初始化,构建可训练旁路。"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 LoRALayer 类。",
+          "astType": "class_def",
+          "name": "LoRALayer",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 delta 低秩增量方法。",
+          "astType": "function_def",
+          "name": "delta",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请正确计算缩放系数。",
+          "pattern": "self.scale",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印参数统计与旁路生效验证。",
+          "expectedStdout": "主干 w 永不进入梯度更新",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t63-finetune-distill-s3",
+      "taskId": "t63-finetune-distill",
+      "order": 3,
+      "title": "微调教材:语料、编码与交叉熵",
+      "instruction": "### 目标\n\n给模型准备「教材」:把一篇法诀语料切成「前一个字 → 后一个字」的监督配对,把汉字编码成编号,用交叉熵量化「模型预测分布」与「真实下一字」的差距。本步是后面微调与蒸馏的公共底座——loss 函数会一直沿用到最后一步。\n\n### 原理\n\n字符级语言模型的训练样本就是语料中相邻的两个字:给定「前字」,预测「后字」。前字用 one-hot 向量表示,乘上权重矩阵得到每个候选字的得分(logits),softmax 把它压成概率分布。交叉熵度量「模型在真实下一个字上给出的负对数概率」:模型越自信且越正确,loss 越小;对真实字给出低概率,loss 就大。随机初始化时模型完全没学习,loss 应接近 ln(词表大小)≈ 3.55,这可以作为正确性的快速自检。交叉熵对 logits 的梯度有一个优美的封闭形式:(softmax(logits) − onehot(ys)) / n——直接以解析式返回,后面手写 SGD 时拿来即用。这正是「从零实现」的价值:每一步都看得见、算得清,没有任何黑盒。\n\n### 操作\n\n1. 用 CORPUS 构建字符表 chars 与编号映射 CHAR_IDS,把语料编码成 IDS(已给出);\n2. 实现 build_bigram_data:把编号序列切成 (输入, 目标) 配对;\n3. 实现 cross_entropy_with_grad:用 softmax 算概率,按公式算 loss,再按封闭形式算梯度,返回 (loss, dlogits);\n4. 在 main 里打印词表、样本数、随机初始 loss 与理论下界 ln V 的对比(已给出)。\n\n### 常见坑\n\n- softmax 必须先减行最大值再取指数,否则大 logits 会溢出成 inf/nan;\n- 梯度公式里必须除以 n(样本数)——它是平均损失的导数,漏除会让学习率量级全错;\n- 编码和解码必须共用同一张 CHAR_IDS,字符表顺序变了,编号全变;\n- log 里加 1e-12 是防 p=0 时取 log 报错,但 1e-12 太小不影响 loss 数值。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "bigram 数据就一行:return ids[:-1], ids[1:];前者是输入字,后者是目标字。"
+        },
+        {
+          "order": 2,
+          "text": "交叉熵 loss = -np.mean(np.log(p[np.arange(n), ys] + 1e-12)),p 是 softmax(logits)。"
+        },
+        {
+          "order": 3,
+          "text": "梯度用封闭形式:d = (p - np.eye(logits.shape[1])[ys]) / n;其中 np.eye(...)[ys] 是 one-hot 目标。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "交叉熵及其梯度",
+          "language": "python",
+          "code": "p = softmax(logits)\nn = logits.shape[0]\nloss = -np.mean(np.log(p[np.arange(n), ys] + 1e-12))\nd = (p - np.eye(logits.shape[1])[ys]) / n\nreturn loss, d",
+          "description": "loss 是平均负对数概率;d 是 (softmax − onehot)/n,后续所有反向传播的起点。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "交叉熵",
+          "definition": "度量预测分布与真实标签的差距:真实字上负对数概率的均值,越小说明预测越准。"
+        },
+        {
+          "name": "one-hot",
+          "definition": "把编号 i 编码成长度为词表大小的向量,第 i 位为 1 其余为 0;语言模型输入的表示方式。"
+        },
+        {
+          "name": "bigram",
+          "definition": "两两相邻的字符对:「前字 → 后字」,构成最简的语言模型监督信号。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy",
+          "usage": "向量化实现 one-hot、softmax 与交叉熵。"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 build_bigram_data 数据构造函数。",
+          "astType": "function_def",
+          "name": "build_bigram_data",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现交叉熵与梯度函数。",
+          "astType": "function_def",
+          "name": "cross_entropy_with_grad",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 np.log 计算损失。",
+          "pattern": "np.log",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印词表与交叉熵 loss。",
+          "expectedStdout": "交叉熵越小",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t63-finetune-distill-s4",
+      "taskId": "t63-finetune-distill",
+      "order": 4,
+      "title": "只训旁路:LoRA 微调循环",
+      "instruction": "### 目标\n\n把前两步组装起来,跑真正的 LoRA 微调:用手动 SGD 训练 1500 轮,每轮只更新旁路 A、B,主干 W 冻结不动。训练结束后用逐元素比较校验 W 与训练前完全一致,观察 loss 从 3.6 一路下降到 0.3 附近——旁路参数极少,效果却立竿见影,这正是「参数高效微调」的实证。\n\n### 原理\n\n微调循环的本质是一次次「前向算 loss → 反向传梯度 → 沿梯度更新」。输出 logits = x@(W + scale·A@B),链式法则把对 logits 的梯度 dlogits 一路传下去:先传到 W_eff,dw = xᵀ@dlogits;再沿旁路因子分别传递:dA = scale·(dw@Bᵀ)、dB = scale·(Aᵀ@dw)。注意 dA 依赖 B、dB 依赖 A——两个因子互相纠缠,这正是低秩结构的数学特征。更新时 A -= lr·dA、B -= lr·dB,W 从不出现在更新语句里。本步手动写梯度而不是调库,是为了让每一行数学都看得见;PyTorch 等框架的 autograd 只是把这个过程自动化。训练结束的冻结校验 assert 是「参数高效」的铁证:同一份 W 逐元素相同,loss 却大幅下降——旁路自己学会了适配教材。\n\n### 操作\n\n1. 复用 LoRALayer 与 cross_entropy_with_grad(已给出);\n2. 在训练循环里用链式法则计算 dw、dA、dB,并更新 A、B;\n3. 每 300 轮打印一次 loss(已给出);\n4. 训练结束后把备份 w_before 与 model.w 逐元素比较,打印冻结校验结果。\n\n### 常见坑\n\n- 梯度要乘 scale:输出经过 x@(W + scale·A@B),所以 dA、dB 都必须乘 model.scale,漏乘会让学习率实际偏小一个量级;\n- 备份要 .copy():直接等号只是引用,训练后比较的对象也已经被更新,校验永远通过;\n- dA、dB 的公式里,谁是转置谁是原始要分清楚:dw@b.T 与 a.T@dw,方向反了梯度就错;\n- 打印周期取整(epoch % 300),避免最后一轮恰好落在打印点之外造成「空跑」的错觉。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "交叉熵梯度公式与 s3 相同:d = (p - np.eye(logits.shape[1])[ys]) / n。"
+        },
+        {
+          "order": 2,
+          "text": "链式法则:dw = x.T @ dlogits;dA = model.scale * (dw @ model.b.T);dB = model.scale * (model.a.T @ dw)。"
+        },
+        {
+          "order": 3,
+          "text": "更新只碰旁路:model.a -= LR * da;model.b -= LR * db;w_before 用 model.w.copy() 备份,训练后 np.array_equal 校验。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "LoRA 的梯度流",
+          "language": "python",
+          "code": "dw = x.T @ dlogits            # 对有效权重 W_eff 的梯度\n# 沿旁路回传(两个因子互相纠缠)\nda = model.scale * (dw @ model.b.T)\ndb = model.scale * (model.a.T @ dw)\nmodel.a -= LR * da           # 只更新旁路\nmodel.b -= LR * db",
+          "description": "dlogits 从交叉熵直接拿到;W 冻结,梯度止步于旁路因子。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "链式法则",
+          "definition": "复合函数求导法则;LoRA 中把对 logits 的梯度依次传到 W_eff、A、B,实现旁路更新。"
+        },
+        {
+          "name": "参数高效微调",
+          "definition": "只更新极少参数(如旁路 A、B)完成适配,主干冻结;本步用逐元素比较实证冻结。"
+        },
+        {
+          "name": "SGD(随机梯度下降)",
+          "definition": "沿损失函数负梯度方向迭代更新参数;本步用全批量的确定性梯度实现。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy",
+          "usage": "手写链式法则与 SGD,完成 LoRA 微调循环。"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 LoRALayer 类。",
+          "astType": "class_def",
+          "name": "LoRALayer",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用链式法则计算旁路梯度。",
+          "pattern": "dlogits",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请校验冻结主干未被修改。",
+          "pattern": "frozen_ok",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示 loss 下降与冻结校验。",
+          "expectedStdout": "只训旁路完成",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t63-finetune-distill-s5",
+      "taskId": "t63-finetune-distill",
+      "order": 5,
+      "title": "师徒传承:知识蒸馏与软标签",
+      "instruction": "### 目标\n\n上演「师徒传承」:大模型(教师)用全参数微调 600 轮,学出一套预测分布;两个 LoRA 学生(秩 2)用同样的步数学习——学生甲只盯硬标签(真实下一个字),学生乙偷师教师的软标签(softmax(logits/T))。最后用 KL 距离比较两者与教师分布的差距,观察谁更接近教师。\n\n### 原理\n\n硬标签是「非此即彼」的:某个字就是答案,其余全部错误。但教师模型的预测分布里藏着「暗知识」:它知道「火」后面大概率是逗号,也知道「丹青」这类相邻搭配,甚至对易混淆的字给出相近概率——这种相似结构在硬标签里被直接抹掉了。蒸馏的做法:把教师 logits 除以温度 T 再 softmax,得到摊软的软标签,学生用 KL 散度向它学习;损失乘 T² 是为了让梯度量级与硬标签训练可比。温度越高,分布越平,暗知识越明显;温度等于 1 时退化为普通 KL。学生乙直接以教师的分布为目标,收敛后与教师更接近;学生甲只拟合硬标签,分布形态与教师相去更远。这个差距用 KL(学生 ‖ 教师)量化:它是衡量「师徒相似度」的标准度量,也是本步的最终结论。\n\n### 操作\n\n1. 训练教师:全参数 SGD 600 轮,保存其 logits(已给出);\n2. 实现 distill_grad:温度缩放 + KL + T² 系数,返回 (loss, 梯度);\n3. 训练学生甲(硬标签)与学生乙(软标签),各 500 轮,均只更新旁路;\n4. 计算两者与教师分布的 KL 距离并比较,打印「乙更接近教师」的结论(已给出)。\n\n### 常见坑\n\n- 软标签必须用教师的 logits 除以 T 后再 softmax,而不是直接用教师概率——温度的作用只有在 logits 空间才正确;\n- 损失务必乘 T²:漏乘会导致梯度被温度稀释,学生乙学不动,对比失真;\n- 两个学生必须用同一个随机种子初始化,否则「谁更像教师」的对比不公平;\n- KL 的两个分布都要加 eps 再取 log,softmax 输出里有大量 0 概率,直接取 log 会得到 -inf。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "蒸馏梯度:ps = softmax(student_logits / t),pt = softmax(teacher_logits / t),d = t * (ps - pt) / n。"
+        },
+        {
+          "order": 2,
+          "text": "loss = t * t * soft_kl(ps, pt),T² 系数保证梯度量级与硬标签训练可比。"
+        },
+        {
+          "order": 3,
+          "text": "train_student 里用 teacher_logits 是否为 None 区分两种目标:None → cross_entropy_with_grad,否则 → distill_grad;更新公式与 s4 完全一致。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "蒸馏损失与梯度",
+          "language": "python",
+          "code": "ps = softmax(student_logits / t)\npt = softmax(teacher_logits / t)\nn = student_logits.shape[0]\nloss = t * t * soft_kl(ps, pt)   # T² 缩放\n# 梯度与硬标签训练同构:都是 (预测 - 目标) / n\nd = t * (ps - pt) / n\nreturn loss, d",
+          "description": "温度摊软两个分布;损失乘 T²,梯度乘 T,保证量级可比。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "知识蒸馏",
+          "definition": "用教师模型的软输出作为学生训练目标,把暗知识从大模型迁移到小模型。"
+        },
+        {
+          "name": "软标签",
+          "definition": "教师模型经过温度缩放的预测概率分布,携带类间相似结构;相对的是非此即彼的硬标签。"
+        },
+        {
+          "name": "温度 T",
+          "definition": "softmax 前的缩放除数:T 越大分布越平、暗知识越明显;T=1 时退化为普通 softmax。"
+        },
+        {
+          "name": "KL 散度",
+          "definition": "度量两个分布之间的差异,非对称;本步用 KL(学生 ‖ 教师)衡量学生与教师的接近程度。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "numpy",
+          "usage": "手写温度缩放、KL 损失与蒸馏梯度,完成教师-学生对比。"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现蒸馏损失函数。",
+          "astType": "function_def",
+          "name": "distill_grad",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现学生训练函数。",
+          "astType": "function_def",
+          "name": "train_student",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请正确调用蒸馏梯度。",
+          "pattern": "distill_grad",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请实现教师全参训练。",
+          "pattern": "train_teacher",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示教师与两位学生的 KL 对比。",
+          "expectedStdout": "蒸馏学生乙更接近教师",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

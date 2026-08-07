@@ -1,0 +1,196 @@
+{
+  "steps": [
+    {
+      "id": "t20-embeddings-s1",
+      "taskId": "t20-embeddings",
+      "order": 1,
+      "title": "理解文本嵌入的概念",
+      "instruction": "### 目标\n理解 embedding 的本质:文本→向量,**语义变成可以计算的几何距离**。\n\n### 背景: 为什么 embedding 是 AI 的基础设施\n计算机不懂\"猫\"和\"狗\"相似,但 embedding 模型把它们映射到高维空间后:\n- 语义相近 → 向量距离近(cos 相似度≈0.9)\n- 语义无关 → 距离远(≈0.1)\n\n一切\"语义级\"操作都由此解锁:语义搜索(不看关键词看意思)、文本聚类、推荐、去重、RAG 检索——**RAG 的\"R\"就是靠它**。\n\n### 常用 embedding 模型选型\n| 模型 | 维度 | 特点 |\n|------|------|------|\n| BGE-small-zh | 512 | 中文好,24MB,本地可跑 |\n| BGE-large-zh | 1024 | 中文检索第一梯队 |\n| OpenAI text-embedding-3-small | 1536 | 多语言均衡,API 便宜 |\n| M3E | 768 | 国产开源老将 |\n\n**维度不是越高越好**:高维更准但存储/计算更贵,1024 维是性价比甜点。\n\n### 操作\n1. 用 sentence-transformers 加载中文 embedding 模型\n2. 编码 3 句话(2 句相似 1 句无关)\n3. 算两两余弦相似度,验证\"相似句更近\" ",
+      "starterCode": "from sentence_transformers import SentenceTransformer\n\nmodel = SentenceTransformer('all-MiniLM-L6-v2')\ntext = \"机器学习是人工智能的一个分支\"\n\n# 生成文本的嵌入向量\nembedding = model.encode(text)\n\nprint(\"嵌入向量维度:\", len(embedding))\nprint(\"前5个元素:\", embedding[:5])",
+      "solutionCode": "from sentence_transformers import SentenceTransformer\n\nmodel = SentenceTransformer('all-MiniLM-L6-v2')\ntext = \"机器学习是人工智能的一个分支\"\n\nembedding = model.encode(text)\n\nprint(\"嵌入向量维度:\", len(embedding))\nprint(\"前5个元素:\", embedding[:5])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "思考：如何将文本转换成数值向量？通常使用预训练模型。"
+        },
+        {
+          "order": 2,
+          "text": "`SentenceTransformer` 对象有一个 `encode` 方法，接收字符串返回向量。"
+        },
+        {
+          "order": 3,
+          "text": "直接调用 `model.encode(text)` 即可，返回一个 numpy 数组。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "使用 OpenAI 嵌入",
+          "language": "python",
+          "code": "from openai import OpenAI\nresponse = # DeepSeek 不提供嵌入接口, 用本地 sentence-transformers 代替\n# model = SentenceTransformer('all-MiniLM-L6-v2'); emb = model.encode(text)(\n    model=\"all-MiniLM-L6-v2  # 本地嵌入模型(DeepSeek 无嵌入接口)\",\n    input=\"你的文本\"\n)\nembedding = response['data'][0]['embedding']",
+          "description": "OpenAI 的嵌入 API 返回的向量是 1536 维的列表。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "文本嵌入",
+          "definition": "将文本映射到低维连续向量空间的技术，使得语义相似的文本向量距离更近。",
+          "referenceUrl": "https://en.wikipedia.org/wiki/Word_embedding"
+        },
+        {
+          "name": "向量维度",
+          "definition": "嵌入向量的长度，决定了表示能力。",
+          "referenceUrl": ""
+        }
+      ],
+      "techStack": [
+        {
+          "name": "sentence-transformers",
+          "role": "生成文本嵌入",
+          "description": "提供多种预训练句子嵌入模型。",
+          "officialUrl": "https://www.sbert.net/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为正确的代码调用。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出必须包含 '嵌入向量维度' 字样。",
+          "text": "嵌入向量维度",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-embeddings-s2",
+      "taskId": "t20-embeddings",
+      "order": 2,
+      "title": "计算余弦相似度",
+      "instruction": "### 目标\n掌握**向量归一化与相似度计算**,理解为什么归一化后点积=余弦相似度。\n\n### 背景: 余弦相似度的工程实现\n```python\ndef cosine(a, b):\n    return a @ b / (np.linalg.norm(a) * np.linalg.norm(b))\n```\n每次都算两个模长太浪费。**归一化**(把向量除以自己的模,变成单位向量)之后:\n```\ncos(a,b) = a·b   (模长都是1, 分母消了)\n```\n这就是为什么向量库内部都存归一化向量——**相似度计算退化成一次矩阵乘法**,GPU 友好,百万级向量检索也能毫秒完成。\n\n### 相似度 vs 距离\n- 余弦相似度: [-1,1],越大越像\n- 余弦距离: 1 - 相似度,越小越像\n- 欧氏距离(L2): 受向量长度影响,文本检索一般不用\n不同向量库默认不同(Chroma 默认 L2,FAISS 可配),**用之前一定查清默认度量**,否则结果南辕北辙。\n\n### 操作\n1. 手写 normalize + 点积版相似度\n2. 与 scipy/库函数结果对比验证\n3. 批量计算:query 对 100 个文档向量,一次矩阵运算出所有相似度",
+      "starterCode": "from sentence_transformers import SentenceTransformer\nfrom sklearn.metrics.pairwise import cosine_similarity\n\nmodel = SentenceTransformer('all-MiniLM-L6-v2')\n\nsentence1 = \"我喜欢编程\"\nsentence2 = \"我热爱写代码\"\n\nembedding1 = model.encode(sentence1)\nembedding2 = model.encode(sentence2)\n\n# 计算余弦相似度\nsimilarity = cosine_similarity([embedding1], [embedding2])[0][0]\n\nprint(f\"相似度: {similarity:.4f}\")",
+      "solutionCode": "from sentence_transformers import SentenceTransformer\nfrom sklearn.metrics.pairwise import cosine_similarity\n\nmodel = SentenceTransformer('all-MiniLM-L6-v2')\n\nsentence1 = \"我喜欢编程\"\nsentence2 = \"我热爱写代码\"\n\nembedding1 = model.encode(sentence1)\nembedding2 = model.encode(sentence2)\n\nsimilarity = cosine_similarity([embedding1], [embedding2])[0][0]\n\nprint(f\"相似度: {similarity:.4f}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "余弦相似度需要两个向量作为输入，注意 sklearn 函数的输入格式。"
+        },
+        {
+          "order": 2,
+          "text": "`cosine_similarity` 接受形状为 (n_samples, n_features) 的数组，所以需要将单个向量包装成列表。"
+        },
+        {
+          "order": 3,
+          "text": "调用 `cosine_similarity([embedding1], [embedding2])` 返回一个 1x1 矩阵，使用 [0][0] 提取标量。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "手动计算余弦相似度",
+          "language": "python",
+          "code": "import numpy as np\ndef cosine_sim(a, b):\n    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))",
+          "description": "纯 numpy 实现，理解原理。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "余弦相似度",
+          "definition": "通过向量夹角余弦衡量相似度，值越大越相似。",
+          "referenceUrl": "https://en.wikipedia.org/wiki/Cosine_similarity"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "scikit-learn",
+          "role": "提供余弦相似度计算函数",
+          "description": "机器学习常用库，包含 pairwise 距离计算。",
+          "officialUrl": "https://scikit-learn.org/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为正确的代码调用。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 '相似度' 字样。",
+          "text": "相似度",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t20-embeddings-s3",
+      "taskId": "t20-embeddings",
+      "order": 3,
+      "title": "可视化嵌入空间",
+      "instruction": "### 目标\n理解 embedding 的**语义边界**:它擅长什么、不擅长什么,避免误用。\n\n### 背景: embedding 的四大盲区\n1. **关键词精确匹配差**:搜\"iphone 15 pro 512G 蓝色\",embedding 可能召回\"iphone 15 pro 256G 黑色\"——语义近但参数错。解法:混合检索(向量+BM25 关键词)\n2. **数字/代码不敏感**:\"v2.0\"和\"v2.1\"在向量空间很近\n3. **否定词常被忽略**:\"支持退款\"和\"不支持退款\"语义距离很近(词汇几乎相同)——这是 RAG 答错题的常见元凶\n4. **跨语言偏移**:中英混合语料上,\"苹果\"的向量可能离\"apple\"不如预期近\n\n### 实践对策\n- 商品/法规/医疗等**精确场景**:向量检索 + 关键词过滤双通道\n- 关键约束(版本号/型号):抽取出来做 metadata 过滤,不依赖向量\n- 评估集必测\"否定句对\":看模型是否分得清\n\n### 操作\n1. 构造 3 对\"语义近但关键信息相反\"的句子(如支持/不支持退款)\n2. 算它们的相似度,验证盲区存在\n3. 思考并输出:你的业务场景该怎么兜底",
+      "starterCode": "from sentence_transformers import SentenceTransformer\nfrom sklearn.decomposition import PCA\nimport matplotlib.pyplot as plt\n\n# 设置中文字体（macOS/Linux）\nplt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']\nplt.rcParams['axes.unicode_minus'] = False\n\nmodel = SentenceTransformer('all-MiniLM-L6-v2')\n\nsentences = [\n    \"今天天气真好\",\n    \"明天会下雨吗\",\n    \"我喜欢晴天\",\n    \"人工智能改变世界\",\n    \"深度学习是AI的一部分\"\n]\n\nembeddings = model.encode(sentences)\n\n# 使用 PCA 降维到2维\npca = PCA(n_components=2)\nembeddings_2d = pca.fit_transform(embeddings)\n\n# 绘制散点图\nplt.figure(figsize=(8,6))\nfor i, sentence in enumerate(sentences):\n    plt.scatter(embeddings_2d[i, 0], embeddings_2d[i, 1])\n    plt.text(embeddings_2d[i, 0]+0.01, embeddings_2d[i, 1]+0.01, sentence, fontsize=9)\n\nplt.title(\"嵌入空间可视化 (PCA)\")\nplt.xlabel(\"主成分1\")\nplt.ylabel(\"主成分2\")\nplt.grid(True)\nplt.show()",
+      "solutionCode": "from sentence_transformers import SentenceTransformer\nfrom sklearn.decomposition import PCA\nimport matplotlib.pyplot as plt\n\nplt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']\nplt.rcParams['axes.unicode_minus'] = False\n\nmodel = SentenceTransformer('all-MiniLM-L6-v2')\n\nsentences = [\n    \"今天天气真好\",\n    \"明天会下雨吗\",\n    \"我喜欢晴天\",\n    \"人工智能改变世界\",\n    \"深度学习是AI的一部分\"\n]\n\nembeddings = model.encode(sentences)\n\npca = PCA(n_components=2)\nembeddings_2d = pca.fit_transform(embeddings)\n\nplt.figure(figsize=(8,6))\nfor i, sentence in enumerate(sentences):\n    plt.scatter(embeddings_2d[i, 0], embeddings_2d[i, 1])\n    plt.text(embeddings_2d[i, 0]+0.01, embeddings_2d[i, 1]+0.01, sentence, fontsize=9)\n\nplt.title(\"嵌入空间可视化 (PCA)\")\nplt.xlabel(\"主成分1\")\nplt.ylabel(\"主成分2\")\nplt.grid(True)\nplt.show()",
+      "hints": [
+        {
+          "order": 1,
+          "text": "降维是为了可视化，PCA 是最常用的方法。"
+        },
+        {
+          "order": 2,
+          "text": "PCA 的 `fit_transform` 方法接受矩阵，返回降维后的坐标。"
+        },
+        {
+          "order": 3,
+          "text": "先创建 PCA 对象 `PCA(n_components=2)`，然后调用 `fit_transform(embeddings)`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "PCA 降维示例",
+          "language": "python",
+          "code": "from sklearn.decomposition import PCA\npca = PCA(n_components=2)\nreduced = pca.fit_transform(data_matrix)",
+          "description": "降维到2维用于可视化。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "主成分分析 (PCA)",
+          "definition": "一种线性降维算法，通过正交变换将数据转换到新坐标系，使得方差最大的方向成为第一主成分。",
+          "referenceUrl": "https://en.wikipedia.org/wiki/Principal_component_analysis"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "matplotlib",
+          "role": "数据可视化",
+          "description": "Python 绑图库,用于绘制散点图/曲线图等。Python 最常用的绘图库。",
+          "officialUrl": "https://matplotlib.org/",
+          "category": "可视化",
+          "installHint": "pip install matplotlib"
+        },
+        {
+          "name": "scikit-learn",
+          "role": "提供 PCA 降维",
+          "description": "机器学习库，包含 PCA 等降维方法。",
+          "officialUrl": "https://scikit-learn.org/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为正确的 PCA 降维代码。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中必须包含 PCA 的调用。",
+          "astType": "call",
+          "name": "PCA",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

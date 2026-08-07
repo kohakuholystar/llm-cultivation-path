@@ -1,0 +1,625 @@
+{
+  "steps": [
+    {
+      "id": "t70-prd-architecture-s1",
+      "taskId": "t70-prd-architecture",
+      "order": 1,
+      "title": "PRD 骨架:项目定位与用户故事",
+      "instruction": "### 目标\n\n为章项目「渡劫飞升」撰写 PRD 的第一期内容:项目定位与用户故事。你要补全 `target_users` 与 `user_stories` 两个函数,把「给谁做、解决什么问题、典型用户怎么用」落成结构化数据,再由现成的渲染函数拼出 Markdown 文档,写入 `docs/prd_part1.md`。\n\n### 原理\n\nPRD(Product Requirements Document)是产品与研发之间的契约。它的第一使命不是写得华丽,而是把「一句话愿景」拆成可评审的条目:项目定位回答「这是什么、为什么做」;目标必须可量化,否则验收时无从对账;用户故事用「作为…,我想要…,以便…」的句式,把每个角色的诉求写成一个独立、可测试的验收单元。本步坚持「数据 + 渲染」分离:所有内容先组织成 Python 数据结构,再用极简的 Markdown 渲染器拼装——文档永远与代码同源,改一行数据即可重新生成,不会出现文档与实现脱节。\n\n### 操作\n\n1. 在 `target_users` 里返回 3 行用户,每行 `[用户, 身份, 核心诉求]`;\n2. 在 `user_stories` 里返回 3 条故事,按「作为…,我想要…,以便…」句式书写;\n3. 运行脚本,确认 `docs/prd_part1.md` 生成,正文包含两个章节与两张表格。\n\n### 常见坑\n\n- 用户故事必须以「作为…」开头并交代收益,否则无法验收;「系统应支持问答」这类空泛描述不是故事;\n- `md_table` 依赖二维数组,返回的行必须与表头列数一致,多一列少一列都会让表格错位。\n",
+      "todoItems": [
+        {
+          "title": "补全 `target_users`,返回 3 行用户,每行 `[用户, 身份, 核心诉求]`",
+          "target": "target_users() 函数",
+          "code": "return [\n    [\"用户\", \"身份\", \"核心诉求\"],\n    ...\n]",
+          "expect": "运行后生成 docs/prd_part1.md,正文含「项目定位」章节"
+        },
+        {
+          "title": "补全 `user_stories`,按「作为…,我想要…,以便…」句式写 3 条故事",
+          "target": "user_stories() 函数",
+          "code": "[\"US-1\", \"作为…,我想要…,以便…\"]",
+          "expect": "生成的文档含「用户故事」章节与一张表格"
+        },
+        {
+          "title": "运行脚本,确认正文包含两个章节与两张表格",
+          "target": "文件底部 main 块",
+          "expect": "终端输出完成信息,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "目标用户是二维数组:每行三个字符串,依次是用户、身份、核心诉求,三行覆盖三类角色。"
+        },
+        {
+          "order": 2,
+          "text": "用户故事同样用二维数组,每行 [编号, 故事];故事句式固定为「作为…,我想要…,以便…」,编号用 US-1、US-2、US-3。"
+        },
+        {
+          "order": 3,
+          "text": "两个函数只需 return 列表;渲染与写文件都由 build_prd_part1 和 main 完成,不要改动它们。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "生成的 PRD 第一章(节选)",
+          "language": "text",
+          "code": "# 渡劫飞升 PRD\n\n## 一、项目定位\n\n- 项目名称:渡劫飞升\n\n### 目标\n\n1. 能对修行问题给出带出处的答案,答非所问率低于 5%\n\n## 二、目标用户与用户故事\n\n### 目标用户\n\n| 用户 | 身份 | 核心诉求 |\n| --- | --- | --- |\n| 入门散修 | 刚踏入修行界的新人 | 快速搞懂基础功法,少走弯路 |",
+          "description": "数据 + 渲染的产物:同一份数据结构,重新运行即可再生成文档。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "PRD(产品需求文档)",
+          "definition": "用结构化条目把产品愿景拆成可评审、可验收的交付物;本步产出定位、目标、用户与故事四个部分。"
+        },
+        {
+          "name": "用户故事(User Story)",
+          "definition": "以「作为…,我想要…,以便…」句式描述的单一需求,是独立可测试的验收单元。"
+        },
+        {
+          "name": "Markdown",
+          "definition": "轻量标记语言,标题、列表、表格均可由纯文本表达,适合作为 PRD 的载体。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "实现语言",
+          "description": "用数据结构组织 PRD 内容,配合渲染函数输出 Markdown。",
+          "officialUrl": "https://www.python.org",
+          "category": "语言",
+          "installHint": "系统自带或官网安装"
+        },
+        {
+          "name": "Markdown",
+          "role": "文档格式",
+          "description": "PRD 的载体格式,标题、列表、表格均可纯文本表达。",
+          "officialUrl": "https://www.markdownguide.org",
+          "category": "格式",
+          "installHint": "无需安装,文本即文档"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 target_users 目标用户函数。",
+          "astType": "function_def",
+          "name": "target_users",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 user_stories 用户故事函数。",
+          "astType": "function_def",
+          "name": "user_stories",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "用户故事请用「作为…,我想要…,以便…」句式。",
+          "pattern": "作为.+我想要.+以便",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请生成并写入 docs/prd_part1.md。",
+          "pattern": "docs/prd_part1\\.md",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应生成 PRD 骨架并打印完成信息。",
+          "expectedStdout": "渡劫飞升 PRD[\\s\\S]*已写入 docs/prd_part1\\.md,正文共 \\d+ 字符",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t70-prd-architecture-s2",
+      "taskId": "t70-prd-architecture",
+      "order": 2,
+      "title": "系统架构:mermaid 架构图分层",
+      "instruction": "### 目标\n\n为「渡劫飞升」产出系统架构章节:用 mermaid 的 flowchart 语法画出五层架构图,并附一张技术选型表。你要补全 `arch_edges`(组件连线)与 `check_diagram`(架构图自检),让生成的 `docs/architecture.mmd` 既直观又可验证。\n\n### 原理\n\n架构图是 PRD 中最「图胜千言」的部分。mermaid 是纯文本的图表语法,可以直接写进 Markdown 文档,被 GitHub 等平台原生渲染。分层的价值在于约束依赖方向:展示层只能调用接入层,接入层只能调用业务层,业务层再往下触达能力层与存储层——依赖一旦反向,架构就开始腐烂。所以本步用 `subgraph` 把组件按层归组,再用 `a --> b` 连线表达数据流;`check_diagram` 用字符串计数做最朴素的体检:连线数、分组数、闭合数必须对得上,把「画得好看」变成「画得正确」。\n\n### 操作\n\n1. 在 `arch_edges` 里补全 8 条连线,串起 web→api→svc→agent 主干,再分出 rag、harness、vec、kb、mem 的分支;\n2. 在 `check_diagram` 里统计 `-->`、`subgraph`、`end` 的数量,断言分组数与闭合数一致;\n3. 运行脚本,确认输出「校验通过」且 `docs/architecture.mmd` 生成。\n\n### 常见坑\n\n- mermaid 节点文本里的特殊符号要用双引号包住,`node[\"文本\"]` 是标准写法,否则渲染会报错;\n- 统计 `end` 时,分组名与节点文本里不能出现 `end` 字样,否则闭合计数虚高,体检形同虚设。\n",
+      "todoItems": [
+        {
+          "title": "补全 `arch_edges`,返回 8 条连线,串起 web→api→svc→agent 主干与 rag/harness/vec/kb/mem 分支",
+          "target": "arch_edges() 函数",
+          "code": "edges = [\n    \"web --> api\",\n    ...\n]\nreturn edges",
+          "expect": "docs/architecture.mmd 生成,包含 8 条连线"
+        },
+        {
+          "title": "补全 `check_diagram`,统计 `-->`、`subgraph`、`end` 的数量并断言分组数与闭合数一致",
+          "target": "check_diagram() 函数",
+          "code": "assert content.count(\"-->\")\nassert content.count(\"subgraph\") == content.count(\"end\")",
+          "expect": "输出「校验通过」"
+        },
+        {
+          "title": "运行脚本,确认输出「校验通过」且 docs/architecture.mmd 生成",
+          "target": "文件底部 main 块",
+          "expect": "终端输出校验通过,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "连线是一组字符串,每条形如 \"a --> b\";8 条要覆盖 web→api→svc→agent 主干,以及 agent 到 rag/harness/mem、rag 到 vec/kb 的分支。"
+        },
+        {
+          "order": 2,
+          "text": "check_diagram 里用 text.count(\"-->\")、text.count(\"subgraph\")、text.count(\"end\") 分别统计,再写三条断言。"
+        },
+        {
+          "order": 3,
+          "text": "分组数与 LAYER_ORDER 的元素数相等(5 层),闭合数必须等于分组数,最后按示例打印「校验通过…」。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "mermaid 语法要点:subgraph 分组 + 连线",
+          "language": "text",
+          "code": "flowchart TB\n    subgraph 业务层\n        svc --> agent\n        agent --> rag\n    end\n    rag --> kb",
+          "description": "subgraph 定义一层,层内放组件,层与层之间用 --> 表达数据流。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "mermaid",
+          "definition": "纯文本图表语法,可直接嵌入 Markdown,被 GitHub 等平台原生渲染为架构图、流程图。"
+        },
+        {
+          "name": "subgraph",
+          "definition": "mermaid 的分组语法,把多个节点归入同一个子图,是表达架构分层的核心手段。"
+        },
+        {
+          "name": "架构分层",
+          "definition": "按职责把系统切成纵向层次,约束依赖只能自上而下,防止架构腐烂。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "mermaid",
+          "role": "图表语言",
+          "description": "文本化描述架构图,subgraph 分层、--> 连线。",
+          "officialUrl": "https://mermaid.js.org",
+          "category": "工具",
+          "installHint": "Markdown 平台内建,或 npm i -g @mermaid-js/mermaid-cli"
+        },
+        {
+          "name": "Docker Compose",
+          "role": "部署编排",
+          "description": "一键拉起前端、网关、向量库等多服务,是架构图落地的出口。",
+          "officialUrl": "https://docs.docker.com/compose/",
+          "category": "工具",
+          "installHint": "安装 Docker Desktop"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 arch_edges 连线函数。",
+          "astType": "function_def",
+          "name": "arch_edges",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 check_diagram 自检函数。",
+          "astType": "function_def",
+          "name": "check_diagram",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "连线请用 mermaid 的 --> 语法。",
+          "pattern": "-->",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 subgraph 表达分层。",
+          "pattern": "subgraph",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应完成架构图体检并写出 .mmd 文件。",
+          "expectedStdout": "校验通过[\\s\\S]*已写入 docs/architecture\\.mmd",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t70-prd-architecture-s3",
+      "taskId": "t70-prd-architecture",
+      "order": 3,
+      "title": "数据模型:Pydantic 契约先行",
+      "instruction": "### 目标\n\n为「渡劫飞升」定义数据契约:文档、切块、典籍库、检索请求、检索命中五份 Pydantic 模型。你要补全 `Chunk` 与 `RetrievalQuery` 的字段定义,让非法数据(空提问、越界的 top_k、超范围的相似度)在进入业务逻辑之前就被拦截,并把契约导出成 JSON Schema 供前端复用。\n\n### 原理\n\n数据模型是接口契约的源头:一份 `BaseModel` 同时决定了数据库表、API 入参和前端表单的形态。契约先行的好处是「把错误挡在最薄的门槛」——Pydantic 在构造对象时完成类型校验与约束检查,top_k=0 这类非法值连函数体都进不去。而 `model_json_schema()` 能把模型导出成标准 JSON Schema:前端用它自动生成表单与校验,后端用它生成 OpenAPI 文档,同一份定义全链路复用。字段上的 `Field(description=...)` 不只是注释,它会原样进入 JSON Schema,是写给调用方(包括模型)的说明书。\n\n### 操作\n\n1. 补全 `Chunk` 的 4 个字段:chunk_id、doc_id、content 均为字符串,order 为从 0 开始计数的整数;\n2. 补全 `RetrievalQuery` 的 3 个字段:text 限长 2-200、top_k 限定 1-20、threshold 限定 0-1 且默认 0.5;\n3. 运行脚本,确认 4 份契约导出到 `docs/data_models.json`,且 top_k=0 的请求被「拦截成功」。\n\n### 常见坑\n\n- 可变默认值必须用 `default_factory=list`,直接写 `default=[]` 会让所有实例共享同一个列表,Pydantic 会直接报错;\n- 约束要写在模型上而不是业务函数里:如果 top_k 的 `gt=0` 在业务里手工 if 判断,契约就名存实亡了。\n",
+      "todoItems": [
+        {
+          "title": "补全 `Chunk` 的 4 个字段:chunk_id、doc_id、content 为字符串,order 为从 0 开始计数的整数",
+          "target": "Chunk 类(文件顶部)",
+          "code": "chunk_id: str\ndoc_id: str\ncontent: str\norder: int = Field(ge=0)",
+          "expect": "合法数据构造成功,非法数据抛 ValidationError"
+        },
+        {
+          "title": "补全 `RetrievalQuery` 的 3 个字段:text 限长 2-200、top_k 限定 1-20、threshold 限定 0-1 且默认 0.5",
+          "target": "RetrievalQuery 类(文件顶部)",
+          "code": "text: str = Field(min_length=2, max_length=200)\ntop_k: int = Field(ge=1, le=20)\nthreshold: float = Field(ge=0, le=1, default=0.5)",
+          "expect": "top_k=0 的请求被「拦截成功」"
+        },
+        {
+          "title": "运行脚本,确认 4 份契约导出到 docs/data_models.json",
+          "target": "文件底部 main 块",
+          "expect": "输出「拦截成功」,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "Chunk 四个字段:chunk_id、doc_id、content 都是 str 且有 description,order 是 int 且 Field(ge=0)。"
+        },
+        {
+          "order": 2,
+          "text": "RetrievalQuery 三个字段:text 用 Field(min_length=2, max_length=200)、top_k 用 Field(gt=0, le=20)、threshold 用 Field(ge=0.0, le=1.0, default=0.5)。"
+        },
+        {
+          "order": 3,
+          "text": "字段写完后运行脚本:应看到「已写入 docs/data_models.json,共 4 个契约」和「拦截成功:字段 top_k 违规:…」。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "model_json_schema 生成的契约(节选)",
+          "language": "text",
+          "code": "{\n  \"properties\": {\n    \"text\": {\"type\": \"string\", \"minLength\": 2, \"description\": \"用户提问\"},\n    \"top_k\": {\"type\": \"integer\", \"exclusiveMinimum\": 0, \"maximum\": 20}\n  },\n  \"required\": [\"text\", \"top_k\"]\n}",
+          "description": "RetrievalQuery 的 JSON Schema:约束与说明原样进入契约,前端可据此自动生成表单与校验。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Pydantic",
+          "definition": "Python 数据校验库,用 BaseModel 声明模型,构造时自动完成类型校验与约束检查。"
+        },
+        {
+          "name": "JSON Schema",
+          "definition": "描述数据结构与约束的标准格式,Pydantic 可经 model_json_schema() 一键导出。"
+        },
+        {
+          "name": "契约先行",
+          "definition": "先定义数据与接口契约,再写业务逻辑,让错误在最薄的门槛处被拦截。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Pydantic",
+          "role": "数据校验库",
+          "description": "BaseModel + Field 声明契约,model_json_schema() 导出 JSON Schema。",
+          "officialUrl": "https://docs.pydantic.dev",
+          "category": "库",
+          "installHint": "pip install pydantic"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Chunk 数据模型。",
+          "astType": "class_def",
+          "name": "Chunk",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 RetrievalQuery 数据模型。",
+          "astType": "class_def",
+          "name": "RetrievalQuery",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 Field 声明字段约束。",
+          "pattern": "Field\\(min_length=2",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请导出 JSON Schema 契约。",
+          "pattern": "model_json_schema",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应导出 4 份契约并演示校验拦截。",
+          "expectedStdout": "已写入 docs/data_models\\.json,共 4 个契约[\\s\\S]*拦截成功",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t70-prd-architecture-s4",
+      "taskId": "t70-prd-architecture",
+      "order": 4,
+      "title": "接口契约:OpenAPI 3.0 规格生成",
+      "instruction": "### 目标\n\n为「渡劫飞升」定义对外接口契约:用 `EndpointSpec` 声明建库、入库、检索、健康检查四个接口的入参出参,由 `build_openapi` 组装成 OpenAPI 3.0 文档并导出为 YAML。你要补全 `endpoints`(四个接口)与 `verify_contract`(读回校验),让前后端拿到同一份可验证的契约。\n\n### 原理\n\n接口契约的价值在于「先约定、后实现」:前端按契约联调,后端按契约实现,谁先做完都不耽误谁。OpenAPI 3.0 是接口描述的事实标准,一份 `openapi.yaml` 同时驱动文档站、Mock 服务与代码生成。本步把 Pydantic 模型当作契约源头:`model_json_schema()` 生成请求体的 JSON Schema,`EndpointSpec` 统一描述「方法 + 路径 + 摘要 + 请求体 + 响应体」,`build_openapi` 只做机械组装——业务模型一变,接口文档自动跟着变,不存在「文档忘了改」的经典事故。`verify_contract` 再读回 YAML 做闭环校验,保证落盘的文档与声明一致。\n\n### 操作\n\n1. 补全 `endpoints`,四个接口的请求体 Schema 用 `Document.model_json_schema()` 与 `RetrievalQuery.model_json_schema()` 生成,健康检查不设请求体;\n2. 补全 `verify_contract`,断言 4 条路径、4 个方法、且包含 `/api/retrieve`;\n3. 运行脚本,确认输出「契约校验通过」且 `docs/openapi.yaml` 生成。\n\n### 常见坑\n\n- `Optional[dict]` 字段的默认值必须是 `None`,用 `Field(default=None)` 而不是可变字典——可变默认值永远用 default;\n- YAML 导出要 `allow_unicode=True`,否则中文会被转义成 `\\uXXXX` 可读性全无;`sort_keys=False` 保证字段顺序与声明一致。\n",
+      "todoItems": [
+        {
+          "title": "补全 `endpoints`,声明建库、入库、检索、健康检查四个接口,请求体 Schema 用 `Document`/`RetrievalQuery` 的 `model_json_schema()` 生成",
+          "target": "endpoints 列表(文件顶部)",
+          "code": "EndpointSpec(\n    method=\"POST\",\n    path=\"/api/documents\",\n    ...\n)",
+          "expect": "build_openapi 组装出含 4 条路径的文档"
+        },
+        {
+          "title": "补全 `verify_contract`,读回 YAML 断言 4 条路径、4 个方法、且包含 `/api/retrieve`",
+          "target": "verify_contract() 函数",
+          "code": "assert len(paths) == 4\nassert \"/api/retrieve\" in paths",
+          "expect": "输出「契约校验通过」"
+        },
+        {
+          "title": "运行脚本,确认输出「契约校验通过」且 docs/openapi.yaml 生成",
+          "target": "文件底部 main 块",
+          "expect": "终端输出校验通过,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "每个接口一个 EndpointSpec:请求体 Schema 直接取 Document/RetrievalQuery 的 model_json_schema(),健康检查没有请求体就传 None。"
+        },
+        {
+          "order": 2,
+          "text": "verify_contract 先 yaml.safe_load(text) 再取 paths:路径数 4、方法数 4、含 \"/api/retrieve\",断言通过后打印「契约校验通过…」。"
+        },
+        {
+          "order": 3,
+          "text": "四个接口:POST /api/kb、POST /api/kb/documents、POST /api/retrieve、GET /api/health,方法与路径要一一对应。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "生成的 openapi.yaml(节选)",
+          "language": "text",
+          "code": "openapi: 3.0.3\ninfo:\n  title: 渡劫飞升 · 知识问答 API\n  version: 0.1.0\npaths:\n  /api/retrieve:\n    post:\n      summary: 检索典籍,返回带分值的命中",
+          "description": "OpenAPI 3.0 根文档:info 描述服务,paths 描述每个接口的方法、摘要与出入参。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "OpenAPI 3.0",
+          "definition": "接口描述的事实标准,一份 openapi.yaml 同时驱动文档、Mock 与代码生成。"
+        },
+        {
+          "name": "接口契约",
+          "definition": "接口双方对方法、路径、出入参的书面约定,先约定后实现,避免联调返工。"
+        },
+        {
+          "name": "YAML",
+          "definition": "面向人类可读的数据序列化格式,常用于配置与 API 规格;中文导出需 allow_unicode=True。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "PyYAML",
+          "role": "YAML 处理库",
+          "description": "yaml.dump 导出、yaml.safe_load 回读,是 OpenAPI 文档的读写通道。",
+          "officialUrl": "https://pyyaml.org",
+          "category": "库",
+          "installHint": "pip install pyyaml"
+        },
+        {
+          "name": "OpenAPI",
+          "role": "接口规格标准",
+          "description": "描述接口的方法、路径与出入参,是前后端联调的共同依据。",
+          "officialUrl": "https://spec.openapis.org",
+          "category": "标准",
+          "installHint": "无需安装,纯文档约定"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 endpoints 接口清单函数。",
+          "astType": "function_def",
+          "name": "endpoints",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 verify_contract 契约校验函数。",
+          "astType": "function_def",
+          "name": "verify_contract",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请组装 OpenAPI 3.0 根文档。",
+          "pattern": "\"openapi\": \"3\\.0\\.3\"",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 yaml.safe_load 读回校验。",
+          "pattern": "yaml\\.safe_load",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请导出 YAML 时保留中文。",
+          "pattern": "allow_unicode=True",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应通过契约校验并写出 openapi.yaml。",
+          "expectedStdout": "契约校验通过[\\s\\S]*含 /api/retrieve[\\s\\S]*已写入 docs/openapi\\.yaml,共 4 个接口",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t70-prd-architecture-s5",
+      "taskId": "t70-prd-architecture",
+      "order": 5,
+      "title": "PRD 总成:里程碑、验收与评审",
+      "instruction": "### 目标\n\n完成「渡劫飞升」的 PRD 总成:把 s1-s4 的定位、架构、数据、接口四块拼图汇成一份完整文档,补上里程碑计划与验收标准,渲染出 `docs/PRD.md`,并用 `review_prd` 做一次自动化评审。你要补全 `milestones`、`acceptance_criteria` 与 `assemble_prd` 的验收小节三个 TODO。\n\n### 原理\n\n一份能指导开发的 PRD,除了前四章的需求与设计,还必须有「怎么排期、怎么算完」:里程碑把长周期目标切成有明确产出的阶段节点,每个里程碑可独立验收;验收标准把「做得好不好」从主观感受变成可执行的断言——每条都以 AC 编号开头,写成一个可以测试的句子。最后用 `review_prd` 做自动化评审:逐章核对标题、核对关键要素(项目名、契约类、mermaid、openapi 版本)、核对正文篇幅,任何一项缺失都会在打印中暴露,评审从「靠经验」变成「跑脚本」。\n\n### 操作\n\n1. 补全 `milestones`,返回 4 个里程碑 M1-M4,每行 `[编号, 目标, 产出]`;\n2. 补全 `acceptance_criteria`,返回 5 条以「AC-N:」开头的可验证断言;\n3. 在 `assemble_prd` 的「六、验收标准」小节,用 `acceptance_criteria()` 渲染验收表并返回完整文档;\n4. 运行脚本,确认输出「评审全部通过」且 `docs/PRD.md` 生成。\n\n### 常见坑\n\n- 验收标准要可测试:「系统稳定」不是标准,「top_k 越界返回 400」才是;\n- `review_prd` 会把正文长度不足 500 字符也判为不通过,里程碑与验收表请写足内容,不要留空壳。\n",
+      "todoItems": [
+        {
+          "title": "补全 `milestones`,返回 4 个里程碑 M1-M4,每行 `[编号, 目标, 产出]`",
+          "target": "milestones() 函数",
+          "code": "[\"M1\", \"目标\", \"产出\"]",
+          "expect": "验收表包含 M1-M4 四行"
+        },
+        {
+          "title": "补全 `acceptance_criteria`,返回 5 条以「AC-N:」开头的可验证断言",
+          "target": "acceptance_criteria() 函数",
+          "code": "[\"AC-1: 描述一个可测试的结果\", ...]",
+          "expect": "验收表包含 5 条 AC 断言"
+        },
+        {
+          "title": "在 `assemble_prd` 的「六、验收标准」小节,用 `acceptance_criteria()` 渲染验收表并返回完整文档",
+          "target": "assemble_prd() 的验收小节",
+          "code": "doc.append(md_table([\"编号\", \"验收标准\"], ...))",
+          "expect": "docs/PRD.md 包含「六、验收标准」章节与表格"
+        },
+        {
+          "title": "运行脚本,确认输出「评审全部通过」且 docs/PRD.md 生成",
+          "target": "文件底部 main 块",
+          "expect": "终端输出评审通过,退出码为 0"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "milestones 返回 4 行 [编号, 目标, 产出],编号 M1-M4,分别对应搭建检索管线、接入问答 Agent、前端联调、部署验收四个阶段。"
+        },
+        {
+          "order": 2,
+          "text": "acceptance_criteria 返回 5 条字符串,每条以「AC-N:」开头,写成一个可验证的断言(带出处、限时、命中率、越界返回 400 等)。"
+        },
+        {
+          "order": 3,
+          "text": "assemble_prd 的验收小节:列头 [\"编号\", \"验收项\"],数据 [[c, \"见\" + c] for c in acceptance_criteria()],最后 return \"\\n\".join(doc) + \"\\n\"。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "评审检查表:PRD 必须覆盖的六章",
+          "language": "text",
+          "code": "一、项目定位与用户故事\n二、系统架构\n三、数据模型\n四、接口契约\n五、里程碑计划\n六、验收标准",
+          "description": "review_prd 逐章核对,缺一章或正文过短都会在评审阶段被发现。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "里程碑(Milestone)",
+          "definition": "把长周期目标切成有明确产出的阶段节点,每个里程碑可独立验收。"
+        },
+        {
+          "name": "验收标准(Acceptance Criteria)",
+          "definition": "每条都是一个可执行的断言,满足即验收通过,是评审的依据。"
+        },
+        {
+          "name": "自动化评审",
+          "definition": "用代码检查文档完整性(章节、要素、篇幅),把评审从人工经验变成可重复的脚本。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Markdown",
+          "role": "文档格式",
+          "description": "PRD 的最终载体,六章结构与表格均可纯文本表达。",
+          "officialUrl": "https://www.markdownguide.org",
+          "category": "格式",
+          "installHint": "文本即文档"
+        },
+        {
+          "name": "Git",
+          "role": "版本管理",
+          "description": "PRD 与代码同库演进,评审记录可追溯。",
+          "officialUrl": "https://git-scm.com",
+          "category": "工具",
+          "installHint": "git init"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 milestones 里程碑计划函数。",
+          "astType": "function_def",
+          "name": "milestones",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 acceptance_criteria 验收标准函数。",
+          "astType": "function_def",
+          "name": "acceptance_criteria",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 review_prd 自动化评审函数。",
+          "astType": "function_def",
+          "name": "review_prd",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请拼接生成完整 PRD 文档。",
+          "pattern": "assemble_prd",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 model_json_schema 生成接口契约。",
+          "pattern": "model_json_schema",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应通过评审并写出 docs/PRD.md。",
+          "expectedStdout": "评审全部通过[\\s\\S]*已写入 docs/PRD\\.md,正文共 \\d+ 字符",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

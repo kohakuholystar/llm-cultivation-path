@@ -1,0 +1,604 @@
+{
+  "steps": [
+    {
+      "id": "t40-harness-loop-s1",
+      "taskId": "t40-harness-loop",
+      "order": 1,
+      "title": "状态机基座:乾坤圈的心脏开始跳动",
+      "instruction": "### 目标\n\n为章项目「乾坤圈」搭起第一根承重柱:一个三层分离的循环骨架。你要用 `AgentStatus` 描述生命周期状态,用 `AgentState` 装运行数据,再用 `AgentLoop` 把「决策 → 执行 → 判定」三步转成一段可运行的循环,最后给循环装上一根 `max_steps` 保险丝,防止剧本失灵时无限空转。\n\n### 原理\n\nAgent 程序与普通函数最大的区别,是它**不知道自己何时该停**。函数调完就返回,而 Agent 每跑一轮都要重新判断「够了吗?」。为此我们把循环拆成三个正交的层次:状态(Status)记录「我在哪」——空闲、运行中、完成、出错,循环只在 RUNNING 态转动,一进 DONE 或 ERROR 立即收场;数据(State)记录「我做过什么」——消息历史、动作序列、最终答复,全部装进一个数据袋,决策器与执行器都只读写同一个袋子;循环(Loop)负责「下一步做什么」——每轮先决策,再执行,再判定,周而复始。真正的模型大脑还未就位,所以先用 `scripted_decide` 按剧本顺序给出动作,把「决策」这个接口先占住。循环最经典的故障是「永不收敛」:决策器一旦失灵,循环就会空转到天荒地老。因此每轮判定都必须核对步数上限——这就是保险丝:宁可误杀,不可不装。\n\n### 操作\n\n1. 定义 `AgentStatus` 的四个状态常量(IDLE / RUNNING / DONE / ERROR)与 `AgentState` 的五个字段(已给出);\n2. 补全 `AgentLoop._execute`:decision 为 reply 时直接写入答复并置 DONE,其余交给 `run_tool` 分派,并把动作名与工具消息分别记入 state;\n3. 在 `run` 循环尾部补保险丝:步数达到 `max_steps` 仍未收敛时,置 ERROR 并打印 `[超步]` 提示,然后 break。\n\n### 常见坑\n\n- 判定顺序很重要:必须先看是否 DONE 收场,再查是否超步熔断——「完成任务」永远优先于「任务超时」;\n- 每轮都要读写 `self.state`,不要把状态散落在局部变量里,否则循环越转越乱,后续步骤寸步难行。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "状态只在三种值间流转:run() 开头置 RUNNING,reply 置 DONE,超步置 ERROR——循环条件 while status == RUNNING 会自动收场。"
+        },
+        {
+          "order": 2,
+          "text": "执行动作有两条路:decision == \"reply\" 时直接写 state.reply 并置 DONE;否则调 run_tool(decision),把动作名与工具消息分别 append 进 state.actions 与 state.messages。"
+        },
+        {
+          "order": 3,
+          "text": "保险丝写法:if self.state.steps >= self.max_steps: self.state.status = AgentStatus.ERROR,并 print(f\"[超步] 超过 {self.max_steps} 步仍未收敛,保险丝熔断\")。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "乾坤圈主循环骨架",
+          "language": "python",
+          "code": "# 决策 → 执行 → 判定,三步一轮\nwhile state.status == AgentStatus.RUNNING:\n    decision = scripted_decide(state, script)  # 决策\n    out = loop._execute(decision)              # 执行\n    if state.status == AgentStatus.DONE:       # 判定\n        break",
+          "description": "循环只在 RUNNING 态转动,一进 DONE 立即收场——这就是状态机驱动的循环写法。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "AgentStatus",
+          "definition": "Agent 生命周期状态机,用 IDLE/RUNNING/DONE/ERROR 四个常量表示当前阶段;循环只在 RUNNING 态转动,其余状态立即收场。"
+        },
+        {
+          "name": "AgentState",
+          "definition": "一次循环运行的数据袋,集中存放消息历史、动作序列、最终答复、状态与步数;决策器与执行器都只读写这一个袋子。"
+        },
+        {
+          "name": "保险丝(max_steps)",
+          "definition": "步数上限保护:每轮判定时核对已执行步数,超过上限即强制熔断并置 ERROR,防止决策器失灵时无限空转。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python dataclasses",
+          "role": "数据建模",
+          "description": "用 @dataclass + field(default_factory) 声明 AgentState,零样板地组织运行数据。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        },
+        {
+          "name": "Python 标准库",
+          "role": "运行基础",
+          "description": "time.localtime 提供时辰演示数据,本课程全程零第三方依赖、离线可跑。",
+          "officialUrl": "https://docs.python.org/3/library/time.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 AgentState 运行数据袋。",
+          "astType": "class_def",
+          "name": "AgentState",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 AgentLoop 主循环。",
+          "astType": "class_def",
+          "name": "AgentLoop",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 scripted_decide 脚本决策器。",
+          "astType": "function_def",
+          "name": "scripted_decide",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "循环需要在 RUNNING 态下转动。",
+          "pattern": "AgentStatus\\.RUNNING",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请打印 [超步] 熔断提示。",
+          "pattern": "\\[超步\\]",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示正常收敛与保险丝熔断两类结果。",
+          "expectedStdout": "== 演示一:正常收敛 ==[\\s\\S]*巳时三刻[\\s\\S]*\\[超步\\] 超过 3 步仍未收敛",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-loop-s2",
+      "taskId": "t40-harness-loop",
+      "order": 2,
+      "title": "Step 抽象:动作也要有生命周期",
+      "instruction": "### 目标\n\n为乾坤圈引入「动作的抽象」:把每个动作包装成 `Step`,统一经历 prepare → execute → finish 三个生命周期阶段,并用 `Event` 事件记录每一步发生了什么。调度器 `Harness` 只认识 Step 接口,不关心具体动作——新动作来了,造一个新的 Step 子类即可。\n\n### 原理\n\ns1 的 `_execute` 把「执行」揉成一个分支:动作一多,校验、执行、清理全挤在一起,谁也看不懂。Step 抽象把每个动作拆成三个阶段:prepare 在动手前检查前置条件(参数齐不齐、工具存不存在),把错误挡在门外;execute 才真正干活,返回文本结果;finish 在事后收尾——记录副作用、更新状态。三个阶段各司其职,可单独测试、可统一插桩。配套的 `Event` 把「哪个步骤、哪个阶段、发生了什么」记成结构化数据,这就是运行日志的原型:日后调 Agent、复盘一轮对话,靠的都是这份事件流。`Harness` 则像一条流水线:拿到计划后逐个构建 Step、依次走过三阶段,动作如何编排完全由它说了算。还有一处收敛语义要留意:reply 步负责把状态置为 DONE,流水线随即停住;工具消息才记入历史,答复本身不进消息历史——因为它是「结果」,不是「过程」。\n\n### 操作\n\n1. 补全 `ToolStep.prepare`:校验 `self.tool` 确实存在于 `TOOLS`,不存在就 `raise KeyError` 并给出中文提示;\n2. 补全 `Harness.run`:按计划循环,每个步骤依次 prepare → execute → finish,每阶段用 `self._log` 记录事件;reply 步执行后状态变为 DONE,立即 break;\n3. 运行程序,观察「事件回放」:prepare / execute / finish 三行一组,注意 `[finish  ] reply` 结尾的对齐格式。\n\n### 常见坑\n\n- prepare 与 finish 都不应改动业务结果,execute 才是唯一「产出文本」的地方——把活干在正确的阶段,职责才不会糊;\n- 事件里步骤名用的是 `step.name`,不是工具名 `step.tool`,别记混;对齐靠 `f\"  [{ev.phase:<8}] {ev.step}  {ev.detail}\"` 的固定宽度。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "三阶段的职责边界:prepare 校验前置条件(工具在不在 TOOLS 里),execute 返回文本结果,finish 记录副作用(把工具消息追加进 ctx['messages'])。"
+        },
+        {
+          "order": 2,
+          "text": "KeyError 守卫写法:if self.tool not in TOOLS: raise KeyError(f\"法宝库中没有 {self.tool} 这件法宝\")。"
+        },
+        {
+          "order": 3,
+          "text": "调度循环骨架:for spec in self.plan: step = self.build_step(spec);step.prepare(self.ctx);result = step.execute(self.ctx);self.ctx['last_result'] = result;step.finish(self.ctx);最后检查 self.ctx['status'] 是否还 RUNNING,不是就 break。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Step 三阶段与事件",
+          "language": "python",
+          "code": "step.prepare(ctx)            # ① 校验与准备\nresult = step.execute(ctx)   # ② 真正干活,产出文本\nstep.finish(ctx)             # ③ 收尾与记录\nlog(Event(\"execute\", step.name, result[:14]))",
+          "description": "每个动作都走过同一套生命周期,阶段行为由 Step 子类各自实现。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Step",
+          "definition": "动作的抽象基类,统一 prepare / execute / finish 三阶段;调度器只认识 Step 接口,不关心具体动作。"
+        },
+        {
+          "name": "事件(Event)",
+          "definition": "生命周期发生点的结构化记录:哪个阶段、哪个步骤、什么细节;是运行日志与复盘的基础。"
+        },
+        {
+          "name": "调度器(Harness)",
+          "definition": "按计划构建并驱动 Step 的流水线,负责三阶段的调用顺序与收敛判断。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python abc",
+          "role": "抽象建模",
+          "description": "用 ABC + @abstractmethod 定义 Step 接口,强制子类实现三阶段。",
+          "officialUrl": "https://docs.python.org/3/library/abc.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        },
+        {
+          "name": "Python dataclasses",
+          "role": "数据建模",
+          "description": "用 @dataclass 声明 Event 事件结构,零样板地组织运行日志。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Step 抽象基类。",
+          "astType": "class_def",
+          "name": "Step",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 ToolStep 工具步骤。",
+          "astType": "class_def",
+          "name": "ToolStep",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Harness 调度器。",
+          "astType": "class_def",
+          "name": "Harness",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "Step 需要声明抽象方法。",
+          "pattern": "@abstractmethod",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 Event 记录生命周期事件。",
+          "pattern": "Event\\(",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示答复与三阶段事件回放。",
+          "expectedStdout": "答复: 现在是巳时[\\s\\S]*\\[execute \\] get_time[\\s\\S]*\\[finish  \\] reply",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-loop-s3",
+      "taskId": "t40-harness-loop",
+      "order": 3,
+      "title": "终止条件:四种方式叫停循环",
+      "instruction": "### 目标\n\n为乾坤圈设计一套完整的终止条件。除了 s1 的步数保险丝,还要能识别「正常完成」「计划为空」「动作重复」三种停法。四种原因统一用 `StopReason` 枚举表达,由专职函数 `evaluate_stop` 按固定优先级判定,循环本体只负责转动与收场。\n\n### 原理\n\nAgent 循环的「停止决策」是一等公民:模型每轮都在试探下一步,能叫停循环的却只有这四种情形——任务完成(状态进入 DONE)、步数超限(保险丝)、计划为空(规划器两手一摊,无事可做)、动作重复(连续三轮做同一件事,疑似陷入死循环)。把它们统一收进 `evaluate_stop`,循环本体就只剩「决策 → 执行」两件事,停止逻辑可以单独测试、单独演进。判定必须讲究优先级:完成永远优先于超时——哪怕已经踩到步数上限,只要上一轮答完了,就该记 DONE 而不是熔断。REPEAT 检测用「最近 N 个动作完全相同」实现:`set` 去重后只剩一个元素,说明循环在原地打转,立即叫停。终止原因落进 `stop_reason` 字段,配合 `REASON_TEXT` 翻译成人话,报告才有可读性。\n\n### 操作\n\n1. 补全 `evaluate_stop`:依次检查 DONE、MAX_STEPS、EMPTY_PLAN、REPEAT,全部未触发返回 `StopReason.NONE`;\n2. 补全 `run` 里的叫停块:记录 `self.stop_reason`,并按原因打印 `[超步]` / `[无动作]` / `[死循环]` 提示;\n3. 补全循环末尾:打印终止原因值与 `REASON_TEXT` 译文,再返回答复。\n\n### 常见坑\n\n- 判定顺序不能乱:DONE 必须第一个检查,否则「答完但步数也超了」会被误判成超限;\n- EMPTY_PLAN 看的是**当轮计划**,不是历史动作——规划器返回空列表就该停,别等到动作数为零;\n- REPEAT 的窗口是「最近三轮」:`state.actions[-repeat_limit:]` 取切片,长度不足时不触发,别把整段历史拿来做 set。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "四种终止检查有先后:status == DONE → steps >= max_steps → not plan → 最近三动作完全相同;前三个全过完才轮到 REPEAT。"
+        },
+        {
+          "order": 2,
+          "text": "REPEAT 判定写法:last_three = state.actions[-repeat_limit:];if len(last_three) == repeat_limit and len(set(last_three)) == 1: return StopReason.REPEAT。"
+        },
+        {
+          "order": 3,
+          "text": "run 里的叫停块:if reason != StopReason.NONE: self.stop_reason = reason,再按 reason 分支打印 [超步]/[无动作]/[死循环],然后 break。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "evaluate_stop 优先级判定",
+          "language": "python",
+          "code": "def evaluate_stop(state, plan, max_steps):\n    if state.status == AgentStatus.DONE:      # ① 完成永远优先\n        return StopReason.DONE\n    if state.steps >= max_steps:              # ② 步数保险丝\n        return StopReason.MAX_STEPS\n    if not plan:                              # ③ 计划为空\n        return StopReason.EMPTY_PLAN\n    last_three = state.actions[-3:]           # ④ 最近三轮\n    if len(last_three) == 3 and len(set(last_three)) == 1:\n        return StopReason.REPEAT\n    return StopReason.NONE",
+          "description": "终止判定与循环本体解耦:循环只负责转,何时停由专职判定器说了算。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "StopReason",
+          "definition": "终止原因枚举:none / done / max_steps / empty_plan / repeat,统一表达「为什么停下来」。"
+        },
+        {
+          "name": "evaluate_stop",
+          "definition": "专职停止判定器,按 完成→超步→空计划→重复 的固定优先级返回终止原因,让停止逻辑可单独测试。"
+        },
+        {
+          "name": "REPEAT 检测",
+          "definition": "死循环启发式:最近 N 个动作完全相同(set 去重后只剩一个元素)即判定循环原地打转,强制叫停。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "运行基础",
+          "description": "time 提供时辰演示数据,dataclasses 承载 AgentState;零第三方依赖、离线可跑。",
+          "officialUrl": "https://docs.python.org/3/library/time.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 evaluate_stop 停止判定器。",
+          "astType": "function_def",
+          "name": "evaluate_stop",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 AgentLoop 主循环。",
+          "astType": "class_def",
+          "name": "AgentLoop",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 StopReason.MAX_STEPS 表达步数超限。",
+          "pattern": "StopReason\\.MAX_STEPS",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 StopReason.REPEAT 表达重复动作。",
+          "pattern": "StopReason\\.REPEAT",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示四种终止原因。",
+          "expectedStdout": "== 正常收敛 ==[\\s\\S]*原因: done[\\s\\S]*== 步数超限 ==[\\s\\S]*\\[超步\\] 超过 2 步仍未收敛[\\s\\S]*== 计划为空 ==[\\s\\S]*\\[无动作\\][\\s\\S]*== 重复动作 ==[\\s\\S]*\\[死循环\\][\\s\\S]*执行动作数: 3",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-loop-s4",
+      "taskId": "t40-harness-loop",
+      "order": 4,
+      "title": "手写 vs 框架:同一剧本两种写法",
+      "instruction": "### 目标\n\n同一段剧本,用两种风格实现一遍:手写循环 `hand_written_loop` 用一个函数揉进全部逻辑;乾坤圈则把状态摊进 `AgentState`,交给 `AgentLoop` 驱动。最后用 `compare` 统计两种写法的差异,亲手感受「框架到底替你做了什么」。\n\n### 原理\n\n手写循环是 Agent 开发者的第一反应:一个 `while`、一堆局部变量,决策、执行、判定全写在一起。它跑得通,但三个致命问题随之而来:状态散落在局部变量里,循环每多一个需求,参数列表就多一截;没有统一的停止判定,每个循环各写各的 break;没有数据袋,退出循环后什么都带不出来。乾坤圈的写法则相反——状态是显式的 `AgentState` 五件套(状态、消息、动作、答复、步数),循环是统一的 `AgentLoop`,停止判定是复用的 `evaluate_stop`。两种写法产出相同的结果,差异藏在结构里:`len(manual)` 只有 3 个字段(手写版返回的字典),`len(loop.state.__dict__)` 却有 5 个字段。字段越多,可观测性越强——调试、测试、扩展都建立在「信息有处安放」之上。这就是框架的意义:不是让你少写代码,而是让信息各归其位。\n\n### 操作\n\n1. 补全 `hand_written_loop`:按剧本顺序执行动作,reply 时收场,返回含 reply / actions / steps 的字典;\n2. 补全 `compare` 里乾坤圈分支的打印:动作数取 `len(loop.state.actions)`,字段数取 `len(loop.state.__dict__)`;\n3. 运行程序,对比两行输出:动作步数相同,信息字段数不同。\n\n### 常见坑\n\n- 手写循环必须保证能退出:剧本走完或 reply 到达都要 break,漏了任何一个都会死循环;\n- 别把手写版的数据塞回 dict 之外——返回字典的字段数就是 compare 对比的「信息字段」;\n- 乾坤圈的字段数是 `__dict__` 里实际存在的键数,不是类里写了几行声明,数错了就答不对题。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "手写循环骨架:while True 循环里若 steps >= len(script) 或 decision == \"reply\" 就 break,否则 steps += 1 后调 run_tool(decision) 并把动作记入 actions。"
+        },
+        {
+          "order": 2,
+          "text": "手写版返回 {\"reply\": reply, \"actions\": actions, \"steps\": steps} 三个字段——len(manual) 就是 3 的来源。"
+        },
+        {
+          "order": 3,
+          "text": "乾坤圈分支打印:print(f\"乾坤圈:  动作 {len(loop.state.actions)} 步,信息字段 {len(loop.state.__dict__)} 个\")。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "两种写法对比",
+          "language": "python",
+          "code": "manual = hand_written_loop(DEMO_SCRIPT)          # 手写版:状态在局部变量\nloop = AgentLoop(max_steps=10); loop.run(DEMO_SCRIPT)  # 框架版:状态在 AgentState\nprint(f\"手写版: 动作 {len(manual['actions'])} 步,信息字段 {len(manual)} 个\")\nprint(f\"乾坤圈: 动作 {len(loop.state.actions)} 步,信息字段 {len(loop.state.__dict__)} 个\")",
+          "description": "结果相同、结构不同:手写版 3 个字段,框架版 5 个字段——信息有没有安放之处,就是框架的价值。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "手写循环",
+          "definition": "用一个 while 和一堆局部变量揉进决策、执行、判定全部逻辑的朴素写法;状态散落、难以扩展。"
+        },
+        {
+          "name": "框架循环",
+          "definition": "状态摊进 AgentState、循环统一由 AgentLoop 驱动的写法;停止判定复用 evaluate_stop,信息有处安放。"
+        },
+        {
+          "name": "信息字段",
+          "definition": "循环结束后能带出来的数据维度:手写版字典 3 个字段,AgentState 5 个字段;字段越多可观测性越强。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "运行基础",
+          "description": "仅用 time 与内建数据结构,无需任何第三方依赖。",
+          "officialUrl": "https://docs.python.org/3/library/time.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 hand_written_loop 手写循环。",
+          "astType": "function_def",
+          "name": "hand_written_loop",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 compare 对比函数。",
+          "astType": "function_def",
+          "name": "compare",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "手写循环需要记录动作。",
+          "pattern": "actions\\.append",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请统计 AgentState 的信息字段数。",
+          "pattern": "len\\(loop\\.state\\.__dict__\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示两种写法的差异对比。",
+          "expectedStdout": "动作 2 步[\\s\\S]*信息字段 5 个[\\s\\S]*终止原因: done",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-loop-s5",
+      "taskId": "t40-harness-loop",
+      "order": 5,
+      "title": "多轮会话:让运行时常住下来",
+      "instruction": "### 目标\n\n让乾坤圈从「单轮循环」升级为「多轮会话」:同一台运行时连续接待多轮用户输入,每轮都完整走一遍循环,但消息历史跨轮保留——这就是 Agent 记忆的最小形态。你要补全会话层 `AgentSession`,把每轮的轮次、状态、动作数记成 `TurnRecord`。\n\n### 原理\n\n真实的 Agent 是陪聊的,不是跑一次就散场的。多轮的关键在于「哪些状态每轮重置,哪些跨轮保留」。每轮开始,动作序列、答复、终止原因、步数都要清零——它们描述的是「这一轮做了什么」;消息历史却必须保留——它描述的是「我们一路聊了什么」,Agent 下一轮要参考它才能接上话头。这正好对应两种数据语义:过程状态(per-round)与记忆(per-session)。`AgentSession` 就是负责管理记忆的那一层:它持有循环与历史,每收一条用户输入就驱动一轮循环,并把结果记成 `TurnRecord`——轮次、结束时状态、本轮动作数,三件套足以回答「聊了几轮、每轮聊成了没有、每轮调了几次工具」。会话结束时,report 汇总这些记录:总轮数、总动作步数、消息历史长度,一眼看清整场对话的规模。\n\n### 操作\n\n1. 补全 `AgentSession.run`:调用 `self.loop.run(user_input, script)`,再构造 `TurnRecord`(轮次递增、状态取 `self.loop.state.status`、动作数取 `len(self.loop.state.actions)`)并追加进 `self.turns`;\n2. 运行程序,观察三轮会话的输出与 report 汇总;\n3. 数一数消息历史:两轮带工具的会话各 2 条,最后一轮只有用户输入 1 条,合计 5 条。\n\n### 常见坑\n\n- 千万别把消息历史也重置了——`state.messages` 是跨轮记忆,重置它就是失忆;\n- 轮次从 1 开始递增:`len(self.turns) + 1`,别用循环内部的状态步数当轮次;\n- 「动作数」与「消息数」是两个口径:动作数统计工具调用,消息数统计历史条目,report 里不要混用。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "AgentSession.run 做两件事:先 self.loop.run(user_input, script) 驱动一轮,再构造 TurnRecord 追加进 self.turns。"
+        },
+        {
+          "order": 2,
+          "text": "TurnRecord 三件套:轮次取 len(self.turns) + 1、状态取 self.loop.state.status、动作数取 len(self.loop.state.actions)。"
+        },
+        {
+          "order": 3,
+          "text": "记忆的分界线:loop.run 每轮开头重置 actions / reply / stop_reason / steps,唯独 messages 跨轮保留——重置了就是失忆。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "会话层驱动一轮",
+          "language": "python",
+          "code": "def run(self, user_input: str, script: list) -> str:\n    self.loop.run(user_input, script)   # 驱动一整轮循环\n    rec = TurnRecord(len(self.turns) + 1, self.loop.state.status, len(self.loop.state.actions))\n    self.turns.append(rec)              # 记下这一轮\n    return self.loop.state.reply",
+          "description": "每轮循环结束后补一张 TurnRecord 快照,会话层由此掌握整场对话的规模。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "会话(Session)",
+          "definition": "多轮对话的容器层:持有循环与消息历史,每收一条输入就驱动一轮循环,跨轮保留记忆。"
+        },
+        {
+          "name": "TurnRecord",
+          "definition": "单轮对话的记录:轮次、结束时状态、本轮动作数三件套,是会话汇总的数据来源。"
+        },
+        {
+          "name": "消息历史(记忆)",
+          "definition": "跨轮累积的消息列表,描述「我们一路聊了什么」;与每轮清零的过程状态相对,是 Agent 记忆的最小形态。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python dataclasses",
+          "role": "数据建模",
+          "description": "用 @dataclass + field(default_factory) 声明 AgentState 与 TurnRecord。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 TurnRecord 单轮记录。",
+          "astType": "class_def",
+          "name": "TurnRecord",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 AgentSession 会话层。",
+          "astType": "class_def",
+          "name": "AgentSession",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "会话需要驱动循环运行。",
+          "pattern": "self\\.loop\\.run\\(user_input, script\\)",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请构造 TurnRecord 记录每轮。",
+          "pattern": "TurnRecord\\(",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示三轮会话与汇总报告。",
+          "expectedStdout": "第1轮 \\[done\\][\\s\\S]*共 3 轮,动作 2 步,[\\s\\S]*消息历史 5 条",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t40-harness-loop-s6",
+      "taskId": "t40-harness-loop",
+      "order": 6,
+      "title": "收官实战:完整演练与运行报告",
+      "instruction": "### 目标\n\n收官实战:给乾坤圈装上运行轨迹 `trail`。每执行一步,就在轨迹上留下一张快照;跑完整个剧本后,输出三段式运行报告——运行轨迹、统计、终止原因。至此,状态机、生命周期、终止条件、观测能力四件套齐活,一个最小可用的 Agent 运行时完整成形。\n\n### 原理\n\n循环跑得再顺,看不见中间过程就无从调试。轨迹(trail)就是给 Agent 装的「行车记录仪」:每步执行后,把计划动作、执行结果、当时的状态与终止原因打包成一条记录追加进轨迹。记录必须发生在**执行后**——此刻状态已经变化,reason 取的是真实的 `stop_reason`,而不是硬编码的 NONE,否则轨迹永远显示「进行中」,失去诊断价值。比如最后一步 reply:执行后状态是 DONE,终止原因已更新为 done,轨迹里才会出现 `[done/done]`,一眼看出「这一步把任务收尾了」。报告把轨迹、统计、原因三段分开呈现:轨迹回答「怎么走的」,统计回答「走了多少」(计划步数 vs 实际动作——计划允许 3 步,实际只调用了 2 次工具,说明答复不占动作数),终止原因回答「为什么停」。三问齐备,一次运行便完全可审计。\n\n### 操作\n\n1. 补全 `_record`:返回含 plan / result / status / reason 四个字段的字典,status 与 reason 取当前的真实状态值;\n2. 在 `run` 的两处补上 `self.trail.append(self._record(...))`:工具步记录工具结果,reply 步记录答复结果;\n3. 补全 `print_report`:依次打印运行轨迹(第N步 [status/reason] 计划: plan -> 结果前 12 字)、统计(计划步数 / 实际动作 / 历史消息)、终止原因(值 + REASON_TEXT 译文)。\n\n### 常见坑\n\n- 轨迹的 status / reason 必须读真实状态,别在图省事时硬编码 NONE——快照记录的是执行后的状态,不是执行前的;\n- 计划步数取 `len(loop.trail)`,实际动作取 `len(loop.state.actions)`:reply 不调用工具,所以计划 3 步、动作只有 2 步,这是报告的题眼;\n- 轨迹 append 之后不要再改 `state.reply` 等字段,否则快照与事实对不上,报告就会撒谎。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "_record 返回四字段 dict:{\"plan\": plan, \"result\": result, \"status\": self.state.status, \"reason\": self.stop_reason}——status 与 reason 必须读真实状态。"
+        },
+        {
+          "order": 2,
+          "text": "两处 append:工具步执行后 append(self._record(decision, result)),reply 步置 DONE 并更新 stop_reason 后 append(self._record(decision, state.reply))。"
+        },
+        {
+          "order": 3,
+          "text": "print_report 三段:enumerate(loop.trail, 1) 打印「第N步 [status/reason] 计划: plan -> result[:12]」,再打印统计一行,最后打印终止原因与 REASON_TEXT 译文。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "轨迹快照与报告",
+          "language": "python",
+          "code": "rec = {\"plan\": decision, \"result\": result,\n      \"status\": state.status,      # 执行后的状态\n      \"reason\": loop.stop_reason}  # 执行后的终止原因\nloop.trail.append(rec)              # 快照留档\nfor idx, r in enumerate(loop.trail, 1):\n    print(f\"第{idx}步 [{r['status']}/{r['reason']}] 计划: {r['plan']}\")",
+          "description": "执行后打点、执行后取状态——快照只记录事实,不记录意图。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "轨迹(trail)",
+          "definition": "运行时的「行车记录仪」:每步执行后追加一条含计划/结果/状态/终止原因的快照,让一次运行完全可审计。"
+        },
+        {
+          "name": "运行报告",
+          "definition": "轨迹、统计、终止原因三段式输出:怎么走的、走了多少、为什么停,三问齐备。"
+        },
+        {
+          "name": "终止原因",
+          "definition": "StopReason 枚举值配合 REASON_TEXT 译文,说明循环最终为何停下,是报告与排障的落点。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python dataclasses",
+          "role": "数据建模",
+          "description": "用 @dataclass + field(default_factory) 声明 AgentState,快照用普通 dict 记录。",
+          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
+          "category": "标准库",
+          "installHint": "内置模块,无需安装"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 print_report 运行报告。",
+          "astType": "function_def",
+          "name": "print_report",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义带轨迹的 AgentLoop。",
+          "astType": "class_def",
+          "name": "AgentLoop",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 trail 记录运行轨迹。",
+          "pattern": "self\\.trail\\.append",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 REASON_TEXT 翻译终止原因。",
+          "pattern": "REASON_TEXT",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示轨迹、统计与终止原因三段报告。",
+          "expectedStdout": "乾坤圈: 时辰与经络俱明[\\s\\S]*第3步 \\[done/done\\] 计划: reply[\\s\\S]*终止原因: done",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

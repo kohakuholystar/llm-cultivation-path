@@ -1,0 +1,273 @@
+{
+  "steps": [
+    {
+      "id": "t21-vector-store-s1",
+      "taskId": "t21-vector-store",
+      "order": 1,
+      "title": "创建 Chroma 向量库并添加文本",
+      "instruction": "### 目标\n学会创建 Chroma 向量库，并将文本数据转换为向量存储。\n\n### 概念\n- **向量库 (Vector Store)**：一种专门存储向量（文本的数学表示）的数据库，支持基于语义相似度的检索。\n- **Chroma**：轻量级开源向量数据库，适合原型开发和小规模应用。\n- **add_texts**：将文本列表及其元数据添加到向量库的方法。\n\n### 操作指引\n1. 导入 `chromadb` 库。\n2. 使用 `chromadb.Client()` 创建客户端。\n3. 调用 `client.create_collection('my_collection')` 创建集合。\n4. 使用 `collection.add_texts` 添加文本，参数为 `texts`（文本列表）和 `metadatas`（元数据列表，可选）。\n\n请补全代码，创建一个集合并添加两条文本。",
+      "starterCode": "import chromadb\n\n# 创建客户端\nclient = chromadb.Client()\n\n# 创建集合\ncollection = client.create_collection('my_collection')\n\n# TODO: 使用 add_texts 添加文本，texts 为 ['Hello world', 'How are you?']\n# 提示: collection.add_texts(\n# 同时添加 metadatas，例如 [{'source': 'greeting'}, {'source': 'question'}]\n",
+      "solutionCode": "import chromadb\n\nclient = chromadb.Client()\ncollection = client.create_collection('my_collection')\n\n# 添加文本\ncollection.add_texts(\n    texts=['Hello world', 'How are you?'],\n    metadatas=[{'source': 'greeting'}, {'source': 'question'}]\n)\nprint('Texts added successfully.')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "检查 `collection.add_texts` 的文档，参数顺序可能是 `texts` 和 `metadatas`。"
+        },
+        {
+          "order": 2,
+          "text": "确保 `texts` 和 `metadatas` 的长度一致，且每个元素对应。"
+        },
+        {
+          "order": 3,
+          "text": "将 `texts` 和 `metadatas` 作为关键字参数传递给 `add_texts`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "add_texts 用法示例",
+          "language": "python",
+          "code": "collection.add_texts(\n    texts=['文本1', '文本2'],\n    metadatas=[{'来源': 'A'}, {'来源': 'B'}]\n)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "向量库",
+          "definition": "存储向量并支持相似性搜索的数据库。"
+        },
+        {
+          "name": "Chroma",
+          "definition": "一个开源的向量数据库，易于使用。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "chromadb",
+          "role": "向量数据库",
+          "description": "Chroma 是开源的本地向量数据库,支持存储文档+嵌入向量并做相似度检索。提供 Collection/add_texts/query 等接口,适合本地 RAG 场景。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "向量数据库",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 # TODO: 部分",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 add_texts 调用",
+          "pattern": "add_texts\\s*\\(",
+          "flags": "",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应能成功运行",
+          "expectedStdout": "Texts added successfully.",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t21-vector-store-s2",
+      "taskId": "t21-vector-store",
+      "order": 2,
+      "title": "相似性搜索",
+      "instruction": "### 目标\n掌握 Chroma 的**文档写入与元数据(metadata)设计**——存对元数据,后面检索才能如虎添翼。\n\n### 背景: 为什么元数据和向量一样重要\n向量只解决\"语义相似\",但真实检索总要叠加硬性条件:\n- \"只在 2024 年后的文档里找\" → metadata 加 `date` 字段\n- \"只查产品手册,不查内部 wiki\" → metadata 加 `source` 字段\n- \"引用要标页码\" → metadata 加 `page` 字段\n\n**设计原则:把\"以后要用来过滤/展示的信息\"全塞进 metadata**。事后补要重建库,代价大。\n\n### Chroma 写入 API\n```python\ncollection.add(\n    documents=[\"文本1\", \"文本2\"],\n    metadatas=[{\"source\": \"a.pdf\", \"page\": 1}, {\"source\": \"a.pdf\", \"page\": 2}],\n    ids=[\"doc1\", \"doc2\"],   # 必须唯一, 更新/删除靠它\n)\n```\nid 设计建议:`{doc_id}_p{page}_c{chunk}`——一眼可读,删文档时按前缀批量清。\n\n### 操作\n1. 创建 collection,写入 3 条带 metadata 的文档\n2. 用 where 过滤(\"只要 page>1 的\")查询\n3. 练习按 id 更新一条文档",
+      "starterCode": "import chromadb\n\nclient = chromadb.Client()\ncollection = client.create_collection('demo')\n\n# 添加一些文本\ncollection.add_texts(\n    texts=['苹果是一种水果', '香蕉是黄色的', '汽车有四个轮子'],\n    metadatas=[{'category': 'fruit'}, {'category': 'fruit'}, {'category': 'vehicle'}]\n)\n\n# TODO: 查询文本 '水果'，返回最相似的2个结果\n# 提示: results = collection.query(\n# 使用 collection.query 方法，参数 query_texts=['水果'], n_results=2\n# 将结果打印出来\n",
+      "solutionCode": "import chromadb\n\nclient = chromadb.Client()\ncollection = client.create_collection('demo')\n\ncollection.add_texts(\n    texts=['苹果是一种水果', '香蕉是黄色的', '汽车有四个轮子'],\n    metadatas=[{'category': 'fruit'}, {'category': 'fruit'}, {'category': 'vehicle'}]\n)\n\n# 查询\nresults = collection.query(\n    query_texts=['水果'],\n    n_results=2\n)\nprint('查询结果:', results)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "`query` 方法返回一个字典，包含 'documents'、'metadatas' 等键。"
+        },
+        {
+          "order": 2,
+          "text": "确保 `query_texts` 是一个列表，即使只有一个查询词。"
+        },
+        {
+          "order": 3,
+          "text": "打印 `results['documents']` 可以查看返回的文本。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "query 方法示例",
+          "language": "python",
+          "code": "results = collection.query(query_texts=['查询词'], n_results=5)\nprint(results['documents'])"
+        }
+      ],
+      "terms": [
+        {
+          "name": "相似性搜索",
+          "definition": "基于向量距离度量找到最相似项的过程。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "chromadb",
+          "role": "向量数据库",
+          "description": "Chroma 是开源的本地向量数据库,支持存储文档+嵌入向量并做相似度检索。提供 Collection/add_texts/query 等接口,适合本地 RAG 场景。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "向量数据库",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 # TODO: 部分",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 query 调用",
+          "pattern": "query\\s*\\(",
+          "flags": "",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t21-vector-store-s3",
+      "taskId": "t21-vector-store",
+      "order": 3,
+      "title": "使用分数阈值过滤",
+      "instruction": "### 目标\n掌握**相似度查询的参数调优**:k 值、where 过滤、返回字段的组合使用。\n\n### 背景: query 接口完全指南\n```python\ncollection.query(\n    query_texts=[\"问题\"],        # 或 query_embeddings=[向量]\n    n_results=5,                 # top-k\n    where={\"source\": \"a.pdf\"},   # metadata 过滤(等值)\n    where_document={\"$contains\": \"退款\"},  # 文档内容过滤\n    include=[\"documents\", \"metadatas\", \"distances\"],\n)\n```\n- **k 值权衡**:k 小(3)精准但可能漏;k 大(20)召回高但噪声多、prompt 变长变贵。经验值:初检 k=10-20,重排后取 top 3-5\n- **where 支持操作符**:`$gt/$lt/$in/$and/$or`,日期数值比较都靠它\n\n### 距离阈值过滤\n返回的 distance 可以做\"相关性兜底\":所有结果 distance > 阈值(如 1.2)→ 判定\"库中没有相关内容\",直接拒答。**这比让模型自己判断\"资料够不够\"可靠得多**。\n\n### 操作\n1. query 带 where 过滤,验证只返回符合条件的文档\n2. 调整 n_results 观察 distance 分布\n3. 实现\"距离超阈值则拒答\"逻辑",
+      "starterCode": "import chromadb\n\nclient = chromadb.Client()\ncollection = client.create_collection('filter_demo')\n\ncollection.add_texts(\n    texts=['苹果是水果', '香蕉是水果', '汽车是交通工具'],\n    metadatas=[{'type': 'fruit'}, {'type': 'fruit'}, {'type': 'vehicle'}]\n)\n\n# TODO: 查询 '水果'，n_results=3，添加 where 条件只返回 type='fruit' 的文档\n# 提示: collection.add_texts(\n# 然后打印结果中的文档和距离\n",
+      "solutionCode": "import chromadb\n\nclient = chromadb.Client()\ncollection = client.create_collection('filter_demo')\n\ncollection.add_texts(\n    texts=['苹果是水果', '香蕉是水果', '汽车是交通工具'],\n    metadatas=[{'type': 'fruit'}, {'type': 'fruit'}, {'type': 'vehicle'}]\n)\n\n# 查询并过滤\nresults = collection.query(\n    query_texts=['水果'],\n    n_results=3,\n    where={'type': 'fruit'}\n)\nprint('文档:', results['documents'])\nprint('距离:', results['distances'])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "`where` 参数是一个字典，键是元数据字段名，值是要匹配的值。"
+        },
+        {
+          "order": 2,
+          "text": "注意 `where` 是精确匹配，不是范围过滤。"
+        },
+        {
+          "order": 3,
+          "text": "在 `query` 中添加 `where={'type': 'fruit'}` 即可。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "带过滤的查询",
+          "language": "python",
+          "code": "results = collection.query(query_texts=['查询'], n_results=10, where={'field': 'value'})"
+        }
+      ],
+      "terms": [
+        {
+          "name": "元数据过滤",
+          "definition": "根据元数据字段精确匹配来筛选结果。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "chromadb",
+          "role": "向量数据库",
+          "description": "Chroma 是开源的本地向量数据库,支持存储文档+嵌入向量并做相似度检索。提供 Collection/add_texts/query 等接口,适合本地 RAG 场景。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "向量数据库",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 # TODO: 部分",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 where 参数",
+          "pattern": "where\\s*=",
+          "flags": "",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t21-vector-store-s4",
+      "taskId": "t21-vector-store",
+      "order": 4,
+      "title": "持久化向量库到磁盘",
+      "instruction": "### 目标\n掌握 Chroma 的**持久化与集合管理**:数据存哪、怎么备份、多集合怎么组织。\n\n### 背景: 持久化配置\n```python\nclient = chromadb.PersistentClient(path=\"./data/chroma\")\n```\n数据落盘到 path 目录(默认内存模式,进程退出就丢——开发常用,生产必配 path)。\n\n### 多集合(collection)的组织策略\n- **按租户分**:每个用户一个 collection,隔离彻底但管理难\n- **按主题分**:产品手册/FAQ/工单各一个,检索时可选库或并行查多库\n- **按版本分**:每月新数据建新集合,旧集合只读——天然支持\"按时间过滤\"\n\n### 生产运维要点\n- **备份**:直接拷贝 path 目录即可(先停写)\n- **重建**:embedding 模型换了必须全量重建(向量空间不兼容!)\n- **迁移**:Chroma→Qdrant/Milvus 时,导出 documents+metadatas 重新编码,**别试图导出向量复用**\n\n### 操作\n1. 用 PersistentClient 落盘,重启进程验证数据还在\n2. 建第二个集合,练习 list_collections / delete_collection\n3. 实现\"全库导出为 JSON\"的备份函数",
+      "starterCode": "import chromadb\n\n# 使用 PersistentClient 创建客户端，路径为 './my_chroma_db'\nclient = chromadb.PersistentClient(path='./my_chroma_db')\n\n# 创建集合\ncollection = client.create_collection('persist_collection')\n\n# 添加文本\ncollection.add_texts(texts=['持久化测试'], metadatas=[{'test': 'true'}])\n\n# 重新创建客户端，从同一路径加载\nclient2 = chromadb.PersistentClient(path='./my_chroma_db')\ncollection2 = client2.get_collection('persist_collection')\n\n# TODO: 查询 collection2 中所有文档（使用 query 或 get）并打印\n# 提示: print('加载的文档:', results['documents'])\n",
+      "solutionCode": "import chromadb\n\nclient = chromadb.PersistentClient(path='./my_chroma_db')\ncollection = client.create_collection('persist_collection')\ncollection.add_texts(texts=['持久化测试'], metadatas=[{'test': 'true'}])\n\nclient2 = chromadb.PersistentClient(path='./my_chroma_db')\ncollection2 = client2.get_collection('persist_collection')\n\n# 查询所有文档\nresults = collection2.get()\nprint('加载的文档:', results['documents'])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "`PersistentClient` 的参数 `path` 指定存储目录。"
+        },
+        {
+          "order": 2,
+          "text": "使用 `get_collection` 获取已有集合，而不是 `create_collection`。"
+        },
+        {
+          "order": 3,
+          "text": "`collection.get()` 可获取所有文档，无需查询文本。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "持久化示例",
+          "language": "python",
+          "code": "client = chromadb.PersistentClient(path='./db')\ncol = client.create_collection('my_col')\ncol.add_texts(texts=['数据'])\n# 重新加载\nclient2 = chromadb.PersistentClient(path='./db')\ncol2 = client2.get_collection('my_col')\nprint(col2.get()['documents'])"
+        }
+      ],
+      "terms": [
+        {
+          "name": "持久化",
+          "definition": "将数据保存到非易失性存储中，如磁盘。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "chromadb",
+          "role": "向量数据库",
+          "description": "Chroma 是开源的本地向量数据库,支持存储文档+嵌入向量并做相似度检索。提供 Collection/add_texts/query 等接口,适合本地 RAG 场景。",
+          "officialUrl": "https://docs.trychroma.com/",
+          "category": "向量数据库",
+          "installHint": "pip install chromadb"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请填写 # TODO: 部分",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应使用 PersistentClient",
+          "pattern": "PersistentClient",
+          "flags": "",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

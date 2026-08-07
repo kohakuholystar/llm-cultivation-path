@@ -1,0 +1,494 @@
+{
+  "steps": [
+    {
+      "id": "t43-observability-s1",
+      "taskId": "t43-observability",
+      "order": 1,
+      "title": "结构化日志:JSON Lines 记心法",
+      "instruction": "### 目标\n\n为章项目「乾坤观测台」打造第一块基石——观测者 `QiankunObserver`。它把散乱的 `print` 升级为结构化日志:每一条事件都是一行 JSON,写入 `records` 列表备查,同时实时落到标准输出。用 `json.dumps(record, ensure_ascii=False)` 保证中文不被转义成 `\\uXXXX`,日志机器可读、可检索、可回放。\n\n### 原理\n\n日志要承担「事后复盘」的职责,就必须先解决两个问题:**谁来记**与**记成什么样**。谁来记:我们写一个观测者类,所有业务代码只调用 `info`/`warn`/`error` 三个方法,事件的收集、序列化、输出都收口到 `log` 一个方法里——这就是「埋点统一」。记成什么样:JSON Lines 格式,一行一条完整事件,`level` 表示级别、`event` 表示事件名,其余字段用 `**fields` 按需携带。为什么用 JSON 而不是人类可读的拼串?因为日志不止给人看:监控系统、检索工具、回放脚本都要解析它,结构化数据才能被机器消费。`ensure_ascii=False` 保证中文字面输出,日志文件里不再是 `\\uXXXX` 的转义海洋。\n\n### 操作\n\n1. 实现 `log`:先构造 `record = {\"level\": level, \"event\": event}`,再 `record.update(fields)` 并入附加字段,追加到 `self.records`,最后用 `json.dumps(record, ensure_ascii=False)` 序列化并补换行符写入 `self.stream`;\n2. `info`/`warn`/`error` 只是 `log` 的三档薄封装,事件名用点号分层,如 `agent.start`、`llm.error`;\n3. 在 `main` 里记录一条启动事件、一条缓慢告警、一条模型错误,然后回放 `self.records`;\n4. 运行程序,对照输出观察 JSON Lines 的长相,以及 `seen_events`/`level_distribution` 的统计结果。\n\n### 常见坑\n\n- 漏写 `ensure_ascii=False`:中文被转义成 `\\uXXXX`,日志文件人类不可读,中文检索也失败;\n- 每行日志末尾漏掉换行符,多行事件会粘连成一行,破坏「一行一事件」的约定;\n- `record.update(fields)` 忘写,`model` 这类附加字段全部丢失,事件只剩空壳。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "事件字典用一行构造:record = {\"level\": level, \"event\": event},再 record.update(fields) 并入附加字段。"
+        },
+        {
+          "order": 2,
+          "text": "写入两步:先 append 进 self.records,再 self.stream.write(json.dumps(record, ensure_ascii=False) + 换行符)。"
+        },
+        {
+          "order": 3,
+          "text": "main 里先 ob.info(\"agent.start\", model=\"deepseek-v4-pro\", rounds=1),再 ob.error(\"llm.error\", model=\"deepseek-v4-pro\", kind=\"RateLimit\"),最后回放 records、打印统计并输出 \"结构化日志就绪\"。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "JSON Lines 的读写姿势",
+          "language": "python",
+          "code": "# 写:一行一条事件,ensure_ascii=False 保住中文\njson.dumps({\"level\": \"info\", \"event\": \"agent.start\"}, ensure_ascii=False)\n# 读:按行解析,json.loads 还原成字典\nfor line in log_file:\n    record = json.loads(line)",
+          "description": "JSON Lines 的写入与读取:一行一事件,解析保持朴素。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "结构化日志",
+          "definition": "把事件按统一结构(级别、事件名、附加字段)序列化后记录的日志,通常一行一条,机器可解析、可检索、可回放。"
+        },
+        {
+          "name": "JSON Lines",
+          "definition": "一种日志格式:每行一条独立 JSON 对象,行内不出现换行;保留了结构化信息,又比 XML 等格式更省空间。"
+        },
+        {
+          "name": "埋点(Instrumentation)",
+          "definition": "在业务代码的关键位置主动调用观测 API(如 info/warn/error)留下事件记录的行为。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "JSON Lines",
+          "role": "日志格式标准",
+          "description": "每行一条 JSON 对象的结构化日志格式,是日志采集与检索的事实标准之一。",
+          "officialUrl": "https://jsonlines.org",
+          "category": "标准",
+          "installHint": "无需安装,按格式输出即可"
+        },
+        {
+          "name": "structlog",
+          "role": "结构化日志库",
+          "description": "Python 结构化日志库,提供链式上下文与多输出渲染;本任务用标准库 json 手工实现同样思路。",
+          "officialUrl": "https://www.structlog.org",
+          "category": "库",
+          "installHint": "pip install structlog"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义观测者类 QiankunObserver。",
+          "astType": "class_def",
+          "name": "QiankunObserver",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 log 结构化日志核心方法。",
+          "astType": "function_def",
+          "name": "log",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请用 json.dumps(record, ensure_ascii=False) 序列化日志。",
+          "pattern": "json\\.dumps\\(record, ensure_ascii=False\\)",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "每条事件都要追加进 records 列表。",
+          "pattern": "self\\.records\\.append\\(record\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出 JSON Lines 事件与回放结果。",
+          "expectedStdout": "\"event\": \"agent\\.start\"[\\s\\S]*\"event\": \"llm\\.error\"[\\s\\S]*结构化日志就绪",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t43-observability-s2",
+      "taskId": "t43-observability",
+      "order": 2,
+      "title": "链路追踪:span 树里见因果",
+      "instruction": "### 目标\n让 QiankunObserver 长出「链路追踪」:一次回合里,start_span 打开跨度、end_span 结算耗时,事件按父子关系串成 span 树,最后渲染成调用链树并回放事件。\n\n### 原理\n可观测性讲究「讲因果」:日志回答发生了什么,链路回答为什么慢、慢在哪。实现上用一个栈(代码里即 self.current 指针)管理嵌套调用——打开新 span 时把父 span 记进 span[\"parent\"],结束时 current 回退为 parent;这样一来工具调用天然挂在 agent.turn 之下,层级即调用层次。计时用 time.perf_counter(),它专为高频计时设计,比 time.time 更稳。\n\n### 操作\n1) start_span(name):读 self.current 作父节点;新建 span 字典(name/children/started_at)挂进 roots 或父节点的 children;写回 span[\"parent\"] 后把 current 指向新 span,并打一条 span.start 事件。\n2) end_span():用 perf_counter 差算出 duration_ms(保留两位小数),打 span.end 事件,current 回退为 parent。\n3) run_turn(prompt):依次 start agent.turn、tool.query_stock、tool.appraise,每个工具调用后记一条 tool.invoke 事件再 end_span,最后收尾 agent.turn。\n4) main 里渲染链路树:递归打印节点名与耗时,缩进即层级;再回放事件清单。\n\n### 常见坑\n- 忘记 span[\"parent\"] = parent,end_span 后就无法回退,current 会一直陷在最深一层。\n- 用 time.time() 计时:它有系统时间校准,可能回跳,极短调用会算出负耗时,务必用 perf_counter。\n- span.start 只在打开时打点,结算信息要落在 span.end 事件里,别把两个事件揉成一条。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "span 是树上的节点,新建时带上 name、children 和 started_at,父引用存进 span[\"parent\"]。"
+        },
+        {
+          "order": 2,
+          "text": "挂载规则:self.current 为空就追加进 self.roots,否则追加进 parent[\"children\"],然后把 self.current 指向新 span。"
+        },
+        {
+          "order": 3,
+          "text": "end_span 用 perf_counter 差结算耗时:round((now - started_at) * 1000, 2) 写入 duration_ms,补一条 span.end 事件,current 回退为 parent。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "一棵调用链树",
+          "language": "python",
+          "code": "# parent 把前后 span 连成祖先链,树上每个节点都是这么一颗\nspan = {\"name\": \"tool.query_stock\", \"children\": [], \"started_at\": time.perf_counter()}\nspan[\"parent\"] = current\nspan[\"duration_ms\"] = round((time.perf_counter() - span[\"started_at\"]) * 1000, 2)\n# 树形渲染:递归降深度,前导空格即层级\ndef show(spans, indent=\"\"):\n    for s in spans:\n        print(f\"{indent}{s['name']} {s.get('duration_ms', 0)}ms\")\n        show(s[\"children\"], indent + \"  \")",
+          "description": "span 节点的结构、parent 指针与树形渲染的递归姿势。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Span(链路跨度)",
+          "definition": "链路追踪中的一次可观测调用单元:一个名字、一段计时、若干子 span,按父子关系组成调用链树。"
+        },
+        {
+          "name": "链路追踪(Tracing)",
+          "definition": "记录一次请求从入口到出口经过的所有调用与耗时,把分散的事件还原为因果链条,用于定位慢在何处。"
+        },
+        {
+          "name": "调用链树",
+          "definition": "由 span 的父子关系构成的树形结构:根是本次请求,叶子是单个工具调用;深度即调用层次。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenTelemetry",
+          "role": "链路追踪标准",
+          "description": "可观测性领域事实标准,定义 Trace/Span 等数据模型与本任务的 span 树同源;此处用标准库手工演示。",
+          "officialUrl": "https://opentelemetry.io",
+          "category": "标准",
+          "installHint": "pip install opentelemetry-api"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 start_span 新建并挂载 span。",
+          "astType": "function_def",
+          "name": "start_span",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 end_span 结算耗时并出栈。",
+          "astType": "function_def",
+          "name": "end_span",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "打开新 span 时要打 span.start 事件。",
+          "pattern": "span\\.start",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "用 time.perf_counter() 计时更精准。",
+          "pattern": "perf_counter\\(\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出 span 树与回放结果。",
+          "expectedStdout": "\"span\": \"agent\\.turn\"[\\s\\S]*链路树[\\s\\S]*tool\\.query_stock",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t43-observability-s3",
+      "taskId": "t43-observability",
+      "order": 3,
+      "title": "指标统计:计数器与耗时桶",
+      "instruction": "### 目标\n给 QiankunObserver 装上报数能力:inc 累加计数器、end_span 顺手把每段耗时收进耗时桶,snapshot 汇总成一次指标快照,回答「总共调了多少次、每类调用多慢」。\n\n### 原理\n指标是数字化的体检表。计数器(counter)只增不减,适合统计调用次数;耗时用直方图思路,先按名字聚合成列表、再算 count/min/max/sum。get(key, 0) 是 Python 里最朴素的「不存在就初始化」惯用法,setdefault 则是「不存在才建空桶」——两者都能省掉手工 if 判断。口径要先定死:一次调用只记一次数,别在业务里重复累加,否则大盘数字虚高;喂进去的样本和算出来的统计必须同源同口径,快照才有意义。\n\n### 操作\n1) inc(metric, by=1):self.counters[metric] = self.counters.get(metric, 0) + by。\n2) end_span 结算时,除写 duration_ms,再 self.durations.setdefault(span[\"name\"], []).append(duration),把耗时收进对应名字的桶。\n3) snapshot():遍历 durations,为每个名字算 count/min_ms/max_ms/sum_ms,返回 {\"counters\": ..., \"durations\": stats}。\n4) main 里累加 3 次 llm.calls、喂三个耗时样本,打快照并打印;统计口径一进一出都在快照里。\n\n### 常见坑\n- snapshot 直接对空桶 min(v) 会抛 ValueError,喂样本前先确认每个桶都非空。\n- 只调 inc 不写回 self.counters[metric],计数在原地消失——必须把 get 加 by 的结果存回去。\n- 耗时只在 end_span 时收集:不在 end_span 里记账,快照永远少一类数据。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "inc 是计数器累加:self.counters[metric] = self.counters.get(metric, 0) + by,by 默认 1。"
+        },
+        {
+          "order": 2,
+          "text": "snapshot 遍历 self.durations,每个名字收集 count/min_ms/max_ms/sum_ms,拼成 {\"counters\": ..., \"durations\": stats}。"
+        },
+        {
+          "order": 3,
+          "text": "想让耗时进统计,end_span 结算时要用 durations.setdefault 把每段耗时追加进对应名字的列表。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "计数器与耗时桶",
+          "language": "python",
+          "code": "# 计数器:get 兜底,不存在的指标从 0 开始累加\nself.counters[\"llm.calls\"] = self.counters.get(\"llm.calls\", 0) + 1\n# 耗时桶:按名字聚合成列表,快照时再算聚合值\nself.durations.setdefault(\"tool.duration\", []).append(42.5)\nstats = {name: {\"count\": len(v), \"min_ms\": min(v), \"max_ms\": max(v)}\n         for name, v in self.durations.items()}",
+          "description": "get 兜底的计数器累加、setdefault 建桶,以及快照聚合的字典推导式。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "指标(Metric)",
+          "definition": "对系统行为的数值化观测,如调用次数、耗时;按名字聚合后用于告警与大盘。"
+        },
+        {
+          "name": "计数器(Counter)",
+          "definition": "只增不减的指标类型,记录事件累计次数,如 llm.calls、tool.success。"
+        },
+        {
+          "name": "直方图(Histogram)",
+          "definition": "把一批观测值(如耗时)按名字聚合成 count/min/max/sum 等统计量,兼顾趋势与分布。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Prometheus",
+          "role": "指标采集与告警",
+          "description": "主流的指标监控系统,基于拉取模型与 PromQL;本任务用字典手工实现其聚合思路。",
+          "officialUrl": "https://prometheus.io",
+          "category": "系统",
+          "installHint": "无需安装,掌握 counter/histogram 语义即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 inc 计数器累加方法。",
+          "astType": "function_def",
+          "name": "inc",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 snapshot 指标快照方法。",
+          "astType": "function_def",
+          "name": "snapshot",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "end_span 结算时要把耗时收进 durations 桶。",
+          "pattern": "durations\\.setdefault",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "快照里应能看到 llm.calls 这个计数器。",
+          "pattern": "llm\\.calls",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出指标快照与聚合统计。",
+          "expectedStdout": "llm\\.calls=3[\\s\\S]*tool\\.duration: 3 次[\\s\\S]*max 60\\.0ms",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t43-observability-s4",
+      "taskId": "t43-observability",
+      "order": 4,
+      "title": "Markdown 报告:观测结果落成文",
+      "instruction": "### 目标\n把观测者手里的日志、链路树、指标快照沉淀成一份 Markdown 报告:generate_report 拼出全文,_report_span 递归展树,save_report 落盘,让观测结果可以带走、分享、复盘。\n\n### 原理\n报告的本质是拼行:标题、空行、小节名、条目,都是一行行文本。树形数据递归展开——每个 span 一行、子 span 用缩进表示层级;指标按计数器与耗时桶各成一节。列表先行、最后 join,比一路字符串拼接更清晰,也便于中间插入空行与小节。\n\n### 操作\n1) generate_report:从 [\"# 观测报告\", \"\", \"## 链路追踪\"] 起步,遍历 self.roots 用 _report_span 展开;补 \"## 指标\" 后把 counters 与 durations 各渲染成 \"- `名字`: 数值\" 条目。\n2) _report_span(lines, span, depth):前导缩进 \"  \" * depth,写 \"- `name` duration_msms\",对 children 递归 depth + 1。\n3) save_report(out_path):open(out_path, \"w\", encoding=\"utf-8\") 写 generate_report() 的全文,返回路径。\n4) main 里组织一次有链路有指标的调用,保存报告并打印全文。\n\n### 常见坑\n- 写盘漏掉 encoding=\"utf-8\":含中文时在部分环境会抛编码错误或乱码,必须显式指定。\n- 只有标题没有空行:Markdown 渲染器对相邻标题与段落需要空行分隔,标题后、小节与列表之间都要留空行。\n- 缩进忘了随 depth 增长:所有 span 挤在同一列,树形层级就丢了。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "generate_report 从行列表起步:先 [\"# 观测报告\", \"\", \"## 链路追踪\"],把每个根 span 用 _report_span 递归展开,再补 \"## 指标\"。"
+        },
+        {
+          "order": 2,
+          "text": "_report_span 用 \"  \" * depth 造前导缩进,行格式 f\"- {prefix}`{name}` {duration}ms\",再对 children 递归 depth + 1。"
+        },
+        {
+          "order": 3,
+          "text": "save_report 用 open(out_path, \"w\", encoding=\"utf-8\") 写盘并返回路径;中文必须显式 utf-8。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "拼行与写盘",
+          "language": "python",
+          "code": "# 报告本质是拼行:标题、空行、小节名、条目,最后 join 成整篇\nlines = [\"# 观测报告\", \"\", \"## 链路追踪\"]\nlines.append(\"- `agent.turn` 12ms\")\nlines.append(\"## 指标\")\nreport = \"\\n\".join(lines) + \"\\n\"\n# 写盘:encoding 必须显式给 utf-8,保中文\nwith open(\"观测报告.md\", \"w\", encoding=\"utf-8\") as f:\n    f.write(report)",
+          "description": "先拼行再 join 的报告写法,以及带显式 utf-8 的写盘姿势。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Markdown",
+          "definition": "轻量标记语言,用 # 标题、- 列表、` 代码等符号排版纯文本,是写报告与文档的通用格式。"
+        },
+        {
+          "name": "报告(Report)",
+          "definition": "把日志、链路、指标等观测数据整理成人类可读的摘要文档,供复盘与交接。"
+        },
+        {
+          "name": "静态导出",
+          "definition": "把运行时观测结果落成文件或文本(如 .md),不依赖在线大盘即可查看与分享。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Markdown",
+          "role": "报告格式",
+          "description": "轻量标记语言,观测报告的事实标准格式,文本可读、可版本化、可渲染。",
+          "officialUrl": "https://www.markdownguide.org",
+          "category": "标准",
+          "installHint": "无需安装,按 # - ` 语法书写即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 generate_report 报告生成方法。",
+          "astType": "function_def",
+          "name": "generate_report",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 save_report 报告落盘方法。",
+          "astType": "function_def",
+          "name": "save_report",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "写盘要显式指定 utf-8 编码。",
+          "pattern": "open\\(out_path, \"w\", encoding=\"utf-8\"\\)",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "报告要包含指标小节。",
+          "pattern": "## 指标",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应生成报告文件并打印全文。",
+          "expectedStdout": "报告已生成[\\s\\S]*## 链路追踪[\\s\\S]*## 指标",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t43-observability-s5",
+      "taskId": "t43-observability",
+      "order": 5,
+      "title": "总装:观测与业务合一",
+      "instruction": "### 目标\n总装收口:把日志、链路、指标、报告拧成一个可复用的 run_agent_session——跑一批提示词,成功的计数、失败的打点、每回合都有 span,结束后出一份总览和一份 Markdown 报告。\n\n### 原理\n观测要为业务让路:同一段逻辑里,业务语句和观测语句交错但互不干扰。用 try/except 包裹业务,成败各自打点——成功 inc(\"tool.success\"),失败 inc(\"tool.error\") 并 error 一条 tool.failed;这样错误率、成功率、回合数都能从计数器和事件里直接算出来。异常必须被捕获并记录,绝不能静默吞掉。\n\n### 操作\n1) run_agent_session(prompts):ok = fail = 0,循环遍历;每个 prompt 打开 agent.turn span、info 一条 llm.request。\n2) try 里校验 \"炸\" 关键词:通过则 ok + 1、inc(\"tool.success\")、打印 \"查询完成\";抛 ValueError 则 fail + 1、inc(\"tool.error\")、error 一条 tool.failed、打印 \"查询失败\"。\n3) 每个回合无论如何都 inc(\"turns.completed\") 并 end_span,保证 span 成对。\n4) 收尾 info 一条 agent.finish(rounds/ok/fail),打印观测总览,用 save_report 落盘报告并打印路径。\n\n### 常见坑\n- 忘了 end_span:span 树越积越深,current 永远回不到根,后续回合全串进上一次调用里。\n- 异常静默:不捕获或捕获后只 print,事件里就没有 tool.failed,失败无迹可查。\n- 计数与事件不一致:成败逻辑里计数器和事件必须同增减,否则总览数字与回放对不上。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "每个回合都要有头有尾:start_span(\"agent.turn\") 打开,inc(\"turns.completed\") 并 end_span 收尾,循环里不跨回合。"
+        },
+        {
+          "order": 2,
+          "text": "成败都要打点:成功走 inc(\"tool.success\"),失败走 inc(\"tool.error\") + error(\"tool.failed\", ...),别让异常静默。"
+        },
+        {
+          "order": 3,
+          "text": "收尾用 info 一条 agent.finish 汇总 rounds/ok/fail,再用 save_report 落盘报告并打印路径。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "回合级观测骨架",
+          "language": "python",
+          "code": "# 一开一合:业务与观测交错,但互不干扰\nself.start_span(\"agent.turn\")\nself.info(\"llm.request\", model=\"deepseek-v4-pro\", prompt=prompt)\ntry:\n    ok += 1\n    self.inc(\"tool.success\")\nexcept ValueError as exc:\n    fail += 1\n    self.inc(\"tool.error\")\n    self.error(\"tool.failed\", prompt=prompt, error=str(exc))\nself.end_span()\n# 汇总:一条 finish 事件交代全局\nself.info(\"agent.finish\", rounds=2, ok=ok, fail=fail)",
+          "description": "一个回合的观测骨架:span 成对、成败双打点、结尾汇总。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "回合(Turn)",
+          "definition": "一次完整的请求-响应循环:从用户输入到 agent 给出结果,对应一个根 span。"
+        },
+        {
+          "name": "错误率",
+          "definition": "失败请求数占总请求数的比例,由 tool.success 与 tool.error 两类计数器相除得出,是系统健康的直接信号。"
+        },
+        {
+          "name": "可观测性(Observability)",
+          "definition": "通过日志、链路、指标三支柱,从外部即可推断系统内部状态的能力。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Grafana",
+          "role": "观测大盘",
+          "description": "可视化面板工具,把指标与日志渲染成大屏与告警;本任务的 Markdown 报告是它的离线缩影。",
+          "officialUrl": "https://grafana.com",
+          "category": "系统",
+          "installHint": "无需安装,了解面板与告警概念即可"
+        },
+        {
+          "name": "OpenTelemetry",
+          "role": "链路追踪标准",
+          "description": "可观测性三支柱的标准数据模型来源,本任务以单类 QiankunObserver 手工还原其思路。",
+          "officialUrl": "https://opentelemetry.io",
+          "category": "标准",
+          "installHint": "pip install opentelemetry-api"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 run_agent_session 总装方法。",
+          "astType": "function_def",
+          "name": "run_agent_session",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "失败时要打 tool.error 计数。",
+          "pattern": "tool\\.error",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "收尾要落盘观测报告。",
+          "pattern": "save_report\\(",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "结束时要汇总 agent.finish 事件。",
+          "pattern": "agent\\.finish",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应输出成败结果、总览与报告路径。",
+          "expectedStdout": "查询失败[\\s\\S]*失败 1[\\s\\S]*报告已写入",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

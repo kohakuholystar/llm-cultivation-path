@@ -1,0 +1,430 @@
+{
+  "steps": [
+    {
+      "id": "t32-agent-executor-s1",
+      "taskId": "t32-agent-executor",
+      "order": 1,
+      "title": "铸造宝器:@tool 工具箱与 create_react_agent",
+      "instruction": "### 目标\n为章项目「百宝囊」打下地基:用 `@tool` 铸造两件宝器(神机算盘、千里眼),写好 ReAct 提示词,再用 `create_react_agent` 把模型、工具、提示词组装成一个能跑的 Agent。\n\n### 原理\n**Agent = 模型 + 工具 + 提示词,三位一体。** 上一个任务(t31)你手写过一个 while 循环:把工具说明塞进 prompt、解析模型输出的 `Action/Action Input`、执行工具、把 `Observation` 拼回上下文。`create_react_agent` 做的正是同一件事——它返回一个 Runnable 流水线:`prompt → llm.bind(stop=[\"\\nObservation\"]) → ReActOutputParser`,三段各对应你手写版里的三个零件。看清这一层,官方框架就不再是魔法。\n\n**`@tool` 把普通函数变成结构化工具**:函数名即工具名,docstring 即工具说明。注意,docstring 是写给 LLM 看的\"使用说明书\"——模型挑工具、填参数时读的就是它,不是写给人看的注释。\n\n**`agent_scratchpad` 是 Agent 的草稿纸**:每一轮 Thought/Action/Observation 都追加在这里,模型据此决定下一步。t31 里你手工拼字符串,这里由提示词里的 `{agent_scratchpad}` 占位符自动注入。\n\n### 操作\n1. 实现 `shenji_suanpan`:受限 `eval` 计算表达式,异常时返回中文错误串(报错也是给模型的回报)。\n2. 在 `main` 里用 `create_react_agent(llm, tools, prompt)` 组装 agent,再包进 `AgentExecutor` 跑一次问答。\n3. 无网时设 `MOCK_LLM=1`,官方假模型 `FakeListChatModel` 会按 `MOCK_SCRIPT` 的台词演示完整流程。\n\n### 常见坑\n- **docstring 缺失或太敷衍**:`@tool` 没有 docstring 会直接报错;只写\"计算\"两个字,模型不会正确传参。说明书要写明输入格式,如『输入如 \"3 * (4 + 5)\"』。\n- **langchain 1.x 导入变迁**:`AgentExecutor` 已迁出 `langchain.agents`(那里只剩 LangGraph 系的 `create_agent`),要从 `langchain_classic.agents` 导入——照抄旧教程会 ImportError。\n- **漏写 `{agent_scratchpad}` 占位符**:模型看不到历史,会反复调用同一个工具直到失控。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:两件宝器都是单字符串入参的 @tool 函数;组装只有一行 create_react_agent + 一行 AgentExecutor。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:create_react_agent(llm, tools, prompt);受限 eval 写作 eval(expression, {\"__builtins__\": {}}, {})。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:agent = create_react_agent(build_llm(MOCK_SCRIPT), tools, REACT_PROMPT);executor = AgentExecutor(agent=agent, tools=tools);ans = executor.invoke({\"input\": ...});打印 ans[\"output\"]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "@tool 的最小配方",
+          "language": "python",
+          "code": "from langchain_core.tools import tool\n\n@tool\ndef shenji_suanpan(expression: str) -> str:\n    \"\"\"神机算盘: 计算数学表达式, 输入如 \"3 * (4 + 5)\"。\"\"\"\n    return str(eval(expression, {\"__builtins__\": {}}, {}))\n\nprint(shenji_suanpan.name)        # shenji_suanpan(函数名即工具名)\nprint(shenji_suanpan.description) # docstring 即工具说明书",
+          "description": "函数名、docstring、类型标注共同构成工具的 schema,模型靠它们决定何时用、怎么填。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ReAct",
+          "definition": "Reasoning + Acting 范式:模型交替输出 Thought(推理)与 Action(行动),拿到 Observation 后再推理,直到给出 Final Answer。"
+        },
+        {
+          "name": "agent_scratchpad",
+          "definition": "Agent 的草稿纸占位符,执行器把历轮 Thought/Action/Observation 追加注入这里,让模型看到完整行动历史。"
+        },
+        {
+          "name": "@tool",
+          "definition": "langchain 装饰器,把 Python 函数包装成工具对象;函数名为工具名,docstring 为给模型阅读的工具说明。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "经典 Agent 运行时",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 模型接入;langchain 1.x 将 AgentExecutor、create_react_agent 等经典 Agent API 迁入 langchain-classic 包维护。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "本课程默认模型 deepseek-v4-pro,OpenAI 兼容端点 https://api.deepseek.com。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请实现神机算盘并组装 Agent。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "create_react_agent",
+          "minCount": 1,
+          "message": "必须用 create_react_agent 组装 Agent。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "build_llm",
+          "message": "请保留 build_llm 工厂函数(联网/MOCK 双模式)。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "eval\\(expression, \\{\"__builtins__\": \\{\\}\\}",
+          "message": "神机算盘必须用受限 eval(关死 builtins),不允许裸 eval。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t32-agent-executor-s2",
+      "taskId": "t32-agent-executor",
+      "order": 2,
+      "title": "请出执行官:AgentExecutor 替换手写循环",
+      "instruction": "### 目标\n给百宝囊新增第三件宝器「度量衡」,并把 t31 那个手写 while 循环整体退役——用 `AgentExecutor` 作为运行时引擎,一行 `invoke` 完成多轮工具调用。\n\n### 原理\n**AgentExecutor 是 Agent 的运行时,不是 Agent 本身。** 分工上,`create_react_agent` 产出的 agent 只做\"单步决策\":读 scratchpad,输出下一步行动(AgentAction)或最终答案(AgentFinish);而 Executor 负责驱动整个生命周期——循环、调工具、写草稿、判终止。\n\n对照 t31 你的手写版,逐字段映射:\n- 你的 `while step < N:` → Executor 内部的迭代循环;\n- 你的正则解析 `Action/Action Input` → `ReActOutputParser`;\n- 你的 `history += observation` → Executor 自动维护 `agent_scratchpad`;\n- 你的 `if Final Answer: break` → 解析出 AgentFinish 即终止。\n\n**`invoke({\"input\": ...})` 的契约**:输入必须是 dict,键名对齐提示词里的变量(本例是 `input`);返回值也是 dict,最终答复在 `output` 键里。\n\n### 操作\n1. 实现 `duliangheng`:解析 \"数值 源单位 目标单位\",经米做桥完成换算。\n2. `build_executor` 里返回 `AgentExecutor(agent=agent, tools=tools)`。\n3. 对两个问题分别 `executor.invoke({\"input\": q})` 并打印 `ans[\"output\"]`。\n\n### 常见坑\n- **ReAct 模式下工具必须单字符串入参**:Action Input 是一整段文本,多参数工具会收到一个字符串而报错——像 `duliangheng` 这样把参数编进一句话、函数内自行 split。\n- **invoke 传字符串而非 dict**:`executor.invoke(\"问题\")` 会报变量缺失,必须是 `{\"input\": q}`。\n- **工具名对不上宝器名录**:模型只能调 `{tool_names}` 里列出的名字,改名后提示词与 @tool 函数名要同步。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:Executor 只做两件事——持有 agent 与 tools;之后所有问答都走 executor.invoke。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:AgentExecutor(agent=agent, tools=tools);invoke 的输入是 dict,{\"input\": 问题};答案在返回值的 \"output\" 键。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return AgentExecutor(agent=agent, tools=tools);循环里 ans = executor.invoke({\"input\": q});print(ans[\"output\"]);换算: value_s, src, dst = query.split()。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "手写循环 vs AgentExecutor",
+          "language": "python",
+          "code": "# t31 手写版(节选): 循环/解析/拼历史全靠自己\nwhile step < 5:\n    text = llm.invoke(history)\n    action, action_input = parse(text)   # 自己写正则\n    observation = tools[action].run(action_input)\n    history += f\"Observation: {observation}\\n\"\n\n# t32 官方版: 一句话把运行时交给执行官\nexecutor = AgentExecutor(agent=agent, tools=tools)\nans = executor.invoke({\"input\": \"3 里是多少米?\"})\nprint(ans[\"output\"])",
+          "description": "Executor 封装了迭代、解析、草稿纸维护与终止判断,与手写循环逐字段对应。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "AgentExecutor",
+          "definition": "langchain 经典 Agent 运行时:循环调用 agent 做单步决策、执行工具、维护 scratchpad,直到 AgentFinish 或触达上限。"
+        },
+        {
+          "name": "AgentAction / AgentFinish",
+          "definition": "Agent 单步决策的两种产物:AgentAction 表示要调某工具(含入参),AgentFinish 表示给出最终答案、循环终止。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "经典 Agent 运行时",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 模型接入;langchain 1.x 将 AgentExecutor、create_react_agent 等经典 Agent API 迁入 langchain-classic 包维护。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "langchain-openai",
+          "role": "模型接入层",
+          "description": "ChatOpenAI 经 base_url 接入 DeepSeek,作为 Agent 的决策大脑。",
+          "officialUrl": "https://pypi.org/project/langchain-openai/",
+          "category": "SDK",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请完成度量衡换算与 Executor 组装。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "api": "AgentExecutor",
+          "minCount": 2,
+          "message": "必须导入并实例化 AgentExecutor。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "build_executor",
+          "message": "请保留 build_executor 函数。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "\\.invoke\\(\\{\"input\"",
+          "message": "请用 executor.invoke({\"input\": ...}) 发起问答。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t32-agent-executor-s3",
+      "taskId": "t32-agent-executor",
+      "order": 3,
+      "title": "紧箍咒:max_iterations 防失控",
+      "instruction": "### 目标\n给执行官戴上紧箍咒:用 `max_iterations` 限制最大行动轮数,用 `early_stopping_method` 约定超限后的收场方式,并在 MOCK 模式下实演一次\"模型陷入死循环 → 熔断兜底\"的全过程。\n\n### 原理\n**为什么 Agent 必须有熔断器?** Agent 的循环终止条件是\"模型自愿说出 Final Answer\"——这是概率事件,不是工程保证。模型可能因工具回报误导、任务本身无解、或单纯\"强迫症\"而永远要求再来一轮。每一轮都是一次真实的 API 调用:token 在燃烧、延迟在累积、预算在失血。`max_iterations` 把这个概率事件变成硬上限,是 Agent 上线前最便宜也最关键的保险丝。\n\n**超限之后怎么办?** `early_stopping_method` 有两种策略:\n- `\"force\"`:立刻返回固定文案 \"Agent stopped due to iteration limit or time limit.\",零额外开销;\n- `\"generate\"`:把已有轨迹喂回模型,让它基于不完整的探索强行总结一个答案——多一次调用,但更体面。\n\n对照 t31:你当时手写了 `while step < max_steps` 并在计数器爆表时 break——`max_iterations` 就是那个计数器的官方版。\n\n### 操作\n1. `build_executor` 里给 AgentExecutor 加 `max_iterations=3, early_stopping_method=\"force\"`。\n2. 运行:`LOOP_SCRIPT` 让假模型永远要求\"再确认一次\",观察熔断文案。\n\n### 常见坑\n- **迷信默认值**:默认 `max_iterations=15`,失控时意味着 15 轮真金白银的 API 账单——按任务复杂度主动调小。\n- **`\"generate\"` 不是免费的**:它会多发一次带完整轨迹的请求,轨迹长时既贵又可能超上下文。\n- **混淆 max_iterations 与超时**:它只数轮数不管墙上时钟;单轮工具卡死另有 `max_execution_time`(秒)兜底。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:熔断是 Executor 的参数,不是 agent 的——在 AgentExecutor(...) 里加两个关键字。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:AgentExecutor(..., max_iterations=3, early_stopping_method=\"force\")。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return AgentExecutor(agent=agent, tools=tools, max_iterations=3, early_stopping_method=\"force\");MOCK 下输出应为 Agent stopped due to iteration limit or time limit.。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "两种收场策略对照",
+          "language": "python",
+          "code": "# 策略一: force —— 立刻终止, 返回固定文案, 零额外调用\nAgentExecutor(agent=agent, tools=tools,\n              max_iterations=3, early_stopping_method=\"force\")\n# -> output: \"Agent stopped due to iteration limit or time limit.\"\n\n# 策略二: generate —— 把已有轨迹喂回模型, 强行总结一个答案\nAgentExecutor(agent=agent, tools=tools,\n              max_iterations=3, early_stopping_method=\"generate\")\n# -> output: 模型基于不完整轨迹给出的\"尽力而为\"答复",
+          "description": "force 便宜但生硬,generate 体面但多烧一次请求;按产品场景取舍。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "max_iterations",
+          "definition": "AgentExecutor 的最大行动轮数上限,达到后强制终止循环,防止模型陷入无限工具调用。"
+        },
+        {
+          "name": "early_stopping_method",
+          "definition": "轮数耗尽后的收场策略:\"force\" 直接返回兜底文案;\"generate\" 让模型基于现有轨迹强行总结答案。"
+        },
+        {
+          "name": "熔断器(Circuit Breaker)",
+          "definition": "工程韧性模式:调用次数/失败率超阈值时硬切断,避免故障或失控无限放大;max_iterations 是 Agent 场景的熔断器。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "经典 Agent 运行时",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 模型接入;langchain 1.x 将 AgentExecutor、create_react_agent 等经典 Agent API 迁入 langchain-classic 包维护。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "每轮 Agent 迭代都是一次 DeepSeek API 调用,熔断器直接决定失控时的 token 账单上限。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请为 Executor 加上 max_iterations 与 early_stopping_method。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "max_iterations\\s*=\\s*\\d+",
+          "message": "必须显式设置 max_iterations(整数)。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "early_stopping_method\\s*=\\s*\"(force|generate)\"",
+          "message": "必须设置 early_stopping_method 为 \"force\" 或 \"generate\"。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "build_executor",
+          "message": "请保留 build_executor 函数。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t32-agent-executor-s4",
+      "taskId": "t32-agent-executor",
+      "order": 4,
+      "title": "自我疗愈:handle_parsing_errors 错误恢复",
+      "instruction": "### 目标\n让百宝囊学会\"跌倒自愈\":开启 `handle_parsing_errors`,当模型输出不符合 ReAct 格式时,执行器把解析错误作为反馈喂回模型重试,而不是让整次调用崩溃。\n\n### 原理\n**ReAct 解析器是个严苛的守门人。** `ReActOutputParser` 只认两种产物:解析出 `Action/Action Input`(AgentAction),或解析出 `Final Answer`(AgentFinish)。模型一旦\"说人话\"——比如直接来了句\"呃……让本囊想想\"——解析器两手一摊,抛出 `OutputParserException`。默认情况下这个异常会让 `invoke` 整个崩掉(外面包一层 ValueError),用户看到 500。\n\n**`handle_parsing_errors=True` 把错误也变成一种反馈。** 开启后,执行器捕获解析异常,把\"你的输出无法解析,请按格式重来\"写回 scratchpad,再请模型试一次。这是 Agent 设计里很重要的哲学:**错误不是终点,是环境给模型的下一轮输入**。\n\n对照 t31:你手写过 `try: parse() except: history += \"格式错误,重来\"` 然后 continue——官方参数就是那三行的沉淀。自愈依赖循环重试,所以它与 max_iterations 是搭档:重试次数同样受上限约束。\n\n### 操作\n1. `build_executor` 里加 `handle_parsing_errors=True`(保留 max_iterations=5)。\n2. `WOBBLE_SCRIPT` 第一句故意乱说、第二句恢复正常,观察自愈过程。\n3. MOCK 对照组:不开恢复的 Executor,用 try/except ValueError 接住崩溃并打印。\n\n### 常见坑\n- **把它当免死金牌**:模型屡教不改时,每次重试都在烧 max_iterations 额度,烧完照样熔断——恢复机制必须与轮数上限联用。\n- **只防解析错,不防工具错**:工具内部抛异常是另一路保险(`handle_tool_error`),两者别混为一谈。\n- **联网模式看不到演练效果**:真实 DeepSeek 很少乱格式,所以用假模型演练是必选项而非可选项。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:恢复开关是 AgentExecutor 的参数;对照组崩溃时抛的是 ValueError(包装 OutputParserException)。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:AgentExecutor(..., handle_parsing_errors=True);接住崩溃用 except ValueError as exc。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:build_executor 返回 AgentExecutor(agent=agent, tools=tools, max_iterations=5, handle_parsing_errors=True);对照组打印 str(exc).split(\".\")[0]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "解析错误的两条命运",
+          "language": "python",
+          "code": "# 不开恢复: 模型一句乱答 -> 整个 invoke 崩溃\nexecutor = AgentExecutor(agent=agent, tools=tools)\nexecutor.invoke({\"input\": \"...\"})\n# ValueError: An output parsing error occurred. ...\n\n# 开启恢复: 解析错误被写成反馈喂回, 模型自我修正\nexecutor = AgentExecutor(agent=agent, tools=tools,\n                         max_iterations=5, handle_parsing_errors=True)\nexecutor.invoke({\"input\": \"...\"})  # 乱答 -> 重试 -> 正常答复",
+          "description": "同一个乱答剧本,不开恢复是 ValueError,开了恢复是体面答复。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "handle_parsing_errors",
+          "definition": "AgentExecutor 参数:为 True 时把输出解析异常作为反馈写回 scratchpad,让模型重试,而非直接抛出崩溃。"
+        },
+        {
+          "name": "OutputParserException",
+          "definition": "langchain 输出解析失败异常,模型输出不符合 Agent 期望格式(如缺 Action/Final Answer)时由 OutputParser 抛出。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "经典 Agent 运行时",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 模型接入;langchain 1.x 将 AgentExecutor、create_react_agent 等经典 Agent API 迁入 langchain-classic 包维护。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请开启 handle_parsing_errors 并完成对照组。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "handle_parsing_errors\\s*=\\s*True",
+          "message": "必须开启 handle_parsing_errors=True。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "except\\s+ValueError",
+          "message": "对照组请用 except ValueError 接住未开恢复时的崩溃。",
+          "blocking": false
+        },
+        {
+          "type": "api_call_exists",
+          "api": "create_react_agent",
+          "minCount": 2,
+          "message": "主 Executor 与对照组各需一次 create_react_agent。",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t32-agent-executor-s5",
+      "taskId": "t32-agent-executor",
+      "order": 5,
+      "title": "天眼通:verbose 与轨迹回放调试",
+      "instruction": "### 目标\n给百宝囊开天眼:用 `verbose=True` 实时观看 Agent 的推理流,用 `return_intermediate_steps=True` 拿到结构化行动轨迹并亲手回放——这是调试一切 Agent 怪癖的基本功。\n\n### 原理\n**Agent 是黑盒概率系统,轨迹是它唯一的\"黑匣子\"。** 模型为什么选错工具?为什么绕了三圈才回答?不看轨迹只能靠猜。langchain 提供两个互补的观测口:\n\n- `verbose=True`:人看的直播。执行器通过回调链把每轮 Thought/Action/Observation 实时打到 stdout,开发期一眼看出模型在哪一步走岔;\n- `return_intermediate_steps=True`:程序看的留底。结果 dict 里多一个 `intermediate_steps` 键,内容是 `[(AgentAction, observation), ...]` 元组列表——结构化、可遍历,能喂给评测脚本、审计日志、回放器。\n\n**AgentAction 里藏着诊断金矿**:`tool`/`tool_input` 是模型\"做了什么\",`log` 字段是模型\"为什么这么想\"(原始 Thought 文本)。回放时两者都要看。\n\n对照 t31:你在手写循环里撒了一排 `print(f\"第{n}步: ...\")`——verbose 就是官方替你撒好的那排 print,而 intermediate_steps 是你当时没做的结构化留底,它让\"调试\"升级成\"可编程的观测\"。\n\n### 操作\n1. `build_executor` 集齐工程化全家桶:max_iterations、handle_parsing_errors、verbose、return_intermediate_steps。\n2. 实现 `print_trajectory`:遍历 `result[\"intermediate_steps\"]`,逐步打印宝器名、输入与回报。\n3. 运行,先读 verbose 直播,再读你的结构化回放。\n\n### 常见坑\n- **把 verbose 带进生产**:它会把完整提示词、工具回报打进日志——既吵又可能泄露敏感数据,上线前关掉。\n- **忘开 return_intermediate_steps 就取轨迹**:默认结果里没有该键,`result[\"intermediate_steps\"]` 直接 KeyError,请用 `result.get(...)` 防御。\n- **observation 可能很长**:工具返回大段文本时全量打印会刷屏,生产回放器记得截断。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:两个观测口都是 AgentExecutor 的布尔参数;轨迹是 (AgentAction, observation) 元组列表。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:AgentExecutor(..., verbose=True, return_intermediate_steps=True);轨迹里 action.tool、action.tool_input、observation 三件套。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:for i, (action, observation) in enumerate(result.get(\"intermediate_steps\", []), 1): print(action.tool, action.tool_input, observation)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "读取结构化轨迹",
+          "language": "python",
+          "code": "executor = AgentExecutor(agent=agent, tools=tools,\n                         verbose=True, return_intermediate_steps=True)\nresult = executor.invoke({\"input\": \"3 里是多少米?\"})\n\nfor i, (action, observation) in enumerate(result[\"intermediate_steps\"], 1):\n    print(i, action.tool)        # 模型选了哪件宝器\n    print(i, action.tool_input)  # 给宝器喂了什么\n    print(i, action.log)         # 模型的原始 Thought(为什么这么选)\n    print(i, observation)        # 宝器回报了什么",
+          "description": "intermediate_steps 是 (AgentAction, observation) 元组列表,tool/tool_input/log 是诊断三件套。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "verbose",
+          "definition": "AgentExecutor 调试开关:为 True 时通过回调链把每轮 Thought/Action/Observation 实时打印到 stdout,供开发期观察。"
+        },
+        {
+          "name": "intermediate_steps",
+          "definition": "开启 return_intermediate_steps 后结果中的结构化轨迹,元素为 (AgentAction, observation) 元组,可用于审计与回放。"
+        },
+        {
+          "name": "可观测性(Observability)",
+          "definition": "通过日志、轨迹、指标理解系统内部状态的工程能力;对黑盒 Agent 而言,轨迹是可观测性的核心载体。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "经典 Agent 运行时",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 模型接入;langchain 1.x 将 AgentExecutor、create_react_agent 等经典 Agent API 迁入 langchain-classic 包维护。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "国产大模型服务",
+          "description": "轨迹中的 Thought 即 DeepSeek 的推理输出,读轨迹是理解模型行为的最直接方式。",
+          "officialUrl": "https://platform.deepseek.com/",
+          "category": "模型服务",
+          "installHint": "无需安装,平台申请 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 未填写:请开启 verbose/return_intermediate_steps 并实现轨迹回放。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "verbose\\s*=\\s*True",
+          "message": "必须开启 verbose=True。",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "pattern": "return_intermediate_steps\\s*=\\s*True",
+          "message": "必须开启 return_intermediate_steps=True。",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "astType": "function_def",
+          "name": "print_trajectory",
+          "message": "请实现 print_trajectory 回放函数。",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

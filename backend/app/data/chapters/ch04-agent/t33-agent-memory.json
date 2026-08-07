@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t33-agent-memory-s1",
+      "taskId": "t33-agent-memory",
+      "order": 1,
+      "title": "Agent 加上对话记忆",
+      "instruction": "### 目标\n给 Agent 加**对话记忆**:让它在多轮对话中记住上下文,支持\"它/刚才/那个\"这类指代。\n\n### 背景: LLM 无记忆,记忆是应用层造的\n每次 API 调用都是无状态的——模型不记得上一句话。**所谓记忆,就是把历史对话塞进每次请求的 messages 里**。LangChain 的记忆组件就是帮你管理\"塞什么\":\n- `ConversationBufferMemory`:全量塞(简单,超窗就崩)\n- `ConversationBufferWindowMemory`:只塞最近 k 轮(常用)\n- `ConversationSummaryMemory`:老对话压缩成摘要塞(长对话神器)\n\n### 记忆的代价\n每轮对话都把历史重发一遍,**token 成本随轮数平方增长**(第n轮约发 n×单轮长度)。10 轮以上的对话必须配窗口或摘要,否则账单教做人。\n\n### 操作\n1. 用 ConversationBufferWindowMemory(k=3) 挂到链上\n2. 连续 3 轮对话,第 3 轮用\"它\"指代,验证理解\n3. 打印 memory 里存的内容,理解\"记忆\"的真身",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_core.prompts import ChatPromptTemplate\nfrom langchain_core.tools import tool\n\n@tool\ndef get_time() -> str:\n    \"\"\"获取当前时间\"\"\"\n    from datetime import datetime\n    return datetime.now().strftime('%Y-%m-%d %H:%M')\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [get_time]\n# 创建 memory\nmemory = \n\nprompt = ChatPromptTemplate.from_messages([\n    ('system', '你是助手'),\n    ('placeholder', '{history}'),\n    ('human', '{input}'),\n    ('placeholder', '{agent_scratchpad}'),\n])\n# 创建 agent + executor(带 memory)\nagent = create_tool_calling_agent(llm, tools, prompt)\nexecutor = AgentExecutor(agent=agent, tools=tools, memory=memory)\n\nprint(executor.invoke({'input': '现在几点?'})['output'])\nprint(executor.invoke({'input': '我刚才问了什么?'})['output'])",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_core.prompts import ChatPromptTemplate\nfrom langchain_core.tools import tool\n\n@tool\ndef get_time() -> str:\n    \"\"\"获取当前时间\"\"\"\n    from datetime import datetime\n    return datetime.now().strftime('%Y-%m-%d %H:%M')\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [get_time]\nmemory = ConversationBufferMemory(memory_key='history', return_messages=True)\n\nprompt = ChatPromptTemplate.from_messages([\n    ('system', '你是助手'),\n    ('placeholder', '{history}'),\n    ('human', '{input}'),\n    ('placeholder', '{agent_scratchpad}'),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\nexecutor = AgentExecutor(agent=agent, tools=tools, memory=memory)\n\nprint(executor.invoke({'input': '现在几点?'})['output'])\nprint(executor.invoke({'input': '我刚才问了什么?'})['output'])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "memory_key 要和 prompt 里的占位符 {history} 一致。"
+        },
+        {
+          "order": 2,
+          "text": "ConversationBufferMemory(memory_key='history', return_messages=True)。"
+        },
+        {
+          "order": 3,
+          "text": "AgentExecutor 加 memory=memory 参数,Agent 就能记住历史了。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from langchain.memory import ConversationBufferMemory\nm = ConversationBufferMemory(memory_key='history')"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ConversationBufferMemory",
+          "definition": "缓存完整对话历史"
+        },
+        {
+          "name": "memory_key",
+          "definition": "Memory 在 prompt 中的占位符名"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。Agent + Memory 集成",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t33-agent-memory-s2",
+      "taskId": "t33-agent-memory",
+      "order": 2,
+      "title": "跨轮记住工具调用",
+      "instruction": "### 目标\n掌握**记忆的持久化**:对话存到文件/数据库,重启后不丢失,支持多会话隔离。\n\n### 背景: 内存记忆的局限\n默认 Memory 存在进程内存:重启即丢、多用户串话。**生产系统必须外置**:\n- **会话标识**:每个会话一个 session_id,记忆按 id 隔离(用户A的历史绝不进用户B的 prompt——隐私红线)\n- **存储选型**:开发用 SQLite/JSON 文件;生产用 Redis(快,TTL 自动过期)\n- **历史结构**:存 messages 数组(HumanMessage/AIMessage 序列化)\n\n### LangChain 的接入方式\n```python\nhistory = ChatMessageHistory()  # 或 RedisChatMessageHistory(session_id, url)\nmemory = ConversationBufferMemory(chat_memory=history)\n```\nChatMessageHistory 是存储抽象,换 Redis 只改构造,Memory 层不动——**又一次见识接口抽象的价值**。\n\n### 操作\n1. 用文件实现 ChatMessageHistory 的持久化(每会话一个 JSON)\n2. 模拟两轮对话→\"重启\"(重新加载)→继续对话\n3. 两个 session_id 并行,验证互不串话",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_core.prompts import ChatPromptTemplate\nfrom langchain_core.tools import tool\n\n@tool\ndef get_weather(city: str) -> str:\n    \"\"\"查询城市天气\"\"\"\n    return f'{city}: 晴, 25度'\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\nmemory = ConversationBufferMemory(memory_key='history', return_messages=True)\nprompt = ChatPromptTemplate.from_messages([('system','你是天气助手'), ('placeholder','{history}'), ('human','{input}'), ('placeholder','{agent_scratchpad}')])\nagent = create_tool_calling_agent(llm, [get_weather], prompt)\nexecutor = AgentExecutor(agent=agent, tools=[get_weather], memory=memory)\n\n# 第一轮问北京天气\nprint(executor.invoke({'input': })['output'])\n# 第二轮问'那上海呢', Agent 应理解上下文\nprint(executor.invoke({'input': })['output'])",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_core.prompts import ChatPromptTemplate\nfrom langchain_core.tools import tool\n\n@tool\ndef get_weather(city: str) -> str:\n    \"\"\"查询城市天气\"\"\"\n    return f'{city}: 晴, 25度'\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\nmemory = ConversationBufferMemory(memory_key='history', return_messages=True)\nprompt = ChatPromptTemplate.from_messages([('system','你是天气助手'), ('placeholder','{history}'), ('human','{input}'), ('placeholder','{agent_scratchpad}')])\nagent = create_tool_calling_agent(llm, [get_weather], prompt)\nexecutor = AgentExecutor(agent=agent, tools=[get_weather], memory=memory)\n\nprint(executor.invoke({'input': '北京天气怎么样?'})['output'])\nprint(executor.invoke({'input': '那上海呢?'})['output'])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "第一轮明确问'北京天气',Agent 会调 get_weather。"
+        },
+        {
+          "order": 2,
+          "text": "第二轮问'那上海呢',Agent 从 history 知道在问天气,调 get_weather('上海')。"
+        },
+        {
+          "order": 3,
+          "text": "memory 让 Agent 理解'那'指代天气。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "executor.invoke({'input': '那上海呢?'})  # Agent 理解上下文"
+        }
+      ],
+      "terms": [
+        {
+          "name": "上下文记忆",
+          "definition": "Agent 记住之前话题,理解代词指代"
+        },
+        {
+          "name": "跨轮工具调用",
+          "definition": "基于历史决定调哪个工具"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需调用 ConversationBufferMemory。",
+          "api": "ConversationBufferMemory",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t33-agent-memory-s3",
+      "taskId": "t33-agent-memory",
+      "order": 3,
+      "title": "记忆策略对比",
+      "instruction": "### 目标\n实现**实体记忆**:从对话中提取关键事实(名字/偏好/约束),长期记住用户。\n\n### 背景: 超越对话历史的\"用户画像\"\n对话窗口会遗忘,但有些事 Agent 应该**永久记住**:\"用户叫张三\"\"用户对花生过敏\"\"用户是 Python 新手\"。这就是实体记忆:\n1. 每轮对话后,LLM 抽取\"值得记住的事实\"\n2. 结构化存起来(实体→属性):`{\"用户\": {\"name\": \"张三\", \"level\": \"新手\"}}`\n3. 每轮把相关实体信息注入 system prompt\n\n### ChatGPT 的 Memory 功能就是这么做的\n你在 ChatGPT 里说\"记住我用 Mac\",它存一条事实;下次你说\"推荐个软件\",它自动排除 Windows 专用。**个人化体验的核心技术,你现在已经会了**。\n\n### 抽取 prompt 设计\n```\n从以下对话中提取值得长期记住的用户事实(名字/偏好/约束/背景),\n以 JSON 输出, 没有则输出 {}。\n对话: {latest_exchange}\n```\n\n### 操作\n1. 实现 EntityMemory:extract(对话)→facts dict\n2. 对话中用户透露 2 个事实,验证被提取\n3. 新一轮对话把 facts 注入 prompt,模型回答体现\"记得\" ",
+      "starterCode": "import os\nfrom langchain.memory import ConversationBufferMemory, ConversationSummaryMemory, ConversationBufferWindowMemory\n\n# 创建三种 memory\nbuffer_memory = ConversationBufferMemory(memory_key='history')\n# 摘要记忆(用 LLM 压缩)\nsummary_memory = ConversationSummaryMemory(llm=ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\")), memory_key='history')\n# 窗口记忆(只留最近2轮)\nwindow_memory = ConversationBufferWindowMemory(k=2, memory_key='history')\n\nprint('Buffer: 存全部, 完整但耗 token')\nprint('Summary: 摘要压缩, 省token 丢细节')\nprint('Window: 只留最近N轮, 平衡')",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.memory import ConversationBufferMemory, ConversationSummaryMemory, ConversationBufferWindowMemory\n\nbuffer_memory = ConversationBufferMemory(memory_key='history')\nsummary_memory = ConversationSummaryMemory(llm=ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\")), memory_key='history')\nwindow_memory = ConversationBufferWindowMemory(k=2, memory_key='history')\n\nprint('Buffer: 存全部, 完整但耗 token')\nprint('Summary: 摘要压缩, 省token 丢细节')\nprint('Window: 只留最近2轮, 平衡')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "ConversationSummaryMemory 需要 llm 参数做摘要。"
+        },
+        {
+          "order": 2,
+          "text": "ConversationBufferWindowMemory 的 k 是保留轮数。"
+        },
+        {
+          "order": 3,
+          "text": "Buffer 适合短对话,Summary 适合长对话。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "ConversationBufferWindowMemory(k=2)  # 只留最近2轮"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Summary Memory",
+          "definition": "用 LLM 摘要压缩历史"
+        },
+        {
+          "name": "Window Memory",
+          "definition": "只保留最近 N 轮对话"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需调用 ConversationBufferWindowMemory。",
+          "api": "ConversationBufferWindowMemory",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,708 @@
+{
+  "steps": [
+    {
+      "id": "t12-output-parsers-s1",
+      "taskId": "t12-output-parsers",
+      "order": 1,
+      "title": "铸剑单契约:SwordOrder 与 PydanticOutputParser",
+      "instruction": "### 目标\n为「铸剑台」立下第一份契约:定义 `SwordOrder` Pydantic 模型(剑名/主材/锋芒/铭文),并用 `PydanticOutputParser` 把 LLM 的 JSON 文本解析成受校验约束的强类型对象。\n\n### 原理\n**为什么不能让 LLM 的输出以裸字符串进系统?** 下游要做入库、比较、渲染,裸文本里\"锋芒:削铁如泥\"和\"锋芒:95\"对程序而言天差地别。工程上的解法是**契约先行**:先用 Pydantic 模型声明\"一份铸剑单长什么样\"——字段名、类型、取值范围(`Field(ge=1, le=100)`),任何不符合契约的数据在进入系统的第一道门就被拦下。\n\n**PydanticOutputParser 做了两件事。** 一是 `get_format_instructions()`:读取模型的 JSON Schema,生成一段给 LLM 看的格式说明——这就是\"把契约翻译成模型能读懂的话\";二是 `parse(text)`:解析 JSON → Pydantic 校验 → 返回模型实例,任何一步不符就抛 `OutputParserException`。所以 parse 成功本身就是一次质量门禁。\n\n**为什么用 `FakeListLLM` 做 MOCK?** 学习解析器时,真正的变量是\"输出长什么样\",不是模型本身。`FakeListLLM(responses=[...])` 让你离线重放固定输出,把解析逻辑调试好再接真模型——这是测试 LLM 应用的标准手法,本任务每一步都保留这个 MOCK 分支。\n\n### 操作\n1. 在 `SwordOrder` 中补上 `sharpness` 字段:int 类型,`Field(ge=1, le=100, ...)`\n2. 创建 `parser = PydanticOutputParser(pydantic_object=SwordOrder)`\n3. `main` 里调用 LLM 拿原始文本,`parser.parse(raw)` 解析并逐字段打印\n4. 本地可先 `MOCK_LLM=1 python ...` 离线演练,再填 Key 接真模型\n\n### 常见坑\n- `sharpness` 写成 `str`——模型输出 `\"锋芒\": \"极高\"` 时照样\"解析成功\",契约形同虚设;数值字段必须给数值类型加范围约束\n- 把 `get_format_instructions()` 的结果再塞进 f-string 模板变量里二次格式化——它内含 JSON Schema 的花括号,二次格式化会报 `KeyError`(s2 的 `.partial()` 就是正解)",
+      "todoItems": [
+        {
+          "title": "在 SwordOrder 补 sharpness:int 字段,用 Field(ge=1, le=100) 约束范围并写 description",
+          "target": "SwordOrder 模型",
+          "code": "sharpness: int = Field(ge=1, le=100, description=...)",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "创建 parser = PydanticOutputParser(pydantic_object=SwordOrder)",
+          "target": "模块级 parser 常量",
+          "code": "PydanticOutputParser(pydantic_object=SwordOrder)",
+          "expect": "可调用 parser.get_format_instructions() 得到格式说明"
+        },
+        {
+          "title": "main 里 parser.parse(raw) 解析原始文本并逐字段打印",
+          "target": "main() 解析调用",
+          "code": "parser.parse(raw)",
+          "expect": "打印 SwordOrder 各字段(含 sharpness)"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:字段约束要在模型层声明,解析器只是契约的执行者——先想清楚一份合格铸剑单有哪些字段、各是什么类型、取值范围是多少。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`Field(ge=1, le=100, description=...)` 声明带范围约束的 int 字段;`PydanticOutputParser(pydantic_object=你的模型)` 创建解析器。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:main 里 `order = parser.parse(raw)`,然后用 `order.name`、`order.sharpness` 点号取字段打印——返回的是模型实例不是 dict。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "format_instructions 长什么样",
+          "language": "text",
+          "code": "The output should be formatted as a JSON instance that conforms to the JSON schema below.\n\n{\"properties\": {\"name\": {\"title\": \"Name\", \"type\": \"string\"}, \"sharpness\": {\"title\": \"Sharpness\", \"type\": \"integer\", \"maximum\": 100, \"minimum\": 1} ...}, \"required\": [\"name\", \"material\", \"sharpness\", \"inscription\"]}",
+          "description": "PydanticOutputParser.get_format_instructions() 会把你的 Pydantic 模型翻译成这样一段 JSON Schema 说明,拼进提示词交给模型。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "PydanticOutputParser",
+          "definition": "LangChain 内置输出解析器:把 LLM 输出的 JSON 文本解析并校验成指定的 Pydantic 模型实例,失败抛 OutputParserException。"
+        },
+        {
+          "name": "数据契约(Data Contract)",
+          "definition": "系统对数据结构的显式声明:字段名、类型、取值范围。契约先行意味着任何脏数据在入口即被拒绝,而不是流向下游才爆雷。"
+        },
+        {
+          "name": "Field 约束",
+          "definition": "Pydantic 中 Field(ge=1, le=100, description=...) 这类声明:ge/le 限定数值范围,description 同时供校验报错与 JSON Schema 生成使用。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Pydantic",
+          "role": "数据契约与校验库",
+          "description": "用 Python 类型注解声明数据结构,自动完成类型转换与取值校验,是 LangChain 结构化输出的地基。",
+          "officialUrl": "https://docs.pydantic.dev",
+          "category": "库",
+          "installHint": "pip install pydantic"
+        },
+        {
+          "name": "LangChain Core",
+          "role": "LLM 应用框架",
+          "description": "提供 PydanticOutputParser、FakeListLLM 等基础组件,本任务所有链式组装都建立在 langchain-core 的 Runnable 协议之上。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-core langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 # TODO 占位符没有填完",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "缺少 SwordOrder 契约类(class SwordOrder)",
+          "astType": "class_def",
+          "name": "SwordOrder",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 PydanticOutputParser 包装 SwordOrder",
+          "pattern": "PydanticOutputParser\\(\\s*pydantic_object\\s*=\\s*SwordOrder",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要使用 ChatOpenAI 接入 DeepSeek 模型",
+          "api": "ChatOpenAI",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-output-parsers-s2",
+      "taskId": "t12-output-parsers",
+      "order": 2,
+      "title": "一条链出利剑:prompt | llm | parser",
+      "instruction": "### 目标\n把 s1 的\"拼提示词 → 调模型 → 手动 parse\"三步散操作,用 LCEL 管道符 `|` 焊成一条 `prompt | llm | parser` 结构化链:输入一个主题,`invoke` 一次直接拿到校验过的 `SwordOrder` 对象。\n\n### 原理\n**LCEL(LangChain Expression Language)的核心是 Runnable 协议。** prompt、模型、parser 都实现了同一套接口(`invoke`/`batch`/`stream`),因此可以用 `|` 像水管一样串联:上一环的输出自动成为下一环的输入。`prompt | llm | parser` 的 invoke 流程是:dict → PromptValue → AIMessage 文本 → SwordOrder。类型在管道里逐级变换,但调用方只需要面对首尾两端。\n\n**`.partial()` 是\"预填参数\",不是\"传参\"。** 格式契约(`format_instructions`)对每次调用都相同,属于链的**结构**而非**输入**。用 `.partial(format_instructions=...)` 在组装时固化它,invoke 时就只剩 `{theme}` 一个真正的变量——关注点分离。更关键的技术原因:format_instructions 内含 JSON Schema 的花括号,若作为普通变量参与模板渲染,会被格式化引擎当成占位符而爆炸;partial 的值则跳过格式化直接注入。\n\n**链即配置。** `build_forge_chain()` 返回的是一个可复用、可组合的对象——后续步骤给它套重试(s3)、接自定义 parser(s4),都不需要改动链内部。这是声明式组装相对命令式调用的最大红利。\n\n### 操作\n1. 给 prompt 调 `.partial(format_instructions=parser.get_format_instructions())`\n2. 用 `|` 串联 `prompt | get_llm() | parser` 并返回\n3. `forge()` 中 `chain.invoke({\"theme\": theme})`,打印返回对象及其类型\n4. 观察 `model_dump()` 输出,确认对象可无损序列化为 JSON(入库/传输用)\n\n### 常见坑\n- 把 `parser.get_format_instructions()` 通过 `chain.invoke({\"format_instructions\": ...})` 传入——花括号二次格式化,直接 `KeyError`;必须用 `.partial()`\n- 以为 `chain.invoke` 返回的是 dict:它返回的是 `SwordOrder` 实例,用 `.name` 取字段而不是 `[\"name\"]`;要 dict 请显式 `.model_dump()`",
+      "todoItems": [
+        {
+          "title": "给 prompt 调 .partial(format_instructions=parser.get_format_instructions()) 注入格式说明",
+          "target": "build_forge_chain() prompt 处",
+          "code": "prompt.partial(format_instructions=parser.get_format_instructions())",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "用 | 串联 prompt | get_llm() | parser 并返回",
+          "target": "build_forge_chain() 返回处",
+          "code": "prompt | get_llm() | parser",
+          "expect": "链末端返回 SwordOrder 对象而非字符串"
+        },
+        {
+          "title": "forge() 中 chain.invoke({\"theme\": theme}),打印返回对象及其类型,再观察 model_dump()",
+          "target": "forge() 调用与输出",
+          "code": "result.model_dump()",
+          "expect": "打印 SwordOrder 及其可序列化 JSON 字典"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:把每次调用都不变的东西(格式契约)在组装期固化,把每次变的东西(主题)留给 invoke——结构归结构,输入归输入。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`prompt.partial(format_instructions=parser.get_format_instructions())` 预填契约;`prompt | get_llm() | parser` 用管道符串链。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:build_forge_chain 最后一行是 `return prompt | get_llm() | parser`,前提是 prompt 已经 .partial(...) 过;forge 里只需 chain.invoke({\"theme\": theme})。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "LCEL 管道速览",
+          "language": "python",
+          "code": "prompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一位铸剑大师,只输出符合契约的 JSON。\"),\n    (\"human\", \"题目:{theme}\\n{format_instructions}\"),\n]).partial(format_instructions=parser.get_format_instructions())\n\nchain = prompt | llm | parser   # dict → PromptValue → 文本 → SwordOrder\norder = chain.invoke({\"theme\": \"塞北飞雪\"})\nprint(order.sharpness)          # 直接点字段,不是 [\"sharpness\"]",
+          "description": "partial 预填不变量,管道符串联 Runnable,invoke 一次完成「渲染提示词 → 调模型 → 解析校验」三步。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "LCEL",
+          "definition": "LangChain Expression Language:用 `|` 管道符把实现了 Runnable 协议的组件(prompt/模型/parser)声明式串联成链的编排语言。"
+        },
+        {
+          "name": "Runnable 协议",
+          "definition": "LangChain 组件的统一接口(invoke/batch/stream/ainvoke 等)。只要实现该协议,组件即可用 `|` 自由组合,上一环输出即下一环输入。"
+        },
+        {
+          "name": "partial(偏应用)",
+          "definition": "在链组装期预填部分模板变量的方法。预填值跳过格式化直接注入,适合固化 format_instructions 这类含花括号的常量。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain Core",
+          "role": "链式编排框架",
+          "description": "LCEL 管道符与 Runnable 协议的实现者,让 prompt、模型、解析器像水管一样串联。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-core"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "底层大模型服务",
+          "description": "通过 ChatOpenAI 以 OpenAI 兼容协议接入,base_url 指向 https://api.deepseek.com,模型 deepseek-v4-pro。",
+          "officialUrl": "https://api-docs.deepseek.com",
+          "category": "模型",
+          "installHint": "pip install langchain-openai,配置 OPENAI_API_KEY"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 # TODO 占位符没有填完",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 .partial(format_instructions=...) 预填格式契约",
+          "pattern": "\\.partial\\(format_instructions\\s*=",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用管道符 | 把 prompt、模型、parser 串成链",
+          "pattern": "\\|[^\\n]*parser",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要使用 ChatOpenAI 接入 DeepSeek 模型",
+          "api": "ChatOpenAI",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-output-parsers-s3",
+      "taskId": "t12-output-parsers",
+      "order": 3,
+      "title": "回炉重铸:带重试的结构化链",
+      "instruction": "### 目标\n给铸剑链装上\"回炉\"能力:用 `RetryWithErrorOutputParser` 包装解析器,第一次解析失败时,自动把**原始输出 + 错误信息**喂回 LLM,让它按契约重写,最多重试指定次数。\n\n### 原理\n**模型为什么会给坏输出?** 即使格式说明写得再清楚,LLM 仍是概率模型:它可能先客气两句再给 JSON,可能把数字写成中文(\"锋芒九十二\"),甚至直接输出散文。对单次调用做\"要么成要么崩\"的假设,在工程上不成立。\n\n**重试解析器的机制不是 for 循环盲调。** `RetryWithErrorOutputParser.from_llm(parser=..., llm=..., max_retries=2)` 的关键在 `parse_with_prompt(completion, prompt_value)`:解析失败时,它把修复模板(包含原始 completion、错误信息、格式要求)发回 LLM——模型看到\"你上次输出了 X,报错是 Y,请修正为 Z 格式\",修正成功率远高于换个随机种子重抽。这是**用模型的语言能力修模型的格式错误**。\n\n**为什么需要 prompt_value?** 修复提示里要带\"原始输入是什么\",模型才知道自己在回答什么问题。所以调用前要先用 `prompt.format_prompt(theme=...)` 拿到 PromptValue,再手动 invoke 拿 completion——这也是本步不走 `|` 管道的原因:重试需要同时持有提示词与输出两个对象,而管道只把单值往后传。\n\n**max_retries 的取舍。** 每次重试都是一次真实 API 调用(成本+延迟),生产上 1-2 次足够;重试全失败应当降级而不是死循环——s6 会把它和修复防线组合成完整流水线。\n\n### 操作\n1. `build_prompt()` 沿用 s2 的 partial 写法\n2. `retry_parser = RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=2)`\n3. `prompt_value = prompt.format_prompt(theme=theme)`,`completion = llm.invoke(prompt_value)`\n4. `return retry_parser.parse_with_prompt(completion, prompt_value)`\n5. MOCK 模式下观察:第一炉散文 → 解析失败 → 自动重试 → 第二炉 JSON 通过\n\n### 常见坑\n- 用 `retry_parser.parse(completion)` 而不是 `parse_with_prompt`——基类 `parse` 直接调内层 parser,没有重试逻辑,坏输出照样抛 `OutputParserException`\n- `max_retries` 设成 5+:每次重试都是真金白银的 API 调用;连续失败多半说明提示词本身有问题,该改提示词而不是加重试次数",
+      "todoItems": [
+        {
+          "title": "build_prompt() 沿用 partial 写法注入 format_instructions",
+          "target": "build_prompt() 函数",
+          "code": "prompt.partial(format_instructions=parser.get_format_instructions())",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "创建 retry_parser = RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=2)",
+          "target": "forge_with_retry() 内部",
+          "code": "RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=2)",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "prompt_value = prompt.format_prompt(theme=theme),completion = llm.invoke(prompt_value)",
+          "target": "forge_with_retry() 调用处",
+          "code": "prompt.format_prompt(theme=theme)",
+          "expect": "拿到可直接喂给模型的 PromptValue"
+        },
+        {
+          "title": "return retry_parser.parse_with_prompt(completion, prompt_value)",
+          "target": "forge_with_retry() 返回处",
+          "code": "retry_parser.parse_with_prompt(completion, prompt_value)",
+          "expect": "MOCK 下看到 散文→解析失败→自动重试→JSON 通过"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:重试不是 for 循环重抽,而是把「原始输出 + 解析报错」喂回 LLM 让它按契约自我修正—— LangChain 已封装好,你只需组装。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=2)`;解析用 `parse_with_prompt(completion, prompt_value)` 而不是 parse。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:三行核心——`prompt_value = prompt.format_prompt(theme=theme)`、`completion = llm.invoke(prompt_value)`、`return retry_parser.parse_with_prompt(completion, prompt_value)`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "重试解析器最小用法",
+          "language": "python",
+          "code": "from langchain_classic.output_parsers.retry import RetryWithErrorOutputParser\n\nretry_parser = RetryWithErrorOutputParser.from_llm(\n    parser=parser, llm=llm, max_retries=2\n)\nprompt_value = prompt.format_prompt(theme=\"雪夜孤城\")\ncompletion = llm.invoke(prompt_value)   # 第一次输出:可能是散文\norder = retry_parser.parse_with_prompt(completion, prompt_value)\n# 内部流程:parse 失败 → 组装「原输出+报错+格式要求」→ llm 重写 → 再 parse",
+          "description": "parse_with_prompt 需要同时持有原始提示词与模型输出,所以这一步要手动 invoke,不走 | 管道。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "RetryWithErrorOutputParser",
+          "definition": "带重试的输出解析器:内层解析失败时,把原始输出与错误信息组成修复提示发回 LLM,用重写后的文本再次解析,最多重试 max_retries 次。"
+        },
+        {
+          "name": "parse_with_prompt",
+          "definition": "重试解析器的核心方法:除模型输出外还接收原始 PromptValue,使修复提示能携带「当初问的是什么」这一上下文。"
+        },
+        {
+          "name": "PromptValue",
+          "definition": "提示词模板渲染完成后的中间产物(prompt.format_prompt 的返回),可直接传给 llm.invoke,也可被重试/修复解析器引用。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "重试/修复解析器所在地",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 封装;RetryWithErrorOutputParser、OutputFixingParser 等经典输出解析器在 LangChain 1.x 中位于 langchain_classic.output_parsers 命名空间。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "底层大模型服务",
+          "description": "重试时的「修复者」也由它扮演:看到原始输出和报错后按契约重写 JSON。",
+          "officialUrl": "https://api-docs.deepseek.com",
+          "category": "模型",
+          "installHint": "pip install langchain-openai,配置 OPENAI_API_KEY"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 # TODO 占位符没有填完",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 RetryWithErrorOutputParser.from_llm 创建重试解析器",
+          "pattern": "RetryWithErrorOutputParser\\.from_llm",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 parse_with_prompt 执行带重试的解析",
+          "pattern": "parse_with_prompt",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "缺少 forge_with_retry 函数",
+          "astType": "function_def",
+          "name": "forge_with_retry",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要使用 ChatOpenAI 接入 DeepSeek 模型",
+          "api": "ChatOpenAI",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-output-parsers-s4",
+      "taskId": "t12-output-parsers",
+      "order": 4,
+      "title": "武林帖格式:自定义 ForgeCardParser",
+      "instruction": "### 目标\n内置解析器只认 JSON——但铸剑台接到一批武林老帖,格式是中文「键:值」四行帖。本步继承 `BaseOutputParser` 手写 `ForgeCardParser`,把帖面文字直接解析成 `SwordOrder`,并接入 `prompt | llm | parser` 链。\n\n### 原理\n**解析器的本质是 Runnable 协议的一个实现。** `prompt | llm | parser` 能串起来,是因为三者都实现了 `invoke`。所以自定义 parser 只要继承 `BaseOutputParser` 并实现两个方法——`parse(text)`(文本 → 对象)和 `get_format_instructions()`(给模型看的格式说明)——就能无缝插进任何 LCEL 链,与内置 parser 完全同权。这就是面向接口编程在 LLM 工程里的样子。\n\n**契约与表示分离。** `SwordOrder` 是数据契约(系统内部只认它),「铸剑帖」是表示层(给人看、给模型写的格式)。`KEY_MAP` 这张映射表就是两层之间的翻译官:帖面写「锋芒」,契约叫 `sharpness`。真实系统里这层映射几乎必然存在——外部表单字段、第三方 API 字段、数据库列名,和内部模型命名很少一致。\n\n**报错姿势:`OutputParserException`。** 解析失败不要 `raise ValueError`,更不要返回 None——抛 `OutputParserException` 是 LangChain 解析器的官方协议,s3 的重试解析器、s5 的修复解析器只认这个异常类型。抛别的异常,防御体系就接不住你。\n\n**parse 里的双重校验。** 本 parser 先查字段齐不齐(结构校验),构造 `SwordOrder(**data)` 时 Pydantic 再做契约校验(锋芒是否 1-100)——结构正确不等于数值合法,两层都要过。\n\n### 操作\n1. `parse` 中逐行处理:含「:」的行用 `line.partition(\":\")` 切键值,经 `KEY_MAP` 映射收进 `data`\n2. 缺字段或锋芒非整数时 `raise OutputParserException(...)`\n3. 实现 `get_format_instructions` 返回中文格式说明\n4. `build_card_chain` 里 `.partial(format_instructions=card_parser.get_format_instructions())` 后串链 invoke\n\n### 常见坑\n- 用 `line.split(\":\")` 而不是 `partition(\":\")`——铭文里若含冒号会拆出 3 段直接 `ValueError`;`partition` 只按第一个冒号切,永远返回三段\n- 中英文冒号混用:格式说明里要求「:」,解析时却找 \":\"——模型严格照做反而全部解析失败。**格式说明里的每个字符都是契约的一部分**",
+      "todoItems": [
+        {
+          "title": "parse() 逐行处理:含「:」的行用 line.partition(\":\") 切键值,经 KEY_MAP 映射收进 data",
+          "target": "ForgeCardParser.parse()",
+          "code": "key, _, value = line.partition(\":\")",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "缺字段或锋芒非整数时 raise OutputParserException",
+          "target": "ForgeCardParser.parse() 校验",
+          "code": "raise OutputParserException(...)",
+          "expect": "脏输入抛 OutputParserException 而非 KeyError"
+        },
+        {
+          "title": "实现 get_format_instructions() 返回中文格式说明",
+          "target": "ForgeCardParser.get_format_instructions()",
+          "code": "return \"每行一个字段,格式为「字段名: 值」\"",
+          "expect": "提示中出现中文格式要求"
+        },
+        {
+          "title": "build_card_chain() 里 .partial(format_instructions=...) 后串链并 invoke",
+          "target": "build_card_chain() 函数",
+          "code": "card_parser.get_format_instructions()",
+          "expect": "运行输出 ForgeCard 解析结果"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:继承 BaseOutputParser 并实现 parse / get_format_instructions 两个方法,你的解析器就能插进任何 LCEL 链——先想清楚「键:值」文本到 SwordOrder 的映射规则。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`line.partition(「:」)` 按第一个冒号切三段;`KEY_MAP.get(key.strip())` 做中文键到字段名的翻译;失败时 `raise OutputParserException(说明)`。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:收集完 data 后检查 `name/material/sharpness/inscription` 是否齐全,`data[\"sharpness\"] = int(data[\"sharpness\"])` 转数值,最后 `return SwordOrder(**data)` 交给 Pydantic 做契约校验。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "铸剑帖格式示例",
+          "language": "text",
+          "code": "【铸剑帖】\n剑名:青霜\n主材:寒铁\n锋芒:92\n铭文:霜刃未曾试",
+          "description": "自定义解析器面对的输入格式:每行一个「中文键:值」,标题行等非键值行直接跳过。"
+        },
+        {
+          "title": "BaseOutputParser 骨架",
+          "language": "python",
+          "code": "from langchain_core.output_parsers import BaseOutputParser\nfrom langchain_core.exceptions import OutputParserException\n\nclass ForgeCardParser(BaseOutputParser):\n    def parse(self, text: str) -> SwordOrder:\n        ...                       # 文本 → 对象;失败 raise OutputParserException\n    def get_format_instructions(self) -> str:\n        return \"请按「剑名:.. / 主材:..」格式输出\"\n    @property\n    def _type(self) -> str:\n        return \"forge_card\"       # 序列化标识",
+          "description": "实现这三个成员,自定义解析器即可与内置 parser 一样参与 prompt | llm | parser 链。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "BaseOutputParser",
+          "definition": "所有输出解析器的基类:实现 parse(text) 与 get_format_instructions() 两个方法即可接入 LCEL 链,与内置解析器同权。"
+        },
+        {
+          "name": "OutputParserException",
+          "definition": "LangChain 解析失败的官方异常类型。重试解析器、修复解析器只捕获它——自定义解析器报错必须抛这个,防御体系才接得住。"
+        },
+        {
+          "name": "表示层与契约层",
+          "definition": "表示层是数据的外部格式(铸剑帖、JSON、XML),契约层是系统内部的强类型模型(SwordOrder)。解析器就是两层之间的翻译与门禁。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain Core",
+          "role": "解析器基类提供者",
+          "description": "BaseOutputParser、OutputParserException 所在的 langchain-core,定义了自定义解析器需要遵守的全部协议。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-core"
+        },
+        {
+          "name": "Pydantic",
+          "role": "契约校验库",
+          "description": "自定义 parser 只负责结构解析,数值范围等契约校验仍交给 SwordOrder(**data) 时的 Pydantic 完成。",
+          "officialUrl": "https://docs.pydantic.dev",
+          "category": "库",
+          "installHint": "pip install pydantic"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 # TODO 占位符没有填完",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "缺少自定义解析器类 ForgeCardParser",
+          "astType": "class_def",
+          "name": "ForgeCardParser",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "自定义解析器必须继承 BaseOutputParser",
+          "pattern": "class\\s+ForgeCardParser\\(BaseOutputParser\\)",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "解析失败需抛 OutputParserException",
+          "pattern": "raise\\s+OutputParserException",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要使用 ChatOpenAI 接入 DeepSeek 模型",
+          "api": "ChatOpenAI",
+          "minCount": 1
+        }
+      ]
+    },
+    {
+      "id": "t12-output-parsers-s5",
+      "taskId": "t12-output-parsers",
+      "order": 5,
+      "title": "三层防线:解析异常修复策略",
+      "instruction": "### 目标\n给铸剑台装三层解析防线:严格解析 → 正则提取 JSON → `OutputFixingParser` 让 LLM 修复。任何一层成功即放行,返回结果时标明是哪一层通过的。\n\n### 原理\n**为什么一层不够?** 严格解析(`parser.parse`)假设输出是干净 JSON——但真实输出常裹着\"好的!\"\"请查收\"之类的散文;正则提取(`re.search(r\"\\{.*\\}\", ...)`)能抠出 JSON 片段,却救不了\"JSON 合法但内容违约\"(锋芒 999);只有让模型读懂错误、按契约重写,才能处理语义层的脏数据。三层防线对应三类故障:**格式污染、结构偏移、语义违约**,逐层降级、成本递增。\n\n**OutputFixingParser 与重试解析器的区别。** `RetryWithErrorOutputParser`(s3)需要原始 prompt,修的是\"这次调用\";`OutputFixingParser.from_llm(parser=..., llm=...)` 只需要坏输出本身,可以在任何拿到脏文本的地方兜底——比如从消息队列、日志里捞出来的历史脏数据。两者的修复模板思路一致:把\"原输出 + 报错 + 格式要求\"发给模型重写。\n\n**降级链的设计原则:便宜的先上。** 严格解析零成本,正则提取是本地计算,LLM 修复是一次付费 API 调用。顺序反过来(上来就让 LLM 修)等于为每个干净输出白付一次调用的钱。记录\"哪一层通过\"还有运维价值:监控发现第三层通过率上升,说明提示词或模型漂移了,该修的是上游。\n\n### 操作\n1. 第一层:`try: return parser.parse(raw), \"...\" except OutputParserException: pass`\n2. 第二层:`re.search(r\"\\{.*\\}\", raw, re.S)` 抠出片段再 parse,成功即返回\n3. 第三层:`OutputFixingParser.from_llm(parser=parser, llm=llm).parse(raw)`\n4. MOCK 下观察三层接力:散文包裹 + 锋芒 999 → 一层败 → 二层抠出但越界败 → 三层修复成功\n\n### 常见坑\n- 正则用 `\\{.*\\}` 不加 `re.S`:JSON 跨行时 `.` 不匹配换行,根本抠不出来;另外贪婪匹配在文本含多个 JSON 时会吞掉中间散文,生产环境可换非贪婪 + 逐段尝试\n- `except Exception` 一把梭:把网络错误、鉴权错误也吞进\"解析失败\"分支,真正的故障被静默——防线只接 `OutputParserException`,其余异常让它向上抛",
+      "todoItems": [
+        {
+          "title": "第一层:try parser.parse(raw) 成功即返回,except OutputParserException 放行到下一层",
+          "target": "robust_parse() 第一层",
+          "code": "except OutputParserException:\n    pass",
+          "expect": "干净 JSON 一次通过"
+        },
+        {
+          "title": "第二层:re.search(r\"\\{.*\\}\", raw, re.S) 抠出 JSON 片段再 parse,成功即返回",
+          "target": "robust_parse() 第二层",
+          "code": "re.search(r\"\\{.*\\}\", raw, re.S)",
+          "expect": "散文包裹的 JSON 能被抠出并解析"
+        },
+        {
+          "title": "第三层:OutputFixingParser.from_llm(parser=parser, llm=llm).parse(raw) 兜底修复",
+          "target": "robust_parse() 第三层",
+          "code": "OutputFixingParser.from_llm(parser=parser, llm=llm)",
+          "expect": "字段越界的 JSON 被修复成功"
+        },
+        {
+          "title": "MOCK 下观察三层接力:一层败 → 二层抠出但越界败 → 三层修复成功",
+          "target": "main() 运行输出",
+          "expect": "看到三层防线逐步接管并最终出货"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:防御分层,便宜的先上——严格解析(零成本)→ 正则提取(本地计算)→ LLM 修复(一次付费调用),任何一层成功即 return。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`except OutputParserException` 只接解析异常;`re.search(r\"\\{.*\\}\", raw, re.S)` 抠 JSON 片段;`OutputFixingParser.from_llm(parser=parser, llm=llm)` 建修复解析器。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:第二层 `match = re.search(...)` 后 `if match:` 里再 try 一次 parser.parse(match.group(0));第三层直接 `return fixing.parse(raw), \"第三层·LLM 修复\"`。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "三层防线骨架",
+          "language": "python",
+          "code": "def robust_parse(raw: str, llm):\n    try:\n        return parser.parse(raw), \"第一层·严格解析\"\n    except OutputParserException:\n        pass\n    match = re.search(r\"\\{.*\\}\", raw, re.S)   # re.S:让 . 匹配换行\n    if match:\n        try:\n            return parser.parse(match.group(0)), \"第二层·正则提取\"\n        except OutputParserException:\n            pass\n    fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)\n    return fixing.parse(raw), \"第三层·LLM 修复\"",
+          "description": "逐层降级、成本递增:零成本的严格解析先试,本地正则其次,付费的 LLM 修复兜底。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "OutputFixingParser",
+          "definition": "修复型输出解析器:解析失败时把「坏输出 + 报错 + 格式要求」发给 LLM 重写后再解析。只需坏输出本身,不要求原始 prompt。"
+        },
+        {
+          "name": "防御性降级(Graceful Degradation)",
+          "definition": "主路径失败时按成本递增的顺序切换到备用路径,而非直接报错。本步三层防线即:零成本 → 本地计算 → 付费调用。"
+        },
+        {
+          "name": "OutputParserException",
+          "definition": "解析失败的官方异常类型,是防线之间传递「该降级了」的唯一信号——防线只捕获它,其余异常向上抛。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-openai",
+          "role": "重试/修复解析器所在地",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 封装;RetryWithErrorOutputParser、OutputFixingParser 等经典输出解析器在 LangChain 1.x 中位于 langchain_classic.output_parsers 命名空间。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/openai/",
+          "category": "框架",
+          "installHint": "pip install langchain-openai"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "修复者模型",
+          "description": "第三层防线中读懂报错、把脏输出按契约重写的角色,由 deepseek-v4-pro 扮演。",
+          "officialUrl": "https://api-docs.deepseek.com",
+          "category": "模型",
+          "installHint": "pip install langchain-openai,配置 OPENAI_API_KEY"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 # TODO 占位符没有填完",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需要用 OutputFixingParser.from_llm 创建修复解析器",
+          "pattern": "OutputFixingParser\\.from_llm",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "防线只应捕获 OutputParserException",
+          "pattern": "except OutputParserException",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "第二层需要用 re.search 抠出 JSON 片段",
+          "pattern": "re\\.search\\(",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "缺少 robust_parse 函数",
+          "astType": "function_def",
+          "name": "robust_parse",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t12-output-parsers-s6",
+      "taskId": "t12-output-parsers",
+      "order": 6,
+      "title": "铸剑台终版:结构化铸剑流水线",
+      "instruction": "### 目标\n总装铸剑台终版:契约、结构化链、重试、三层修复防线合成一条可上线的 `forge(theme)` 流水线——主流程走重试链,重试耗尽自动降级到 `robust_parse`,出炉战报标明每柄剑的通关路径。\n\n### 原理\n**终版是一张防御纵深图,不是零件堆叠。** 看数据流向:`forge()` 先用 s3 的重试链(快路径:绝大多数请求在前两次调用内解决);只有 `OutputParserException` 耗尽重试后,才落入 s5 的 `robust_parse` 三层防线(慢路径:本地正则 → LLM 修复)。**快路径为常态优化,慢路径为尾部兜底**——这是所有高可用 LLM 管线的共同骨架。\n\n**异常是路径切换的唯一信号。** 整条流水线没有任何启发式判断:解析器抛 `OutputParserException` 即降级,通过即放行。这依赖前面各步守的协议——解析失败必须抛这个异常类型。协议一旦统一,组件就能像乐高一样替换:把 `PydanticOutputParser` 换成 s4 的 `ForgeCardParser`,`forge` 的流程一行不用改。\n\n**降级时必须修\"同一份\"坏输出。** `robust_parse(completion, llm)` 接收的是出错的那份 completion,而不是重新 invoke 一次模型——重新调用既多花钱,又让\"修复\"面对一份全新的、可能没问题的输出,防线失去意义。\n\n**为什么保留\"通关路径\"?** 战报里的 route 字段(重试链/严格解析/正则提取/LLM 修复)是可观测性的最小单元。上线后按 route 聚合统计:重试链占比反映模型稳定性,LLM 修复占比反映提示词质量——没有它,防御体系默默替你扛着成本,你却以为天下太平。\n\n### 操作\n1. `retry_parser = RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=1)`\n2. `forge()`:`completion = llm.invoke(prompt_value)` 后,try `parse_with_prompt` 返回,except `OutputParserException` 时 `return robust_parse(completion, llm)`\n3. `main()` 打出炉战报(路径 + 四字段),并用一段散文包裹的脏输入自检 `robust_parse`\n4. MOCK 全流程演练后,填 Key 接真实 DeepSeek 跑一炉\n\n### 常见坑\n- 降级时把 `completion` 丢了、重新 invoke 一次模型——多花钱还让修复面对新输出;防线必须修同一份坏输出\n- 在 `forge` 里 `except Exception`:网络超时、鉴权失败也会掉进修复防线,被误当格式问题反复重试——只接 `OutputParserException`,其余异常让它向上抛给调用方",
+      "todoItems": [
+        {
+          "title": "创建 retry_parser:RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=1)",
+          "target": "forge() 内部",
+          "code": "RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=1)",
+          "expect": "不再报 TODO 错误"
+        },
+        {
+          "title": "forge():try parse_with_prompt 返回,except OutputParserException 时 return robust_parse(completion, llm) 修复同一份坏输出",
+          "target": "forge() 双分支",
+          "code": "except OutputParserException:",
+          "expect": "第一炉失败也能出货,且不重新调用模型"
+        },
+        {
+          "title": "main() 打出炉战报(路径 + 四字段),并用一段散文包裹的脏输入自检 robust_parse",
+          "target": "main() 战报",
+          "expect": "打印战报与自检修复结果"
+        },
+        {
+          "title": "MOCK 全流程演练后,填 Key 接真实 DeepSeek 跑一炉",
+          "target": "真实 API 验证",
+          "expect": "真实模型下流水线同样出货"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:终版 = 前五步零件的总装——快路径(s3 重试链)为常态优化,慢路径(s5 三层防线)为尾部兜底,路径切换只靠 OutputParserException。"
+        },
+        {
+          "order": 2,
+          "text": "关键 API:`RetryWithErrorOutputParser.from_llm(parser=parser, llm=llm, max_retries=1)`;降级写法 `except OutputParserException: return robust_parse(completion, llm)`。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:forge 里 `completion = llm.invoke(prompt_value)` 之后,try 块 `return retry_parser.parse_with_prompt(completion, prompt_value), \"重试链\"`,except 块把 completion 原样交给 robust_parse——不要重新 invoke。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "本地离线演练",
+          "language": "bash",
+          "code": "# 无 Key 离线演练(MOCK 剧情:第一炉散文 → 重试 → 合规 JSON)\nMOCK_LLM=1 python forge.py\n\n# 填好 DeepSeek Key 后跑真实一炉\nexport OPENAI_API_KEY=sk-xxxx\npython forge.py",
+          "description": "铸剑台终版的两种运行方式:MOCK_LLM 重放固定剧情离线调试,填 Key 后接真实 deepseek-v4-pro。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "防御纵深(Defense in Depth)",
+          "definition": "用多层独立防线拦截同一类故障:重试链 → 严格解析 → 正则提取 → LLM 修复。单层失效不致命,层间靠统一异常协议衔接。"
+        },
+        {
+          "name": "快路径/慢路径",
+          "definition": "高可用管线的双层结构:快路径为重试链这类低成本方案,为常态流量优化;慢路径为多层修复,专兜尾部异常。"
+        },
+        {
+          "name": "可观测性(Observability)",
+          "definition": "通过「通关路径」这类标记让系统内部行为可度量:按 route 聚合统计即可发现模型漂移、提示词退化,而不是等故障上门。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "流水线编排框架",
+          "description": "LCEL 链、重试与修复解析器全部实现于 LangChain 生态,统一的 Runnable 协议让零件可自由替换。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain-core langchain-openai"
+        },
+        {
+          "name": "DeepSeek API",
+          "role": "铸剑与修复的底层模型",
+          "description": "既负责按主题设计铸剑单,也在重试/修复环节扮演「读懂报错、按契约重写」的角色,模型 deepseek-v4-pro。",
+          "officialUrl": "https://api-docs.deepseek.com",
+          "category": "模型",
+          "installHint": "pip install langchain-openai,配置 OPENAI_API_KEY"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 # TODO 占位符没有填完",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "缺少 forge 主流程函数",
+          "astType": "function_def",
+          "name": "forge",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "快路径需要 RetryWithErrorOutputParser",
+          "pattern": "RetryWithErrorOutputParser",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "慢路径需要 OutputFixingParser 兜底",
+          "pattern": "OutputFixingParser",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "降级只应捕获 OutputParserException",
+          "pattern": "except OutputParserException",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需要使用 ChatOpenAI 接入 DeepSeek 模型",
+          "api": "ChatOpenAI",
+          "minCount": 1
+        }
+      ]
+    }
+  ]
+}

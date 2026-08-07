@@ -1,0 +1,466 @@
+{
+  "steps": [
+    {
+      "id": "t52-debate-s1",
+      "taskId": "t52-debate",
+      "order": 1,
+      "title": "辩论员诞生:立场固化与开篇立论",
+      "instruction": "### 目标\n\n本步打造辩论流水线的第一环:立场固化。你将创建「天庭辩论」的背景设定与两位辩论员——正方·司命星君(支持)与反方·纠察灵官(反对),用模板字符串为每位辩论员生成专属系统提示词,并实现开篇立论。立场是辩论的根:一旦写好,后续所有发言都不得偏离。\n\n### 原理\n\n多角色辩论的第一步不是「开口」,而是「立人设」。辩论员说出的每句话都必须服务于自己的立场,这个约束应该固化在系统提示词里,而不是靠每次发言临时叮嘱。`SYSTEM_PROMPT_TEMPLATE` 用 `{role}`、`{name}`、`{topic}`、`{stance}` 四个占位符把「身份 + 立场 + 辩题」拼进系统层,`str.format` 负责填充——这就是模板字符串的经典用法。立场一旦固化,辩论员在交锋中「不得改口」,这是后续回合制交锋能够成立的前提:没有立场的「辩论」只是闲聊,有了立场的交锋才是对抗。\n\n### 操作\n\n1. 通读 `OPENING_SCRIPT`:每个立场对应一句开篇立论,键名与 `stance` 严格一致;\n2. 在 `Debater.__init__` 里用 `SYSTEM_PROMPT_TEMPLATE.format(...)` 生成 `self.system_prompt`;\n3. 补全 `opening_statement()`:返回 `f\"{self.role}·{self.name} 立论:{OPENING_SCRIPT[self.stance]}\"`;\n4. 运行程序,观察两位辩论员的自我介绍、系统提示词与开篇立论按顺序打印,最后输出辩论主题。\n\n### 常见坑\n\n- `format` 的占位符必须与模板里完全一致,少传一个 `{stance}` 会抛 `KeyError`;\n- 开篇立论要**返回**字符串而不是直接 `print`——后续 `Debate` 类要靠返回值把发言写进记录;\n- 立场字符串必须与 `OPENING_SCRIPT` 的键一致(「支持」/「反对」),否则查表时抛 `KeyError`。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "立场固化就是把身份与辩题写进系统层:SYSTEM_PROMPT_TEMPLATE.format(role=role, name=name, topic=DEBATE_TOPIC, stance=stance) 一次生成 self.system_prompt。"
+        },
+        {
+          "order": 2,
+          "text": "开篇立论要返回字符串而不是直接 print:return f\"{self.role}·{self.name} 立论:{OPENING_SCRIPT[self.stance]}\"——后续 Debate 靠返回值把发言写进记录。"
+        },
+        {
+          "order": 3,
+          "text": "运行顺序即输出顺序:司命星君的自我介绍与立论在前,纠察灵官在后,最后打印 [辩论主题]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "模板字符串填充系统提示词",
+          "language": "python",
+          "code": "# 把身份与立场焊进系统层:占位符一次填充\nSYSTEM_PROMPT_TEMPLATE = (\n    \"你是天庭辩手「{role}·{name}」,立场「{stance}」。\"\n    \"当前辩题:{topic}。不得改口。\"\n)\nprompt = SYSTEM_PROMPT_TEMPLATE.format(\n    role=\"正方\", name=\"司命星君\",\n    topic=\"天庭的灵讯服务该由 Agent 全自动上线,还是保留人工复核?\",\n    stance=\"支持\",\n)",
+          "description": "str.format 用关键字参数按名填充占位符,少传一个都会抛 KeyError。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "立场固化",
+          "definition": "把辩论员的身份、立场与辩题一次性写进系统提示词,之后所有发言都在这个立场框架下进行,不允许临时改口。"
+        },
+        {
+          "name": "模板字符串",
+          "definition": "带 {占位符} 的字符串,用 str.format() 在运行时按名填充,是批量生成系统提示词的常用手段。"
+        },
+        {
+          "name": "开篇立论",
+          "definition": "辩论第一轮由每位辩论员发表的初始观点,立场最鲜明的第一条发言,也是后续交锋必须自洽的锚点。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "实现语言",
+          "description": "用纯标准库实现立场固化与开篇立论,无需安装任何第三方依赖。",
+          "officialUrl": "https://www.python.org",
+          "category": "语言",
+          "installHint": "无需安装,环境自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Debater 辩论员类。",
+          "astType": "class_def",
+          "name": "Debater",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现开篇立论方法。",
+          "astType": "function_def",
+          "name": "opening_statement"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 SYSTEM_PROMPT_TEMPLATE 立场模板。",
+          "pattern": "SYSTEM_PROMPT_TEMPLATE",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应依次输出两位辩论员的立论与辩论主题。",
+          "expectedStdout": "司命星君 立论[\\s\\S]*纠察灵官 立论[\\s\\S]*辩论主题",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t52-debate-s2",
+      "taskId": "t52-debate",
+      "order": 2,
+      "title": "交锋回合:交替反驳与轮次编排",
+      "instruction": "### 目标\n\n本步让两位辩论员真正交锋:把「回合」抽象成一个简单状态机,用 `Debate` 类按轮次轮换取句、交替反驳,并把所有发言写进 `transcript` 记录。跑完两轮,你应该得到 6 条发言:2 条开篇立论 + 4 条交锋反驳。\n\n### 原理\n\n辩论是回合制游戏:先立论,再按轮次交替发言。`Debate` 类用 `self.transcript` 保存全部发言(这是后续交给判官裁决的唯一素材),用 `self._used` 字典记录每个立场已经取过几句反驳,配合 `idx % len(script)` 实现轮换取句——两句反驳用完一轮就从头再来。这种「记录 + 计数」的状态机正是真实多 Agent 辩论的骨架:模型轮流发言,每次发言都追加到同一个 transcript,谁先谁后由代码控制,而不是由模型控制。谁控制顺序,谁就控制辩论的秩序,这是多 Agent 编排与自由聊天的分水岭。\n\n### 操作\n\n1. 保留 s1 的 `Debater` 与 `OPENING_SCRIPT`,通读新增的 `REBUTTAL_SCRIPT` 反驳词库;\n2. 补全 `Debate.rebut()`:按立场轮换取句,并让 `_used` 计数递增;\n3. 补全 `Debate.run()`:先 `opening_round()` 立论,再双层循环按轮次交替反驳,把带 `[第{r}轮]` 前缀的发言追加进 `transcript` 并打印;\n4. 运行程序,确认依次输出立论、两轮交锋,最后是「共 6 条」的总结。\n\n### 常见坑\n\n- 取句之后一定要更新 `_used`,否则每轮都用第一句反驳,交锋会「复读」;\n- 每一条发言都要追加进 `self.transcript`,漏掉的话判官看不到完整过程;\n- `run` 返回的是 `self.transcript` 而不是打印内容——调用方靠返回值消费记录。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "轮换取句的关键是计数:idx = self._used.get(debater.stance, 0);line = script[idx % len(script)];取完别忘了 self._used[debater.stance] = idx + 1。"
+        },
+        {
+          "order": 2,
+          "text": "run 是双层循环:先 for r in range(1, rounds + 1) 控制轮次,内层 for d in self.debaters 让两位辩论员各说一句。"
+        },
+        {
+          "order": 3,
+          "text": "每条发言都要 self.transcript.append(line) 并 print(line),记录与展示同时进行,最后 return self.transcript。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "轮换取句:计数 + 取模",
+          "language": "python",
+          "code": "# 轮换取句:每个立场一句,用完一轮从头再来\nidx = self._used.get(debater.stance, 0)\nscript = REBUTTAL_SCRIPT[debater.stance]\nline = script[idx % len(script)]\nself._used[debater.stance] = idx + 1\nreturn line",
+          "description": "用 _used 记录每个立场已取句数,idx % len(script) 保证索引不超出词库长度。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "回合制状态机",
+          "definition": "用代码控制发言顺序与轮次交替(立论 → 第1轮 → 第2轮),而不是让模型自由抢话。"
+        },
+        {
+          "name": "轮换取句",
+          "definition": "用计数索引对反驳词库取模,保证同一立场不会在相邻轮次复读同一句。"
+        },
+        {
+          "name": "transcript",
+          "definition": "辩论全程的发言记录列表,是后续交给判官裁决与最终表态的唯一素材。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python",
+          "role": "实现语言",
+          "description": "用纯标准库实现回合制交锋状态机,无需安装任何第三方依赖。",
+          "officialUrl": "https://www.python.org",
+          "category": "语言",
+          "installHint": "无需安装,环境自带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Debate 回合编排类。",
+          "astType": "class_def",
+          "name": "Debate",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 run 方法。",
+          "astType": "function_def",
+          "name": "run"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 REBUTTAL_SCRIPT 反驳词库。",
+          "pattern": "REBUTTAL_SCRIPT",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应展示两轮交锋与 6 条记录的总结。",
+          "expectedStdout": "第1轮[\\s\\S]*第2轮[\\s\\S]*共 6 条",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t52-debate-s3",
+      "taskId": "t52-debate",
+      "order": 3,
+      "title": "裁判裁决:中立判官读全程",
+      "instruction": "### 目标\n\n本步请判官登场:把完整 `transcript` 交给大模型,让它给出「胜方 / 理由 / 置信度」三行格式的裁决,再用解析器把回复拆回结构化字典。同时接入 DeepSeek API:配置了 Key 就走真实调用,没配置或设了 `MOCK_LLM=1` 就走剧本演示。\n\n### 原理\n\n辩论的胜负不由交锋双方自己定,而要由中立的第三方裁决。判官需要三样东西:**中立**(系统提示词明确它是玉帝,主持正式辩论)、**证据充分**(完整 transcript 全部喂进去)、**格式约束**(只准输出三行,便于程序解析)。大模型回复不可控,所以「约束 + 解析」是标配:提示词里规定输出格式,代码里用 `startswith` 逐行拆出 `winner` / `reason` / `confidence`。置信度是 0 到 1 的小数,方便下游做阈值判断。LLM 调用天然不稳定,`MOCK_LLM=1` 剧本模式让你不依赖网络也能完整演示整条链路——这也是多 Agent 项目本地调试的常用姿势。\n\n### 操作\n\n1. 补全 `build_llm()`:用 `ChatOpenAI` 构建客户端,`model` 默认 `deepseek-v4-pro`、`api_key` 与 `base_url` 从环境变量读、`temperature=0`;\n2. 通读 `Judge.verdict`:先拼提示词,再按 MOCK/真实分支取回复,最后逐行解析;\n3. 补全解析循环:按「胜方:」「理由:」「置信度:」前缀把文本拆进 `result`,置信度记得 `float()` 转换;\n4. 运行程序:未配置 Key 应看到引导提示并优雅退出;配置 Key 或 `MOCK_LLM=1` 时输出「玉帝裁决」三项。\n\n### 常见坑\n\n- 模型可能输出多出的前后缀,所以解析要按行 `startswith` 而非整段精确匹配;\n- `confidence` 必须转成 `float`,否则下游没法做数值比较;\n- `base_url` 与 `model` 不匹配会报 404 或 401,务必用环境变量覆盖默认值,不要写死。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "build_llm 返回 ChatOpenAI(...):model 取 os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"),api_key 与 base_url 也从环境变量读,temperature=0。"
+        },
+        {
+          "order": 2,
+          "text": "解析按行 startswith:\"胜方:\" → result[\"winner\"],\"理由:\" → result[\"reason\"],\"置信度:\" → result[\"confidence\"] = float(...)。"
+        },
+        {
+          "order": 3,
+          "text": "未配置 Key 时模块级检查会优雅退出;本地演示设 MOCK_LLM=1,Judge 直接走 mock_verdict_text() 剧本。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "三行格式约束与解析",
+          "language": "python",
+          "code": "# 提示词里约定三行固定前缀,解析就按前缀逐行拆:\n#   胜方:<正方·司命星君 / 反方·纠察灵官>\n#   理由:<一句话>\n#   置信度:<0 到 1 之间的小数>\nfor line in str(raw).splitlines():\n    if line.startswith(\"置信度:\"):\n        result[\"confidence\"] = float(line.split(\":\", 1)[1].strip())",
+          "description": "模型的自由文本先被格式约束,再由 startswith + split 解析成结构化字段。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "中立判官",
+          "definition": "与交锋双方无利害关系的第三方(玉帝),读完整场辩论记录后给出胜负、理由与置信度。"
+        },
+        {
+          "name": "格式约束",
+          "definition": "在提示词里规定输出必须为「胜方: / 理由: / 置信度:」三行,使不可控的模型输出可被程序逐行解析。"
+        },
+        {
+          "name": "MOCK_LLM 剧本模式",
+          "definition": "通过环境变量触发,跳过真实模型调用、改用预设文案,用于无网络环境下的链路演示。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "提供 ChatOpenAI 客户端,通过 OpenAI 兼容协议调用 DeepSeek 大模型,并统一消息对象。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "大模型服务",
+          "description": "通过 OpenAI 兼容的 chat/completions 接口提供对话模型,deepseek-v4-pro 为默认模型。",
+          "officialUrl": "https://platform.deepseek.com",
+          "category": "服务",
+          "installHint": "无需安装,配置 OPENAI_API_KEY / OPENAI_BASE_URL 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Judge 判官类。",
+          "astType": "class_def",
+          "name": "Judge",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留「胜方:」三行格式约束。",
+          "pattern": "胜方:",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请用 ChatOpenAI 接入大模型。",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 OPENAI_API_KEY 环境变量检查。",
+          "pattern": "OPENAI_API_KEY",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t52-debate-s4",
+      "taskId": "t52-debate",
+      "order": 4,
+      "title": "共识收敛:最终立场与共识判定",
+      "instruction": "### 目标\n\n裁决有了,但辩论是否「收敛」还要看双方的态度:本步让每位辩论员在听完对方全部发言后,用大模型重新表态最终立场,再比较两人的立场是否一致。一致 → 共识收敛;不一致 → 判定未收敛。\n\n### 原理\n\n辩论的目的不是吵出对错,而是收敛到可执行的结论。最终表态与开篇立论是两回事:开篇立论由剧本强绑定,最终表态则要「听完对方全部发言后」重新评估——这正是大模型擅长的地方。表态结果是一个自由度极大的文本,必须归一化:把回复里包含「支持」二字一律判为「支持」,否则判为「反对」。收敛判定则用一个朴素但有效的规则:`len(set(final.values())) == 1` 时双方立场一致,即达成共识。这套「归一化 + 集合判重」的思路,在真实多 Agent 系统中就是会议收敛检测的雏形:先给每个参与者一个可比较的二值表态,再统一比较,避免拿自由文本做相等判断。\n\n### 操作\n\n1. 补全 `Consensus.ask_final_stance()`:MOCK 分支用剧本,真实分支拼接提示词(含角色、立场与完整记录),最后把模型回复归一化为「支持」或「反对」;\n2. 补全 `check_convergence()`:取第一人的立场,若所有人都一致则返回 `(True, \"双方达成共识,均持「...」立场\")`,否则返回 `(False, \"双方仍各执己见,未收敛\")`;\n3. 运行程序:先看到「最终立场」两项,再看到「收敛判定」行;\n4. 试试剧本模式:司命星君被说服改口为「反对」,双方立场一致 → 判定「已收敛」。\n\n### 常见坑\n\n- 模型回复可能带标点或换行,归一化时用「支持」做子串判断,不要要求精确相等;\n- `final` 是字典,遍历与取首项都要用 `values()`,别混淆键与值;\n- 收敛判定返回 `(bool, str)` 元组,`main` 里要同时解包收敛标志与说明文字。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "归一化用子串判断:return \"支持\" if \"支持\" in str(raw) else \"反对\",容忍模型输出带标点或换行。"
+        },
+        {
+          "order": 2,
+          "text": "取首项立场用 stance = next(iter(final.values())),再用 all(s == stance for s in final.values()) 判断是否全部一致。"
+        },
+        {
+          "order": 3,
+          "text": "剧本里 mock_final_stance 让司命星君改口为「反对」,所以收敛判定应该是「已收敛」。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "一行判收敛",
+          "language": "python",
+          "code": "# 立场去重后只剩一个,即双方达成共识\nconverged = len(set(final.values())) == 1",
+          "description": "把最终立场放进 set 去重,长度为 1 就是收敛——朴素但有效的判重手法。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "最终立场",
+          "definition": "听完对方全部发言后,辩论员对立场做出的最终表态,可能与开篇立论不同。"
+        },
+        {
+          "name": "共识收敛",
+          "definition": "双方最终立场一致的状态;不一致则判定辩论未收敛,需要继续讨论或由人工介入。"
+        },
+        {
+          "name": "归一化",
+          "definition": "把模型的自由文本映射到「支持 / 反对」二值的规则(含「支持」即支持),使结果可比较。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "提供 ChatOpenAI 客户端,通过 OpenAI 兼容协议调用 DeepSeek 大模型,并统一消息对象。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "大模型服务",
+          "description": "通过 OpenAI 兼容的 chat/completions 接口提供对话模型,deepseek-v4-pro 为默认模型。",
+          "officialUrl": "https://platform.deepseek.com",
+          "category": "服务",
+          "installHint": "无需安装,配置 OPENAI_API_KEY / OPENAI_BASE_URL 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Consensus 共识检测类。",
+          "astType": "class_def",
+          "name": "Consensus",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现收敛判定方法。",
+          "astType": "function_def",
+          "name": "check_convergence"
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请用 ChatOpenAI 接入大模型。",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 OPENAI_API_KEY 环境变量检查。",
+          "pattern": "OPENAI_API_KEY",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t52-debate-s5",
+      "taskId": "t52-debate",
+      "order": 5,
+      "title": "天庭总装:完整辩论流水线",
+      "instruction": "### 目标\n\n把前面四步组装成一条完整流水线:立场 → 交锋 → 裁决 → 表态 → 收敛判定,最后用 `@dataclass` 打包成一份 `DebateReport` 报告。这是整章多角色辩论的收尾:一个 `run_debate()` 就能跑完整场。\n\n### 原理\n\n系统变大之后,「调用链」会变得脆弱:判官、表态、收敛,每一环都可能因网络或模型异常而失败。总装的关键不是把代码堆在一起,而是**分层与兜底**:每个 LLM 调用都包在 `try/except` 里,失败时降级为预设结果(如「天庭驳回」),保证流水线永不中断——演示不怕慢,就怕崩。`@dataclass` 则把整场辩论的产物(辩题、对阵、记录、裁决、立场、收敛结论)收进一个可读的对象,`print_report` 只负责消费报告,打印与计算彻底分离。这是多 Agent 系统的通用姿势:计算层产出结构化数据,展示层只读不碰。\n\n### 操作\n\n1. 通读 `mock_transcript()`:剧本模式下 6 条发言直接给定,流程不依赖网络;\n2. 补全 `build_llm()` 的 TODO:装配 `ChatOpenAI` 客户端;\n3. 补全 `Judge.verdict` 与 `Consensus.ask_final_stance` 的方法体:MOCK 分支走剧本,真实分支拼提示词调模型;\n4. 补全 `run_debate()` 里对裁决调用的 `try/except` 降级兜底;\n5. 运行程序,确认报告依次打印辩题、对阵、交锋条数、裁决、最终立场与收敛判定。\n\n### 常见坑\n\n- 降级兜底的字典字段要与正常裁决一致(`winner` / `reason` / `confidence`),否则 `print_report` 打印会缺项;\n- `run_debate` 的返回值要构造 `DebateReport` 报告对象,而不是直接 `print`——报告对象是打印层唯一的输入;\n- 收敛判定依赖 `final_stances` 已填满两位辩论员,循环里漏填会让判定结果失真。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "run_debate 是总装配线:剧本记录 + 判官裁决 + 双方表态 + 收敛判定,每一步的 LLM 调用都包 try/except。"
+        },
+        {
+          "order": 2,
+          "text": "降级字典要与正常裁决同构:{\"winner\": ..., \"reason\": ..., \"confidence\": ...},否则 print_report 打印会缺项。"
+        },
+        {
+          "order": 3,
+          "text": "DebateReport 用 @dataclass 声明七个字段,run_debate 返回报告对象,print_report 只读不碰计算。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "降级兜底:流水线永不中断",
+          "language": "python",
+          "code": "# 任何外部调用失败,都降级为预设结果继续跑\ntry:\n    verdict = judge.verdict(transcript)\nexcept Exception as exc:\n    verdict = {\"winner\": \"天庭驳回\",\n               \"reason\": f\"裁决服务暂不可用: {exc}\",\n               \"confidence\": 0.0}",
+          "description": "try/except 捕获 LLM 调用异常,用结构一致的预设字典兜底,print_report 照常消费。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "流水线组装",
+          "definition": "把立场、交锋、裁决、表态、收敛判定按固定顺序串成一条完整执行链,对外只暴露一个 run_debate()。"
+        },
+        {
+          "name": "降级兜底",
+          "definition": "用 try/except 捕获外部调用失败,以预设结果(如「天庭驳回」)继续流程,保证演示永不中断。"
+        },
+        {
+          "name": "dataclass 报告",
+          "definition": "用 @dataclass 声明一个聚合字段的数据类,把整场辩论的产物打包成单个可读对象。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "Agent 编排框架",
+          "description": "提供 ChatOpenAI 客户端,通过 OpenAI 兼容协议调用 DeepSeek 大模型,并统一消息对象。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain langchain-openai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "大模型服务",
+          "description": "通过 OpenAI 兼容的 chat/completions 接口提供对话模型,deepseek-v4-pro 为默认模型。",
+          "officialUrl": "https://platform.deepseek.com",
+          "category": "服务",
+          "installHint": "无需安装,配置 OPENAI_API_KEY / OPENAI_BASE_URL 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请实现 run_debate 总装函数。",
+          "astType": "function_def",
+          "name": "run_debate",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 DebateReport 报告类。",
+          "astType": "class_def",
+          "name": "DebateReport",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "请用 ChatOpenAI 接入大模型。",
+          "api": "ChatOpenAI",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "请保留 OPENAI_API_KEY 环境变量检查。",
+          "pattern": "OPENAI_API_KEY",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "steps": [
+    {
+      "id": "t61-tokenizer-basics-s1",
+      "taskId": "t61-tokenizer-basics",
+      "order": 1,
+      "title": "BPE 算法",
+      "instruction": "### 目标\n理解 BPE(Byte Pair Encoding)分词算法。\n\n### 概念\n- **BPE**:从字符开始,合并高频字节对,逐步构建词表。\n- LLM 用 BPE 把文本拆成 token。\n- 词表大小影响模型质量/速度。\n\n### 操作\n实现简单 BPE 训练",
+      "starterCode": "from collections import Counter\n\ndef train_bpe(corpus, num_merges=10):\n    # 初始化: 每个词拆成字符\n    word_freq = Counter(corpus.split())\n    splits = {w: list(w) for w in word_freq}\n    \n    merges = []\n    for _ in range(num_merges):\n        # 统计相邻字符对频率\n        pairs = Counter()\n        for w, freq in word_freq.items():\n            split = splits[w]\n            for i in range(len(split) - 1):\n                pairs[(split[i], split[i+1])] += freq\n        if not pairs:\n            break\n        # 合并最高频对\n        best = pairs.most_common(1)[0][0]\n        merges.append(best)\n        # 更新 splits\n        for w in splits:\n            split = splits[w]\n            i = 0\n            while i < len(split) - 1:\n                if (split[i], split[i+1]) == best:\n                    split[i:i+2] = [''.join(best)]\n                else:\n                    i += 1\n    return merges\n\ncorpus = 'low low low low low lower lower newest newest newest newest newest newest widest widest'\nprint(train_bpe(corpus, 5))",
+      "solutionCode": "from collections import Counter\n\ndef train_bpe(corpus, num_merges=10):\n    word_freq = Counter(corpus.split())\n    splits = {w: list(w) for w in word_freq}\n    merges = []\n    for _ in range(num_merges):\n        pairs = Counter()\n        for w, freq in word_freq.items():\n            split = splits[w]\n            for i in range(len(split) - 1):\n                pairs[(split[i], split[i+1])] += freq\n        if not pairs:\n            break\n        best = pairs.most_common(1)[0][0]\n        merges.append(best)\n        for w in splits:\n            split = splits[w]\n            i = 0\n            while i < len(split) - 1:\n                if (split[i], split[i+1]) == best:\n                    split[i:i+2] = [''.join(best)]\n                else:\n                    i += 1\n    return merges\n\ncorpus = 'low low low low low lower lower newest newest newest newest newest newest widest widest'\nprint(train_bpe(corpus, 5))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "BPE 从字符开始,合并高频对。"
+        },
+        {
+          "order": 2,
+          "text": "每轮找最高频相邻对,合并。"
+        },
+        {
+          "order": 3,
+          "text": "merges 记录合并规则。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "from collections import Counter\npairs = Counter()\nfor w in words:\n    for i in range(len(w)-1):\n        pairs[(w[i],w[i+1])] += 1"
+        }
+      ],
+      "terms": [
+        {
+          "name": "BPE",
+          "definition": "字节对编码分词算法"
+        },
+        {
+          "name": "词表",
+          "definition": "BPE 合并产生的 token 集合"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "分词",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于估算 API 调用成本、控制上下文长度。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": "train_bpe",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-tokenizer-basics-s2",
+      "taskId": "t61-tokenizer-basics",
+      "order": 2,
+      "title": "tiktoken 分词",
+      "instruction": "### 目标\n理解 **BPE(字节对编码)** 的训练过程:tokenizer 的词表不是人工定的,是从语料里\"学\"出来的。\n\n### 背景: BPE 算法核心\nBPE 的思想朴素到惊人——**反复合并最高频的相邻对**:\n1. 初始:所有文本拆成单字符(词表=字符集)\n2. 统计所有相邻 token 对的频率\n3. 把最高频的对合并成新 token,加入词表\n4. 重复 2-3,直到词表达到目标大小(如 50K)\n\n示例:语料里 \"low\" 出现极多 → `l o` → `lo`(合并) → `lo w` → `low`(再合并)。最终 \"low\" 是 1 个 token,而罕见词 \"lowered\" 可能是 `low`+`er`+`ed` 3 个 token。\n\n### 为什么中英文 token 效率差很多\n- 英文:常见词整词入表,平均 1 词 ≈ 0.75 token\n- 中文:多数汉字单字成 token,常用词(如\"人工智能\")可能 2-4 token;**同样一段话,中文 token 数通常是英文翻译的 1.5-2 倍**——这直接影响你的 API 账单\n\n### 操作\n1. 实现 `train_bpe(corpus, vocab_size)`:统计-合并循环\n2. 在小语料上训练,打印前 10 次合并\n3. 用学到的词表编码新句子,对比编码前后长度",
+      "starterCode": "import tiktoken\n\n# 获取 deepseek-v4-pro 的编码器\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\n\ntext = '你好世界,Hello World! Python是最佳语言。'\n\n# encode\ntokens = enc.encode(text)\nprint(f'文本: {text}')\nprint(f'token 数: {len(tokens)}')\nprint(f'字符数: {len(text)}')\nprint(f'tokens: {tokens}')\n\n# decode 回文本\ndecoded = \nprint(f'解码: {decoded}')\n\n# 观察: 中文 token 比英文多(中文 1 字≈1-2 token, 英文 1 词≈1 token)\nprint('\\n中文token:', len(enc.encode('你好世界')))\nprint('英文token:', len(enc.encode('hello world')))",
+      "solutionCode": "import tiktoken\n\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\n\ntext = '你好世界,Hello World! Python是最佳语言。'\n\ntokens = enc.encode(text)\nprint(f'文本: {text}')\nprint(f'token 数: {len(tokens)}')\nprint(f'字符数: {len(text)}')\nprint(f'tokens: {tokens}')\n\ndecoded = enc.decode(tokens)\nprint(f'解码: {decoded}')\n\nprint('\\n中文token:', len(enc.encode('你好世界')))\nprint('英文token:', len(enc.encode('hello world')))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "encoding_for_model 获取编码器。"
+        },
+        {
+          "order": 2,
+          "text": "encode 文本→token id 列表,decode 反向。"
+        },
+        {
+          "order": 3,
+          "text": "中文比英文 token 密度更高。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "import tiktoken\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\nenc.encode('hello')  # [15339]"
+        }
+      ],
+      "terms": [
+        {
+          "name": "encode",
+          "definition": "文本→token"
+        },
+        {
+          "name": "decode",
+          "definition": "token→文本"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "分词",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于估算 API 调用成本、控制上下文长度。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 tiktoken。",
+          "api": "tiktoken",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t61-tokenizer-basics-s3",
+      "taskId": "t61-tokenizer-basics",
+      "order": 3,
+      "title": "词表大小的影响",
+      "instruction": "### 目标\n掌握 tokenizer 的**工程应用**:token 计数、成本估算、截断策略。\n\n### 背景: 为什么每个 Agent 工程师都要会算 token\n- **成本**:API 按 token 计费,不会算 token 就不会算钱\n- **窗口管理**:第 5 章学过,塞 prompt 前必须先知道它多少 token\n- **延迟**:输出 token 数直接决定响应时间(生成是逐 token 的,~50 token/s)\n\n### tiktoken 工程要点\n```python\nimport tiktoken\nenc = tiktoken.get_encoding(\"cl100k_base\")   # GPT-4/3.5 用的编码\ntokens = enc.encode(text)\n```\n- `cl100k_base`:GPT-4/3.5/embedding 模型\n- `o200k_base`:GPT-4o 及更新\n- **国产模型各自有词表**(DeepSeek/通义不公开 tiktoken 编码),工程上一般用 cl100k_base 估算再留 20% 余量\n\n### 成本计算模板\n```python\ncost = prompt_tokens / 1e6 * 输入单价 + completion_tokens / 1e6 * 输出单价\n```\n\n### 操作\n1. 加载 cl100k_base,统计中/英/代码三种文本的 token 数\n2. 实现 `estimate_cost(prompt, completion, price_in, price_out)`\n3. 实现 `truncate_to_tokens(text, max_tokens)` 按 token 截断(而非按字符!)",
+      "starterCode": "import tiktoken\n\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\nprint(f'deepseek-v4-pro 词表大小: {enc.n_vocab}')\nprint()\n\n# 同一文本不同模型分词对比\ntexts = ['hello world', '你好世界', 'Python编程']\nfor t in texts:\n    tokens = enc.encode(t)\n    print(f'{t}: {len(tokens)} tokens, {len(t)} 字符')\n\nprint('\\n=== 词表大小影响 ===')\nprint('小词表: 序列长, 模型慢, 但嵌入层小')\nprint('大词表: 序列短, 模型快, 但嵌入层大')\nprint('中文需更大词表(字多)')\n# 总结\nprint('总结: 词表大小是序列长度与嵌入层大小的权衡')",
+      "solutionCode": "import tiktoken\n\nenc = tiktoken.encoding_for_model('deepseek-v4-pro')\nprint(f'deepseek-v4-pro 词表大小: {enc.n_vocab}')\nprint()\n\ntexts = ['hello world', '你好世界', 'Python编程']\nfor t in texts:\n    tokens = enc.encode(t)\n    print(f'{t}: {len(tokens)} tokens, {len(t)} 字符')\n\nprint('\\n=== 词表大小影响 ===')\nprint('小词表: 序列长, 模型慢, 但嵌入层小')\nprint('大词表: 序列短, 模型快, 但嵌入层大')\nprint('中文需更大词表(字多)')\nprint('总结: 词表大小是序列长度与嵌入层大小的权衡')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "enc.n_vocab 是词表大小。"
+        },
+        {
+          "order": 2,
+          "text": "小词表序列长但嵌入小,大词表反之。"
+        },
+        {
+          "order": 3,
+          "text": "中文需更大词表。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "enc.n_vocab  # 词表大小\nlen(enc.encode(t))  # token数"
+        }
+      ],
+      "terms": [
+        {
+          "name": "词表大小",
+          "definition": "vocab size,影响序列长度与嵌入层"
+        },
+        {
+          "name": "n_vocab",
+          "definition": "编码器的词表大小"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "分词",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于估算 API 调用成本、控制上下文长度。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "需 tiktoken。",
+          "api": "tiktoken",
+          "minCount": 1,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+{
+  "steps": [
+    {
+      "id": "t15-langchain-rag-basics-s1",
+      "taskId": "t15-langchain-rag-basics",
+      "order": 1,
+      "title": "创建文档加载器并加载文档",
+      "instruction": "### 目标\n用 LangChain 的 LCEL 管道语法(`|`)组装第一条 RAG 链,理解\"链\"的组合哲学。\n\n### 背景: LCEL(LangChain 表达式语言)\nLangChain 把每个组件抽象成 **Runnable**(可运行件),用管道符串联:\n```python\nchain = prompt | model | parser\nchain.invoke({\"question\": \"...\"})\n```\n数据流:dict → prompt 渲染成消息 → model 输出 AIMessage → parser 输出字符串。**像 Unix 管道一样,每个组件只干一件事,组合出复杂流程**。\n\n### 为什么这是范式升级\n传统写法:渲染提示词→调模型→解析,三步散落在代码里,改一步动全身。LCEL 把流程**声明式**描述:链的定义即文档,组件可独立替换测试(换个模型只改链的一环)。\n\n### 操作\n1. 组装 prompt | model | StrOutputParser 链\n2. invoke 传变量,打印最终字符串输出\n3. 把 model 换成另一个配置,验证只改一环",
+      "starterCode": "from langchain_community.document_loaders import TextLoader\n\n# 创建 TextLoader 实例，加载 'sample.txt'\nloader = None\n\n# 调用 load 方法\ndocuments = None\n\n# 打印结果\nprint(f\"文档数量: {len(documents)}\")\nprint(f\"第一个文档内容前100字符: {documents[0].page_content[:100]}\")",
+      "solutionCode": "from langchain_community.document_loaders import TextLoader\n\nloader = TextLoader('sample.txt')\ndocuments = loader.load()\n\nprint(f\"文档数量: {len(documents)}\")\nprint(f\"第一个文档内容前100字符: {documents[0].page_content[:100]}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "TextLoader 的构造函数需要文件路径作为参数。"
+        },
+        {
+          "order": 2,
+          "text": "调用 loader.load() 返回一个 Document 列表。"
+        },
+        {
+          "order": 3,
+          "text": "确保文件路径正确，并且文件存在。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "TextLoader 基本用法",
+          "language": "python",
+          "code": "from langchain_community.document_loaders import TextLoader\nloader = TextLoader('myfile.txt')\ndocs = loader.load()\nprint(docs[0].page_content[:50])"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Document",
+          "definition": "LangChain 中表示文档的数据结构，包含文本内容和元数据。"
+        },
+        {
+          "name": "TextLoader",
+          "definition": "用于从文本文件加载文档的加载器。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain_community",
+          "role": "文档加载器",
+          "description": "提供 TextLoader 等社区贡献的组件。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/document_loaders/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换所有 TODO 占位符",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 '文档数量: 1'",
+          "text": "文档数量: 1",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t15-langchain-rag-basics-s2",
+      "taskId": "t15-langchain-rag-basics",
+      "order": 2,
+      "title": "将文档分割成块",
+      "instruction": "### 目标\n理解 RAG 的完整链路:检索器接入管道,让模型\"看着资料回答\"。\n\n### 背景: RAG 解决幻觉的核心思路\nLLM 的知识停在训练截止日,还会一本正经地编。RAG 的思路:**不让模型凭记忆答,给它看资料再答**:\n```\n用户问题 → 检索器找相关文档 → 文档+问题拼进提示词 → 模型基于资料回答\n```\n关键在提示词里加约束:\"**只根据给定资料回答,资料没有就说不知道**\"——这句话是防幻觉的命门。\n\n### LCEL 里的检索器接入\n```python\nchain = {\"context\": retriever, \"question\": RunnablePassthrough()} | prompt | model | parser\n```\ndict 的每个值并行执行:retriever 拿问题查文档填 context,原问题透传到 question。\n\n### 操作\n1. 造 3-5 条模拟文档,实现最简检索器(关键词匹配)\n2. 组装带 context 的 RAG 链\n3. 问资料里有的问题 vs 没有的问题,观察\"不知道\"是否生效",
+      "starterCode": "from langchain.text_splitter import RecursiveCharacterTextSplitter\n\n# 假设 documents 已从上一题加载\n# documents = [Document(page_content='...')]\n\n# 创建 RecursiveCharacterTextSplitter 实例，chunk_size=100, chunk_overlap=20\nsplitter = None\n\n# 分割文档\ndocs = None\n\n# 打印结果\nprint(f\"分割后文档块数量: {len(docs)}\")\nfor i, doc in enumerate(docs):\n    print(f\"块 {i}: {doc.page_content}\")",
+      "solutionCode": "from langchain.text_splitter import RecursiveCharacterTextSplitter\n\nsplitter = RecursiveCharacterTextSplitter(chunk_size=100, chunk_overlap=20)\ndocs = splitter.split_documents(documents)\n\nprint(f\"分割后文档块数量: {len(docs)}\")\nfor i, doc in enumerate(docs):\n    print(f\"块 {i}: {doc.page_content}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "RecursiveCharacterTextSplitter 的构造函数接受 chunk_size 和 chunk_overlap 参数。"
+        },
+        {
+          "order": 2,
+          "text": "split_documents 方法接收一个 Document 列表，返回分割后的 Document 列表。"
+        },
+        {
+          "order": 3,
+          "text": "确保 chunk_size 足够小以产生多个块。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "RecursiveCharacterTextSplitter 示例",
+          "language": "python",
+          "code": "from langchain.text_splitter import RecursiveCharacterTextSplitter\nsplitter = RecursiveCharacterTextSplitter(chunk_size=50, chunk_overlap=10)\nchunks = splitter.split_text(\"这是一段很长的文本...\")\nprint(len(chunks))"
+        }
+      ],
+      "terms": [
+        {
+          "name": "文本分割器",
+          "definition": "将长文本切分成较小块的组件。"
+        },
+        {
+          "name": "chunk_size",
+          "definition": "每个块的最大字符数。"
+        },
+        {
+          "name": "chunk_overlap",
+          "definition": "块之间重叠的字符数。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "文本分割器",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 RecursiveCharacterTextSplitter 等分割工具。",
+          "officialUrl": "https://python.langchain.com/docs/modules/data_connection/document_transformers/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换所有 TODO 占位符",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 '分割后文档块数量'",
+          "text": "分割后文档块数量",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t15-langchain-rag-basics-s3",
+      "taskId": "t15-langchain-rag-basics",
+      "order": 3,
+      "title": "创建向量存储并嵌入文档",
+      "instruction": "### 目标\n给 RAG 链加**来源标注**:回答里注明引用了哪些文档,可验证、防幻觉。\n\n### 背景: 为什么引用是 RAG 的刚需\n没有引用的 RAG 回答,用户无法判断是\"真从资料里查的\"还是\"模型自己编的\"。引用机制:\n1. 检索时保留文档元数据(source/page)\n2. 提示词要求模型标注 [1][2]\n3. 后处理把标记映射回真实文档\n\n**企业级 RAG 的验收标准**往往就一条:引用准确率。医疗/法律场景,标错引用比不回答更严重。\n\n### 操作\n1. 文档带编号注入 context\n2. 提示词要求\"引用处标注 [编号]\"\n3. 解析输出,把 [编号] 替换成真实文档名",
+      "starterCode": "from langchain_community.vectorstores import FAISS\nfrom langchain_community.embeddings import FakeEmbeddings\n\n# 假设 docs 是上一题分割后的文档列表\n# docs = [...]\n\n# 创建 FakeEmbeddings 实例，size=10\nembeddings = None\n\n# 从文档创建 FAISS 向量存储\ndb = None\n\n# 打印结果\nprint(f\"向量存储中的文档数量: {db.index.ntotal}\")",
+      "solutionCode": "from langchain_community.vectorstores import FAISS\nfrom langchain_community.embeddings import FakeEmbeddings\n\nembeddings = FakeEmbeddings(size=10)\ndb = FAISS.from_documents(docs, embeddings)\n\nprint(f\"向量存储中的文档数量: {db.index.ntotal}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "FakeEmbeddings 需要 size 参数指定向量维度。"
+        },
+        {
+          "order": 2,
+          "text": "FAISS.from_documents 接受文档列表和嵌入模型。"
+        },
+        {
+          "order": 3,
+          "text": "db.index.ntotal 返回向量数量。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "FAISS 向量存储创建",
+          "language": "python",
+          "code": "from langchain_community.vectorstores import FAISS\nfrom langchain_community.embeddings import FakeEmbeddings\nembeddings = FakeEmbeddings(size=10)\ndb = FAISS.from_documents(docs, embeddings)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "FAISS",
+          "definition": "Facebook AI 相似性搜索库，用于高效向量检索。"
+        },
+        {
+          "name": "嵌入",
+          "definition": "将文本转换为固定维度的向量表示。"
+        },
+        {
+          "name": "向量存储",
+          "definition": "存储向量并支持相似性搜索的数据库。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain_community",
+          "role": "向量存储和嵌入",
+          "description": "提供 FAISS 和 FakeEmbeddings。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/vectorstores/faiss/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换所有 TODO 占位符",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 '向量存储中的文档数量'",
+          "text": "向量存储中的文档数量",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t15-langchain-rag-basics-s4",
+      "taskId": "t15-langchain-rag-basics",
+      "order": 4,
+      "title": "构建检索问答链并回答查询",
+      "instruction": "## 目标\n学习使用 RetrievalQA 链将检索与生成结合，回答用户问题。\n\n## 概念\n- **RetrievalQA**: 从向量存储检索相关文档，然后使用 LLM 生成答案。\n- **LLM**: 语言模型，这里用模拟的 `FakeLLM`。\n- **chain**: 将多个组件串联起来的管道。\n\n## 操作\n1. 创建 `FakeLLM` 实例（模拟生成）。\n2. 使用 `RetrievalQA.from_chain_type` 构建链，指定 llm 和 retriever。\n3. 调用 `run` 方法查询“什么是 LangChain?”。\n4. 打印答案。\n\n为什么：RetrievalQA 是 RAG 的典型实现，展示了检索增强生成的全流程。",
+      "starterCode": "from langchain.chains import RetrievalQA\nfrom langchain_community.llms import FakeLLM\n\n# 假设 db 是上一题创建的向量存储\n# db = FAISS(...)\n\n# 创建 FakeLLM 实例\nllm = None\n\n# 创建 RetrievalQA 链，使用 'stuff' 类型\nqa_chain = None\n\n# 运行查询\nquery = \"什么是 LangChain?\"\nanswer = None\n\nprint(f\"问题: {query}\")\nprint(f\"答案: {answer}\")",
+      "solutionCode": "from langchain.chains import RetrievalQA\nfrom langchain_community.llms import FakeLLM\n\nllm = FakeLLM()\nqa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever(), chain_type=\"stuff\")\nquery = \"什么是 LangChain?\"\nanswer = qa_chain.run(query)\n\nprint(f\"问题: {query}\")\nprint(f\"答案: {answer}\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "FakeLLM 不需要参数。"
+        },
+        {
+          "order": 2,
+          "text": "RetrievalQA.from_chain_type 需要 llm、retriever 和 chain_type 参数。"
+        },
+        {
+          "order": 3,
+          "text": "使用 db.as_retriever() 获取检索器。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "RetrievalQA 基本用法",
+          "language": "python",
+          "code": "from langchain.chains import RetrievalQA\nfrom langchain_community.llms import FakeLLM\nllm = FakeLLM()\nqa = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())\nanswer = qa.run(\"你的问题\")"
+        }
+      ],
+      "terms": [
+        {
+          "name": "RetrievalQA",
+          "definition": "检索增强问答链，结合检索和生成。"
+        },
+        {
+          "name": "LLM",
+          "definition": "大语言模型，用于生成答案。"
+        },
+        {
+          "name": "Chain",
+          "definition": "LangChain 中的组件管道。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "链构建",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 RetrievalQA 链。",
+          "officialUrl": "https://python.langchain.com/docs/modules/chains/popular/vector_db_qa/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        },
+        {
+          "name": "langchain_community",
+          "role": "模拟 LLM",
+          "description": "提供 FakeLLM 用于测试。",
+          "officialUrl": "https://python.langchain.com/docs/integrations/llms/fake/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换所有 TODO 占位符",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 '答案:'",
+          "text": "答案:",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

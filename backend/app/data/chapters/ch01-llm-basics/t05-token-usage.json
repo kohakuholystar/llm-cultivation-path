@@ -1,0 +1,227 @@
+{
+  "steps": [
+    {
+      "id": "t05-token-usage-s1",
+      "taskId": "t05-token-usage",
+      "order": 1,
+      "title": "认识 Token 与 tiktoken",
+      "instruction": "### 目标\n理解 token 是什么,学会用 tiktoken 计算文本的 token 数。\n\n### 背景: token 是 LLM 世界的\"字节\"\n模型不按字也不按词处理文本,按 **token**(子词单元):\n- 英文:常见词整词 1 token(\"hello\"=1),罕见词拆开(\"unbelievable\"≈3)\n- 中文:大多 1 字 1 token,常用词组可合并\n- 标点、数字、空格都占 token\n\n**为什么必须懂 token**:API 按 token 计费、上下文窗口按 token 算、生成速度按 token/秒衡量——token 是成本/容量/性能的共同货币。\n\n### tiktoken 使用\n```python\nimport tiktoken\nenc = tiktoken.get_encoding(\"cl100k_base\")  # GPT-4 系\nids = enc.encode(\"文本\")      # 文本 → token id 列表\nlen(ids)                       # token 数\n```\n国产模型各有私有词表(不公开),工程上用 cl100k_base 估算再留 20% 余量。\n\n### 操作\n1. 加载编码器,分别统计中文/英文/代码的 token 数\n2. 同一段中文和它的英文翻译对比 token 数(感受中文的\"token 溢价\")",
+      "starterCode": "import tiktoken\n\n# 获取 deepseek-v4-pro 编码器\nencoding = tiktoken.encoding_for_model(\"deepseek-v4-pro\")\n\ntext = \"Hello, world! Token counting is important.\"\n\n# TODO: 计算文本的 token 数并打印\n# 提示：使用 encoding.encode(text)，然后用 len() 获取数量\n",
+      "solutionCode": "import tiktoken\n\nencoding = tiktoken.encoding_for_model(\"deepseek-v4-pro\")\n\ntext = \"Hello, world! Token counting is important.\"\n\ntokens = encoding.encode(text)\nnum_tokens = len(tokens)\nprint(f\"Token count: {num_tokens}\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "tiktoken 的编码器有个 encode 方法，返回一个列表。"
+        },
+        {
+          "order": 2,
+          "text": "用 len() 获取列表长度就是 token 数。"
+        },
+        {
+          "order": 3,
+          "text": "把 encode 结果赋值给一个变量，再计算长度。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "tiktoken 基本用法",
+          "language": "python",
+          "code": "import tiktoken\nenc = tiktoken.encoding_for_model(\"deepseek-v4-pro\")\nprint(len(enc.encode(\"Hello\")))  # 输出 1"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Token",
+          "definition": "LLM 处理文本的最小单位，可以是单词、子词或字符。",
+          "referenceUrl": "https://platform.openai.com/tokenizer"
+        },
+        {
+          "name": "tiktoken",
+          "definition": "OpenAI 开源的快速分词库，用于计算 token 数量。",
+          "referenceUrl": "https://github.com/openai/tiktoken"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "分词工具",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于将文本转换为 token 列表，支持多种 OpenAI 模型。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为你的代码。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 Token count: 字样。",
+          "text": "Token count:",
+          "caseSensitive": false,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应使用 encoding.encode 方法。",
+          "pattern": "encoding\\.encode",
+          "flags": "",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t05-token-usage-s2",
+      "taskId": "t05-token-usage",
+      "order": 2,
+      "title": "模拟 API 响应与 usage 字段",
+      "instruction": "### 目标\n从 API 响应里读取真实的 token 用量,建立\"调用一次花多少 token\"的直觉。\n\n### 背景: usage 字段\n每次调用的响应都带:\n```python\nresponse.usage.prompt_tokens      # 输入花了多少\nresponse.usage.completion_tokens  # 输出花了多少\nresponse.usage.total_tokens       # 合计\n```\n**这是计费的真实依据**(你不用自己数)。成本 = prompt_tokens×输入单价 + completion_tokens×输出单价。\n\n### 成本敏感意识\n- 输出 token 通常比输入贵 2-4 倍 → 让模型简洁 = 直接省钱\n- system prompt 每次调用都算输入 token → 啰嗦的 system 每轮都在烧钱\n- 多轮对话历史累积 → 第 10 轮的输入可能已经是第 1 轮的 10 倍(第 5 章会学截断)\n\n### 操作\n1. 发一个短问题,打印 usage 三个字段\n2. 用 usage 和单价表算出这次调用的人民币成本\n3. 再问一个长问题对比,感受输入长度对成本的影响",
+      "starterCode": "# 模拟 API 响应\nmock_response = {\n    \"id\": \"chatcmpl-123\",\n    \"usage\": {\n        \"prompt_tokens\": 50,\n        \"completion_tokens\": 100,\n        \"total_tokens\": 150\n    },\n    \"choices\": [{\"message\": {\"content\": \"Hello!\"}}]\n}\n\n# TODO: 从 mock_response 中提取 total_tokens 并打印\n# 提示: print(f\"Total tokens used: {total_tokens}\")\n# TODO: 计算成本（每1000 tokens 0.03美元）并打印，保留4位小数\n# 提示: print(f\"Total tokens used: {total_tokens}\")\n",
+      "solutionCode": "mock_response = {\n    \"id\": \"chatcmpl-123\",\n    \"usage\": {\n        \"prompt_tokens\": 50,\n        \"completion_tokens\": 100,\n        \"total_tokens\": 150\n    },\n    \"choices\": [{\"message\": {\"content\": \"Hello!\"}}]\n}\n\ntotal_tokens = mock_response[\"usage\"][\"total_tokens\"]\nprint(f\"Total tokens used: {total_tokens}\")\n\ncost_per_1000 = 0.03\ncost = (total_tokens / 1000) * cost_per_1000\nprint(f\"Estimated cost: ${cost:.4f}\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "usage 字段在 mock_response 字典中，键是 \"usage\"。"
+        },
+        {
+          "order": 2,
+          "text": "total_tokens 在 usage 字典中，用键 \"total_tokens\" 获取。"
+        },
+        {
+          "order": 3,
+          "text": "成本 = total_tokens / 1000 * 0.03。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "提取 usage 示例",
+          "language": "python",
+          "code": "response = {\"usage\": {\"total_tokens\": 100}}\nprint(response[\"usage\"][\"total_tokens\"])  # 100"
+        }
+      ],
+      "terms": [
+        {
+          "name": "prompt_tokens",
+          "definition": "输入提示部分消耗的 token 数。",
+          "referenceUrl": "https://platform.openai.com/docs/api-reference/completions/object"
+        },
+        {
+          "name": "completion_tokens",
+          "definition": "模型生成回答部分消耗的 token 数。"
+        },
+        {
+          "name": "total_tokens",
+          "definition": "总 token 数，等于 prompt_tokens + completion_tokens。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python dict",
+          "role": "数据结构",
+          "description": "用于模拟 API 响应，练习字典操作。",
+          "officialUrl": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 'Total tokens used:' 字样。",
+          "text": "Total tokens used:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 'Estimated cost:' 字样。",
+          "text": "Estimated cost:",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t05-token-usage-s3",
+      "taskId": "t05-token-usage",
+      "order": 3,
+      "title": "综合实践：Token 预算与成本预估",
+      "instruction": "### 目标\n实现一个**用量追踪器**:累计多次调用的 token 与成本,超预算报警。\n\n### 背景: 为什么用量要实时追踪\nAgent 应用最大的财务事故都长一个样:代码 bug 导致循环调用,一夜烧掉几千刀。**防线是实时累计 + 硬预算**:\n1. 每次调用后立即累加 usage\n2. 累计超预算 → 抛异常/熔断,停止后续调用\n3. 按会话/用户分桶统计,能定位\"哪个功能在烧钱\"\n\n### 生产实践\n- 预算分两级:软预算(报警)和硬预算(熔断)\n- 记录每次调用的 model+tokens+成本到日志,事后能审计\n- OpenAI/DeepSeek 后台都能设账户级月度限额——**平台兜底 + 应用自控,双保险**\n\n### 操作\n1. 实现 `UsageTracker`:record(usage) 累计,report() 输出汇总\n2. 设预算阈值,超出时 raise\n3. 模拟 3 次调用(可 mock usage),验证追踪与熔断",
+      "starterCode": "import tiktoken\n\ndef estimate_cost(prompt: str, max_tokens: int, model: str = \"deepseek-v4-pro\") -> dict:\n    \"\"\"\n    预估 API 调用的 token 消耗和成本。\n    \n    参数:\n        prompt: 提示文本\n        max_tokens: 最大生成 token 数\n        model: 模型名称，默认 deepseek-v4-pro\n    \n    返回:\n        包含 prompt_tokens, completion_tokens, total_tokens, cost 的字典\n    \"\"\"\n    # TODO: 获取模型编码器\n# 提示: encoding = tiktoken.encoding_for_model(model)\n    # TODO: 计算 prompt 的 token 数\n# 提示: encoding = tiktoken.encoding_for_model(model)\n    # TODO: 假设 completion_tokens = max_tokens，计算总 token 数和成本\n# 提示: encoding = tiktoken.encoding_for_model(model)\n    # TODO: 返回字典\n# 提示: encoding = tiktoken.encoding_for_model(model)\n    pass\n\n# 测试\nresult = estimate_cost(\"Hello, how are you?\", 100)\nprint(result)\n",
+      "solutionCode": "import tiktoken\n\ndef estimate_cost(prompt: str, max_tokens: int, model: str = \"deepseek-v4-pro\") -> dict:\n    encoding = tiktoken.encoding_for_model(model)\n    prompt_tokens = len(encoding.encode(prompt))\n    completion_tokens = max_tokens\n    total_tokens = prompt_tokens + completion_tokens\n    cost_per_1000 = 0.03\n    cost = (total_tokens / 1000) * cost_per_1000\n    return {\n        \"prompt_tokens\": prompt_tokens,\n        \"completion_tokens\": completion_tokens,\n        \"total_tokens\": total_tokens,\n        \"cost\": round(cost, 6)\n    }\n\nresult = estimate_cost(\"Hello, how are you?\", 100)\nprint(result)\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "先获取编码器，然后计算 prompt 的 token 数。"
+        },
+        {
+          "order": 2,
+          "text": "completion_tokens 直接取 max_tokens 参数。"
+        },
+        {
+          "order": 3,
+          "text": "总 token 数 = prompt_tokens + completion_tokens，成本 = total_tokens / 1000 * 0.03。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "tiktoken 计算 prompt 示例",
+          "language": "python",
+          "code": "prompt = \"Translate this\"\nenc = tiktoken.encoding_for_model(\"deepseek-v4-pro\")\nprompt_tokens = len(enc.encode(prompt))\nprint(prompt_tokens)  # 2"
+        }
+      ],
+      "terms": [
+        {
+          "name": "max_tokens",
+          "definition": "API 参数，限制模型生成的最大 token 数。",
+          "referenceUrl": "https://platform.openai.com/docs/api-reference/chat/create#chat/create-max_tokens"
+        },
+        {
+          "name": "成本控制",
+          "definition": "通过估算 token 消耗来管理 API 调用费用的实践。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "tiktoken",
+          "role": "分词工具",
+          "description": "OpenAI 开源的快速 token 分词器,能把文本切成模型识别的 token 并计数。用于计算 prompt 的 token 数。",
+          "officialUrl": "https://github.com/openai/tiktoken",
+          "category": "工具库",
+          "installHint": "pip install tiktoken"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符。",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应定义一个名为 estimate_cost 的函数。",
+          "astType": "function_def",
+          "name": "estimate_cost",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 'prompt_tokens' 字段。",
+          "text": "prompt_tokens",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含 'total_tokens' 字段。",
+          "text": "total_tokens",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,571 @@
+{
+  "steps": [
+    {
+      "id": "t73-docker-deploy-s1",
+      "taskId": "t73-docker-deploy",
+      "order": 1,
+      "title": "FastAPI 服务封装:源码审计先行",
+      "instruction": "### 目标\n\n毕业设计的最后冲刺:把前几关打磨好的 Agent 应用,封装成一个能对外提供 HTTP 服务的 FastAPI 应用。本步先产出服务的完整源码 main.py,再用 Python 的 ast 模块做一次「源码审计」——在不安装 fastapi 的情况下,也能解析服务结构、盘点路由清单,为后续镜像封装打好地基。\n\n### 原理\n\nHTTP 服务的最小形态是三件套:路由(URL 到处理函数的映射)、请求模型(入参契约)、应用对象(FastAPI 实例)。我们把这段代码当作「文本」来生产与审计:ast.parse 把源码文本变成语法树,ast.walk 深度遍历每个节点;带路由装饰器的函数节点,其 decorator_list 里躺着形如 app.get 的 ast.Call 节点,它的 func.attr 是 HTTP 方法,args[0].value 是路径。这样解析,不需要 fastapi 真正被 import——语法结构是纯文本事实,审计因此又快又稳。\n\n### 操作\n\n1. 通读已给出的 SERVICE_PY:确认 /health 与 /api/chat 两条路由、ChatRequest 请求模型与 uvicorn 启动入口;\n2. 补全 audit_service:用 ast.walk 遍历语法树,只关注函数节点;\n3. 在函数节点的 decorator_list 里识别路由装饰器:是 ast.Call 且 func 是 ast.Attribute 才算;\n4. 取方法名(func.attr)与路径(第一个位置参数),组装成路由字典并追加到 routes;\n5. 运行 main():应看到 GET /health 与 POST /api/chat 两条路由被盘点出来。\n\n### 常见坑\n\n- 装饰器也可能是 ast.Name(普通装饰器),必须同时校验 ast.Call 与 ast.Attribute,否则会把普通装饰器误认成路由;\n- dec.args 为空时(装饰器没有位置参数)要兜底用问号,否则 IndexError 会直接炸掉审计;\n- 先写文本、后审计的顺序别颠倒:审计永远发生在「代码尚未被执行」时,这正是把校验前置到部署前的底气。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:审计的本质是「解析结构,不看执行」;ast.parse 拿到语法树,再用 ast.walk 遍历所有节点找带路由装饰器的函数。"
+        },
+        {
+          "order": 2,
+          "text": "关键结构:装饰器在 node.decorator_list 里;形如 app.get 的装饰器是 ast.Call,其 func 是 ast.Attribute,attr 就是 HTTP 方法名。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:path = dec.args[0].value(无参时兜底为问号);routes.append({\"method\": method.upper(), \"path\": path, \"func\": node.name})。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "用 AST 盘点路由",
+          "language": "python",
+          "code": "tree = ast.parse(source)\nroutes = []\nfor node in ast.walk(tree):\n    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):\n        for dec in node.decorator_list:          # 如 @app.get(\"/health\")\n            if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute):\n                print(dec.func.attr, dec.args[0].value)   # get /health",
+          "description": "装饰器在语法树里是 Call 节点,func 是 Attribute——方法名与路径一眼看清,且无需安装 fastapi。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "FastAPI 路由",
+          "definition": "URL 路径到处理函数的映射,用 @app.get / @app.post 等装饰器声明;路由清单是服务能力的第一份体检报告。"
+        },
+        {
+          "name": "源码审计(AST)",
+          "definition": "用语法树解析而非执行代码来检查结构的技术;适合在部署前对不可执行的目标(如未安装依赖的源码)做静态校验。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "FastAPI",
+          "role": "Web 服务框架",
+          "description": "现代 Python Web 框架,用类型注解自动生成 OpenAPI 文档;本任务以「源码文本 + AST 审计」方式学习,不实际安装。",
+          "officialUrl": "https://fastapi.tiangolo.com",
+          "category": "Web 框架",
+          "installHint": "pip install fastapi uvicorn"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "LLM 服务",
+          "description": "本课程统一使用的模型服务,部署时密钥经环境变量注入。",
+          "officialUrl": "https://platform.deepseek.com",
+          "category": "LLM 服务",
+          "installHint": "在平台创建 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成,请补全 audit_service 的路由盘点。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请保留并实现 audit_service 审计函数。",
+          "astType": "function_def",
+          "name": "audit_service",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要通过 ast.parse 解析服务源码。",
+          "astType": "call",
+          "name": "ast.parse",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "服务源码必须包含 /health 存活路由。",
+          "pattern": "@app\\.get\\(\"/health\"\\)",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "审计应盘点出 GET /health 与 POST /api/chat 两条路由。",
+          "expectedStdout": "GET[\\s\\S]*/health[\\s\\S]*POST[\\s\\S]*/api/chat[\\s\\S]*共发现 2 条路由",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t73-docker-deploy-s2",
+      "taskId": "t73-docker-deploy",
+      "order": 2,
+      "title": "Dockerfile 编写:镜像说明书",
+      "instruction": "### 目标\n\n把 s1 的服务源码装进标准 Docker 镜像:写出 Dockerfile 文本,再用脚本逐行审计必备指令,确保这份「镜像说明书」在 docker build 时不会缺胳膊少腿。交付物是 main.py 与 Dockerfile 两份文件。\n\n### 原理\n\nDockerfile 是一份声明式说明书:FROM 定基础镜像、WORKDIR 定工作目录、COPY 送文件、RUN 跑命令、EXPOSE 开端口、CMD 定启动命令。它没有现成的语法解析器,但指令顺序本身有强约定——FROM 必须是第一条非注释指令。审计的策略是「逐行扫描 + 清单核对」:先滤掉空行与注释,再拿着必备指令清单逐一比对。指令顺序还藏着性能哲学:经常变的内容(代码)放在后面 COPY,不常变的(依赖清单)放前面,镜像层缓存才能被吃满,改代码时不必重装依赖。\n\n### 操作\n\n1. 复用 s1 的 SERVICE_PY 与 write_service,先把 main.py 写出来;\n2. 通读 DOCKERFILE:确认 FROM/WORKDIR/COPY/RUN/EXPOSE/CMD 六件套齐备;\n3. 补全 audit_dockerfile:滤掉空行与注释后,校验第一行必须是 FROM;\n4. 遍历 REQUIRED_DIRECTIVES,把缺失的指令名与原因写进 problems;\n5. 运行 main():审计通过时应看到「全部合格」与镜像层缓存的体积贴士。\n\n### 常见坑\n\n- 注释行(井号开头)会被 startswith 判断误伤,必须先过滤再检查第一行;\n- 校验指令要用 startswith 而非「文本里出现」,否则 RUN echo FROM 之类的内容会骗过审计;\n- COPY 顺序是玄学也是科学:依赖清单先行、代码殿后,层缓存命中率天差地别。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:审计 = 逐行看指令;先用列表推导滤掉空行与注释,再逐条核对必需指令是否齐全。"
+        },
+        {
+          "order": 2,
+          "text": "关键结构:lines[0] 必须是 FROM;REQUIRED_DIRECTIVES 的键就是指令名,用 any(ln.startswith(d) for ln in lines) 判断是否存在。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:for directive, why in REQUIRED_DIRECTIVES.items(): if not any(...): problems.append(f\"缺少 {directive} 指令({why})\")。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "镜像层缓存:顺序即性能",
+          "language": "text",
+          "code": "# 先 COPY 依赖清单(很少变)\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n# 再 COPY 代码(经常变)\nCOPY . .\n# 依赖层命中缓存,改代码不用重装依赖",
+          "description": "指令顺序决定 docker build 的缓存命中率:把易变的代码放最后。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Dockerfile",
+          "definition": "描述镜像构建步骤的声明式文本文件,由 FROM/COPY/RUN/CMD 等指令组成,是 docker build 的输入。"
+        },
+        {
+          "name": "镜像层缓存",
+          "definition": "Docker 按指令逐层构建并缓存;某层不变则直接复用,合理排序指令可显著加速迭代构建。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Docker",
+          "role": "容器化平台",
+          "description": "把应用连同依赖打包成可移植镜像;本步用 Dockerfile 声明构建过程。",
+          "officialUrl": "https://www.docker.com",
+          "category": "部署工具",
+          "installHint": "https://docs.docker.com/engine/install/"
+        },
+        {
+          "name": "FastAPI",
+          "role": "Web 服务框架",
+          "description": "被装进镜像的服务本体;镜像启动后由 uvicorn 拉起 main:app。",
+          "officialUrl": "https://fastapi.tiangolo.com",
+          "category": "Web 框架",
+          "installHint": "pip install fastapi uvicorn"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成,请补全 audit_dockerfile 的指令核对。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请保留并实现 audit_dockerfile 审计函数。",
+          "astType": "function_def",
+          "name": "audit_dockerfile",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "Dockerfile 必须包含 uvicorn 启动命令。",
+          "pattern": "CMD \\[\"uvicorn\"",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "审计应由 REQUIRED_DIRECTIVES 指令清单驱动。",
+          "pattern": "REQUIRED_DIRECTIVES",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "Dockerfile 审计应全部合格并给出层缓存贴士。",
+          "expectedStdout": "全部合格:基础镜像[\\s\\S]*层缓存",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t73-docker-deploy-s3",
+      "taskId": "t73-docker-deploy",
+      "order": 3,
+      "title": "docker-compose 编排:一键拉起",
+      "instruction": "### 目标\n\n从「一个镜像」升级到「一套服务」:用 docker-compose 把服务编排起来——构建、端口、密钥注入、健康检查一条龙。写出 docker-compose.yml 文本,再用 yaml 解析审计,确保编排器能一口吃掉,一条命令拉起整个服务。\n\n### 原理\n\ncompose 文件的核心是一个嵌套字典:顶层 services 是服务表,每个服务用 build(从哪构建镜像)、ports(端口映射)、environment(环境变量注入)、healthcheck(容器级探针)四个字段描述。yaml.safe_load 把它变成 Python 字典,校验就退化成「在嵌套字典里找键」:app 存在吗?端口映射对吗?密钥注入声明了吗?健康检查声明了吗?密钥之所以写成双引号包裹的 \"${VAR:?...}\" 语法,是因为 Docker Compose 会在部署时用 .env 文件填充变量——配置与代码就此彻底分离,同一份 compose 文件可以在不同环境原样复用。\n\n### 操作\n\n1. 复用 s1 的 SERVICE_PY / write_service 与 s2 的 DOCKERFILE,补齐三份交付物;\n2. 通读 COMPOSE:关注 build、ports、environment、healthcheck 四个字段;\n3. 补全 audit_compose:先 yaml.safe_load,解析失败要返回明确的错误文案;\n4. 依次校验 app 服务存在、build 指令存在、端口映射为 8000:8000、密钥注入与健康检查齐备;\n5. 运行 main():审计通过时应看到「全部合格」与一键拉起命令。\n\n### 常见坑\n\n- yaml.safe_load 解析失败会抛异常,必须用 try/except 包住,把解析错误变成审计报告里的问题项;\n- environment 的值与端口列表都要写成字符串/带引号,否则会被 YAML 当成数字或特殊结构解析错乱;\n- 健康检查用 python 探活而不是 curl——基础镜像里往往没有 curl,探针会静默失败。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:先 yaml.safe_load 拿到嵌套字典,再逐项校验 services/build/ports/environment/healthcheck。"
+        },
+        {
+          "order": 2,
+          "text": "关键结构:data.get(\"services\") 取服务表;app.get(\"ports\") 与 [\"8000:8000\"] 比对;environment 按字典判键。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:四个 if 依次把问题 append 进 problems,最后 return problems;解析失败分支 return [f\"compose 无法解析: {exc}\"]。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "可编排的最小服务声明",
+          "language": "text",
+          "code": "services:\n  app:\n    build: .\n    ports:\n      - \"8000:8000\"\n    environment:\n      DEEPSEEK_API_KEY: \"${DEEPSEEK_API_KEY:?请在 .env 中配置}\"\n    healthcheck:\n      test: [\"CMD\", \"python\", \"-c\", \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\"]",
+          "description": "服务、端口、密钥注入、健康检查四条声明,就是一套可编排的最小服务。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Docker Compose",
+          "definition": "用一份 YAML 声明多容器服务的构建、网络、端口、环境与健康检查,配合 docker compose 命令一键编排。"
+        },
+        {
+          "name": "环境变量注入",
+          "definition": "把配置(尤其密钥)通过 environment 字段在部署时注入容器,让配置与镜像解耦的机制。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Docker Compose",
+          "role": "容器编排工具",
+          "description": "用一份 YAML 声明服务栈的构建、端口、环境与健康检查,一条命令拉起全部服务。",
+          "officialUrl": "https://docs.docker.com/compose/",
+          "category": "编排工具",
+          "installHint": "docker compose 随 Docker Desktop 附带"
+        },
+        {
+          "name": "Docker",
+          "role": "容器化平台",
+          "description": "compose 的 build 段负责把 Dockerfile 构建为镜像。",
+          "officialUrl": "https://www.docker.com",
+          "category": "部署工具",
+          "installHint": "https://docs.docker.com/engine/install/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成,请补全 audit_compose 的四项校验。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请保留并实现 audit_compose 审计函数。",
+          "astType": "function_def",
+          "name": "audit_compose",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要通过 yaml.safe_load 解析 compose 文本。",
+          "astType": "call",
+          "name": "yaml.safe_load",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "compose 必须声明 DEEPSEEK_API_KEY 注入。",
+          "pattern": "DEEPSEEK_API_KEY",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "compose 审计应全部合格并给出一键拉起命令。",
+          "expectedStdout": "全部合格:服务、端口、密钥注入、健康检查一应俱全[\\s\\S]*docker compose up -d --build",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t73-docker-deploy-s4",
+      "taskId": "t73-docker-deploy",
+      "order": 4,
+      "title": "健康检查:从存活到就绪",
+      "instruction": "### 目标\n\n让「健康检查」从口号变成代码:先看 compose 里声明的容器级探针,再实现应用级探针——读取服务上报的状态快照,按存活(liveness)与就绪(readiness)两组规则逐项判定,最终给出 200 放行还是 503 拦流的裁决。\n\n### 原理\n\n健康检查分两层,职责截然不同:liveness 回答「进程还活着吗」,由编排器据此决定是否重启容器;readiness 回答「能接流量吗」,由负载均衡据此决定是否分发请求。进程活着只是及格线,依赖(RAG 索引、Embedding、LLM)全部就绪才算优秀。实现上,规则被建模成「名称 + 判定函数 + 失败原因」的三元组,检查函数把两组规则依次跑一遍,任何一条不通过,整体就是不健康——这正是 /health 接口与容器探针背后共享的同一套逻辑。\n\n### 操作\n\n1. 通读已给出的 STATUS_SAMPLE 状态快照与两组规则;\n2. 补全 check_health:遍历 LIVENESS_RULES 与 READINESS_RULES 逐项执行;\n3. 每条规则把通过与否连同名称、原因组装成明细字典;\n4. 返回 (全部通过与否, 明细列表);\n5. 运行 main():应看到存活规则全过、LLM 可连通未过,最终裁决返回 HTTP 503。\n\n### 常见坑\n\n- 规则函数的返回值要显式 bool() 归一化,否则「非空字符串」之类的返回值会把判定逻辑搅浑;\n- liveness 与 readiness 绝不能共用一张规则表:决定重启的是进程,决定分发的是服务,决策者不同;\n- 状态快照的字段缺失要用 get 兜底,别让探针自己先炸——探针是最后一道防线,必须比服务更稳。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:健康 = 一组布尔规则;liveness 答「活着吗」,readiness 答「能接客吗」,两组规则都要过。"
+        },
+        {
+          "order": 2,
+          "text": "关键结构:每条规则是 (名称, 规则函数, 失败原因) 三元组;检查函数把它们逐项跑一遍并收集明细。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:for name, rule, reason in LIVENESS_RULES + READINESS_RULES: ok = bool(rule(status));details.append({...});return all(d[\"ok\"] for d in details), details。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "liveness 与 readiness 的分工",
+          "language": "python",
+          "code": "# liveness:活着吗?挂了就重启\n\"服务存活\": lambda s: s.get(\"status\") == \"ok\"\n# readiness:能接流量吗?没就绪就别分发\n\"RAG 索引就绪\": lambda s: s[\"deps\"][\"rag_index\"] == \"ready\"\n# 全部规则通过 -> HTTP 200;任一条不过 -> HTTP 503",
+          "description": "重启决策看 liveness,流量决策看 readiness,两层探针各司其职。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "存活探针(liveness)",
+          "definition": "判断进程是否存活的检查;失败由编排器触发重启,防止「僵尸进程占着资源不干活」。"
+        },
+        {
+          "name": "就绪探针(readiness)",
+          "definition": "判断服务是否准备好接收流量的检查;失败时负载均衡停止分发,等依赖就绪再放行。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "FastAPI",
+          "role": "Web 服务框架",
+          "description": "/health 路由是探针的落点,返回的 JSON 就是本步处理的状态快照来源。",
+          "officialUrl": "https://fastapi.tiangolo.com",
+          "category": "Web 框架",
+          "installHint": "pip install fastapi uvicorn"
+        },
+        {
+          "name": "Docker Compose",
+          "role": "容器编排工具",
+          "description": "healthcheck 段把探针声明进编排,实现容器级健康管理。",
+          "officialUrl": "https://docs.docker.com/compose/",
+          "category": "编排工具",
+          "installHint": "docker compose 随 Docker Desktop 附带"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成,请补全 check_health 的规则执行。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请保留并实现 check_health 检查函数。",
+          "astType": "function_def",
+          "name": "check_health",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "必须同时执行存活与就绪两组规则。",
+          "pattern": "LIVENESS_RULES \\+ READINESS_RULES",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "探针规则应采用 lambda 判定式驱动。",
+          "pattern": "lambda s:",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "存活规则应全过、LLM 可连通应未过,裁决为 503。",
+          "expectedStdout": "服务存活[\\s\\S]*LLM 可连通[\\s\\S]*503",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t73-docker-deploy-s5",
+      "taskId": "t73-docker-deploy",
+      "order": 5,
+      "title": "配置注入与密钥守卫",
+      "instruction": "### 目标\n\n给部署上最后一道保险:配置注入与密钥守卫。把所有可变项(监听地址、端口、模型名、密钥)收进环境变量,让配置彻底离开代码与镜像;并为密钥加一道守卫——缺 key 时给出引导文案优雅退出,而不是甩给学员一段堆栈 traceback。\n\n### 原理\n\n十二要素方法论的一条铁律是「配置不进镜像」:同一份镜像,靠环境变量在不同环境(开发/预发/生产)注入不同配置,才能做到「一次构建,多处运行」。compose 的 environment 里用 \"${VAR:?...}\" 声明变量来源,部署时由 .env 文件填充;代码侧则统一从 os.environ 读取并给默认值兜底。密钥守卫遵循同样的分级策略:演示模式(MOCK_LLM=1)不强制密钥,真实模式缺 key 就打印引导文案并 sys.exit(0) 优雅退出——把「环境未就绪」与「代码有 bug」两类问题干净地分开,学习者看到的永远是下一步该做什么。\n\n### 操作\n\n1. 通读模块顶部的密钥守卫:理解 MOCK 开关与优雅退出的分工;\n2. 复用 s3 的 COMPOSE 与 audit_compose,确认密钥注入声明;\n3. 补全 Config.from_env:从环境变量构造配置,全部带默认值;\n4. 留意 api_key 的读取顺序:先 OPENAI_API_KEY,为空再回退 DEEPSEEK_API_KEY;\n5. 运行 main():应看到配置注入检查、compose 环境注入审计与「密钥只走环境变量」的铁律提示。\n\n### 常见坑\n\n- PORT 这类数值型配置要用 int() 显式转换,否则字符串拼接出的监听地址会在运行时悄悄出错;\n- 密钥默认值必须是空字符串而非「占位假 key」,假 key 会让鉴权失败变得难以排查;\n- 真实模式的守卫放模块顶部、import 之后——任何代码都不该在密钥缺失时带着假配置往下跑。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:配置不进镜像 = 全部可变量从环境变量读、给默认值兜底;密钥单独上守卫。"
+        },
+        {
+          "order": 2,
+          "text": "关键结构:from_env 用 os.environ.get(key, default) 取值;PORT 用 int() 强转;api_key 先读 OPENAI_API_KEY 再回退 DEEPSEEK_API_KEY。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:return cls(host=os.environ.get(\"HOST\", \"0.0.0.0\"), port=int(os.environ.get(\"PORT\", \"8000\")), model_name=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\") or os.environ.get(\"DEEPSEEK_API_KEY\", \"\"))。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "配置注入的三段式",
+          "language": "python",
+          "code": "# 本地:复制样例再填真实值,样例本身可入库\ncp .env.example .env\n# compose:部署时用 .env 填充变量,镜像不携带任何配置\nDEEPSEEK_API_KEY: \"${DEEPSEEK_API_KEY:?请在 .env 中配置}\"\n# 代码:一律 os.environ.get,绝不硬编码\napi_key = os.environ.get(\"OPENAI_API_KEY\", \"\")",
+          "description": "样例入库、变量注入、代码兜底,三段式让配置既安全又可复现。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "配置不进镜像",
+          "definition": "十二要素方法论的核心实践:同一镜像靠环境变量区分环境,密钥与地址等可变项永不写入镜像层。"
+        },
+        {
+          "name": "Secret 管理",
+          "definition": "对密钥类配置的专门治理:经环境变量/密文存储注入,轮换与审计分离,杜绝硬编码。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "DeepSeek",
+          "role": "LLM 服务",
+          "description": "模型密钥经环境变量注入部署环境,SDK 侧由 OPENAI_API_KEY 读取。",
+          "officialUrl": "https://platform.deepseek.com",
+          "category": "LLM 服务",
+          "installHint": "在平台创建 API Key 即可"
+        },
+        {
+          "name": "Docker",
+          "role": "容器化平台",
+          "description": "docker compose 的 environment 段在运行时注入配置,镜像保持干净。",
+          "officialUrl": "https://www.docker.com",
+          "category": "部署工具",
+          "installHint": "https://docs.docker.com/engine/install/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成,请补全 Config.from_env 的构造逻辑。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请定义 Config 配置类。",
+          "astType": "class_def",
+          "name": "Config",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "配置必须支持 DEEPSEEK_API_KEY 注入。",
+          "pattern": "DEEPSEEK_API_KEY",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "配置应全部来自环境变量(os.environ.get)。",
+          "api": "os.environ.get",
+          "minCount": 3,
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "MOCK 演示模式应完整输出配置报告与环境注入审计。",
+          "expectedStdout": "配置注入检查[\\s\\S]*compose 环境注入[\\s\\S]*全部合格",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t73-docker-deploy-s6",
+      "taskId": "t73-docker-deploy",
+      "order": 6,
+      "title": "收官部署:一键上线报告",
+      "instruction": "### 目标\n\n收官之战:一键部署。把前五步的产物收拢成一个部署包——main.py、Dockerfile、docker-compose.yml、.env.example 四份文件一次写齐,再做体检(代码/镜像/编排)与探针(存活/就绪),全部通过才输出「满足上线条件」的毕业报告。\n\n### 原理\n\n「上线」不是把文件堆在一起,而是一条可重复的验收流水线:写文件、静态体检、动态探针、裁决报告。体检是文本级的(路由在不在、指令齐不齐、服务声明全不全),探针是语义级的(依赖就绪没有),两者互补:体检防「结构缺漏」,探针防「功能不到位」。把验收写成代码,意味着每次部署都执行同一套标准,人眼漏看的状态由脚本兜住——这正是项目制课程最该内化的工程习惯:上线不是赌运气,是把检查清单跑一遍。\n\n### 操作\n\n1. 复用 s5 的 Config 与密钥守卫,读取部署配置;\n2. 把四份文件文本组装进 files 字典并全部写出;\n3. 补全 check_artifacts:依次体检服务路由、Dockerfile 指令、compose 服务与健康检查、env 模板;\n4. 通读 probe_health:对毕业状态快照做存活与就绪探针;\n5. 运行 main():应输出完整的「上线报告」,结论为满足上线条件、圆满收官。\n\n### 常见坑\n\n- 体检与探针要分开:文本检查过不了是「缺东西」,探针过不了是「没准备好」,混在一起会误导排查方向;\n- files 字典的键名必须与部署文件名完全一致,写盘循环与体检清单共用同一份键;\n- 报告的分支判定用 problems or failed,两个来源的问题都要在报告里暴露,别只打印其中一个。\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "方向:收官 = 收拢四份文件 -> 体检 -> 探针 -> 报告;把 s5 的 Config 与 s1-s3 的产物文本原样搬进来。"
+        },
+        {
+          "order": 2,
+          "text": "关键结构:check_artifacts 用 in/startswith 做文本级校验;probe_health 返回未通过的检查名列表。"
+        },
+        {
+          "order": 3,
+          "text": "接近答案:for name, text in files.items(): with open(name, \"w\", encoding=\"utf-8\") as f: f.write(text);报告按 problems or failed 分两个分支打印。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "上线前的最小验收流水线",
+          "language": "python",
+          "code": "files  = {\"main.py\": ..., \"Dockerfile\": ..., \"docker-compose.yml\": ..., \".env.example\": ...}\naudit  = check_artifacts(files)       # 静态体检:结构缺漏\nfailed = probe_health(STATUS_SAMPLE)  # 动态探针:功能就绪\nif not audit and not failed:\n    print(\"满足上线条件,交付运维。\")",
+          "description": "体检 + 探针都通过才允许交付,把验收本身变成可重复运行的代码。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "上线检查清单(checklist)",
+          "definition": "把上线要求逐条固化为可执行的检查项,脚本化后每次部署自动复跑,杜绝人工漏检。"
+        },
+        {
+          "name": "部署包(artifact)",
+          "definition": "一次交付所需的全部产物集合,通常包含源码、镜像说明、编排文件与配置模板。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Docker Compose",
+          "role": "容器编排工具",
+          "description": "毕业部署包的核心编排文件,一条命令拉起整套服务。",
+          "officialUrl": "https://docs.docker.com/compose/",
+          "category": "编排工具",
+          "installHint": "docker compose 随 Docker Desktop 附带"
+        },
+        {
+          "name": "Docker",
+          "role": "容器化平台",
+          "description": "承载最终镜像与健康检查的运行时。",
+          "officialUrl": "https://www.docker.com",
+          "category": "部署工具",
+          "installHint": "https://docs.docker.com/engine/install/"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "LLM 服务",
+          "description": "Agent 应用的模型底座,密钥经环境变量注入生产环境。",
+          "officialUrl": "https://platform.deepseek.com",
+          "category": "LLM 服务",
+          "installHint": "在平台创建 API Key 即可"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "还有 TODO 没有完成,请补全 check_artifacts 的编排与模板体检。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请保留并实现 check_artifacts 体检函数。",
+          "astType": "function_def",
+          "name": "check_artifacts",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需要通过 yaml.safe_load 解析编排文件。",
+          "astType": "call",
+          "name": "yaml.safe_load",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "报告必须包含上线条件判定。",
+          "pattern": "满足上线条件",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "MOCK 演示模式应输出完整的上线报告并圆满收官。",
+          "expectedStdout": "上线报告[\\s\\S]*满足上线条件[\\s\\S]*圆满收官",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0,
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

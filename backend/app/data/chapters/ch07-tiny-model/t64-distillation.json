@@ -1,0 +1,213 @@
+{
+  "steps": [
+    {
+      "id": "t64-distillation-s1",
+      "taskId": "t64-distillation",
+      "order": 1,
+      "title": "知识蒸馏原理",
+      "instruction": "### 目标\n理解知识蒸馏:大模型(teacher)教小模型(student)。\n\n### 概念\n- **Teacher**:大模型,输出软标签(softmax 概率)。\n- **Student**:小模型,学习 teacher 的软标签 + 真实标签。\n- **软标签**:带温度的 softmax,含类间关系信息。\n\n### 操作\n理解蒸馏 loss",
+      "starterCode": "import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n# 模拟 teacher(大) 和 student(小) 输出\nteacher_logits = torch.randn(4, 10)  # batch=4, 10类\nstudent_logits = torch.randn(4, 10)\n\n# 真实标签\nlabels = torch.randint(0, 10, (4,))\n\n# 硬标签 loss(student 学真实标签)\nhard_loss = F.cross_entropy(student_logits, labels)\n\n# 软标签 loss(student 学 teacher 的软概率)\nT = 4  # 温度\nsoft_teacher = F.softmax(teacher_logits / T, dim=-1)\nsoft_student = F.log_softmax(student_logits / T, dim=-1)\nsoft_loss = F.kl_div(soft_student, soft_teacher, reduction='batchmean') * (T * T)\n\n# 总 loss\ntotal_loss = hard_loss + soft_loss\nprint(f'硬标签 loss: {hard_loss.item():.4f}')\nprint(f'软标签 loss: {soft_loss.item():.4f}')\nprint(f'总 loss: {total_loss.item():.4f}')",
+      "solutionCode": "import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\nteacher_logits = torch.randn(4, 10)\nstudent_logits = torch.randn(4, 10)\nlabels = torch.randint(0, 10, (4,))\n\nhard_loss = F.cross_entropy(student_logits, labels)\n\nT = 4\nsoft_teacher = F.softmax(teacher_logits / T, dim=-1)\nsoft_student = F.log_softmax(student_logits / T, dim=-1)\nsoft_loss = F.kl_div(soft_student, soft_teacher, reduction='batchmean') * (T * T)\n\ntotal_loss = hard_loss + soft_loss\nprint(f'硬标签 loss: {hard_loss.item():.4f}')\nprint(f'软标签 loss: {soft_loss.item():.4f}')\nprint(f'总 loss: {total_loss.item():.4f}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "硬标签:student 学真实标签(cross_entropy)。"
+        },
+        {
+          "order": 2,
+          "text": "软标签:student 学 teacher 软概率(KL 散度)。"
+        },
+        {
+          "order": 3,
+          "text": "温度 T 软化概率,×T² 补偿缩放。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 蒸馏 loss\nhard = CE(student, labels)\nsoft = KL(student/T, teacher/T) * T²\nloss = hard + soft"
+        }
+      ],
+      "terms": [
+        {
+          "name": "知识蒸馏",
+          "definition": "大模型教小模型"
+        },
+        {
+          "name": "软标签",
+          "definition": "teacher 的概率分布,含类间关系"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 function_def。",
+          "astType": "function_def",
+          "name": null,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t64-distillation-s2",
+      "taskId": "t64-distillation",
+      "order": 2,
+      "title": "Teacher-Student 训练",
+      "instruction": "### 目标\n实现**知识蒸馏**的核心:用大模型(教师)的输出教小模型(学生),而非只用原始标签。\n\n### 背景: 为什么\"跟老师学\"比\"跟答案学\"好\n硬标签只告诉学生\"正确答案是猫\";教师的**软标签(概率分布)**告诉学生\"猫 0.8、狗 0.15、老虎 0.05\"——**类间相似度信息**全在里面。学生学到\"猫和老虎像、和车不像\",泛化能力远超硬标签。\n\n### 蒸馏损失的两个成分\n```\nL = α × 硬损失(学生 vs 真标签) + β × 软损失(学生 vs 教师, KL散度)\n```\n软损失用**高温软化**:temperature T>1 让教师分布变平,暗知识(相似度)更明显。T 通常 2-5。\n\n### DeepSeek-R1 的蒸馏实践\nR1 用 80 万条推理数据(教师生成)微调 Qwen/Llama 小模型,蒸馏版 7B 的推理能力逼近 o1-mini——**证明了\"推理能力可以蒸馏传递\"**。这也是当前小模型最主流的能力获取方式:不自己探索推理,直接学大模型的推理轨迹。\n\n### 操作\n1. 模拟教师输出(高温软化的概率分布)\n2. 计算 KL 散度软损失 + 硬标签交叉熵\n3. 训练学生网络(逻辑回归),对比\"只硬标签\"vs\"蒸馏\"的测试精度",
+      "starterCode": "import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n# 简单 teacher/student\nclass Teacher(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 10)\n    def forward(self, x): return self.fc(x)\n\nclass Student(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 10)  # 更小(演示用同尺寸)\n    def forward(self, x): return self.fc(x)\n\nteacher = Teacher()\nteacher.eval()  # 不训练\nstudent = Student()\noptimizer = torch.optim.Adam(student.parameters(), lr=1e-3)\n\n# 模拟训练\nfor epoch in range(5):\n    x = torch.randn(8, 10)\n    labels = torch.randint(0, 10, (8,))\n    \n    with torch.no_grad():\n        teacher_logits = teacher(x)\n    \n    student_logits = student(x)\n    \n    # 蒸馏 loss\n    T = 4\n    hard_loss = F.cross_entropy(student_logits, labels)\n    soft_loss = F.kl_div(\n        F.log_softmax(student_logits/T, dim=-1),\n        F.softmax(teacher_logits/T, dim=-1),\n        reduction='batchmean'\n    ) * T * T\n    loss = hard_loss + soft_loss\n    \n    optimizer.zero_grad()\n    loss.backward()\n    optimizer.step()\n    print(f'epoch {epoch}: loss={loss.item():.4f}')",
+      "solutionCode": "import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\nclass Teacher(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 10)\n    def forward(self, x): return self.fc(x)\n\nclass Student(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.fc = nn.Linear(10, 10)\n    def forward(self, x): return self.fc(x)\n\nteacher = Teacher()\nteacher.eval()\nstudent = Student()\noptimizer = torch.optim.Adam(student.parameters(), lr=1e-3)\n\nfor epoch in range(5):\n    x = torch.randn(8, 10)\n    labels = torch.randint(0, 10, (8,))\n    \n    with torch.no_grad():\n        teacher_logits = teacher(x)\n    \n    student_logits = student(x)\n    \n    T = 4\n    hard_loss = F.cross_entropy(student_logits, labels)\n    soft_loss = F.kl_div(\n        F.log_softmax(student_logits/T, dim=-1),\n        F.softmax(teacher_logits/T, dim=-1),\n        reduction='batchmean'\n    ) * T * T\n    loss = hard_loss + soft_loss\n    \n    optimizer.zero_grad()\n    loss.backward()\n    optimizer.step()\n    print(f'epoch {epoch}: loss={loss.item():.4f}')",
+      "hints": [
+        {
+          "order": 1,
+          "text": "teacher.eval() + no_grad,不训练。"
+        },
+        {
+          "order": 2,
+          "text": "student 学 hard(真实)+soft(teacher)。"
+        },
+        {
+          "order": 3,
+          "text": "循环训练 student。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "teacher.eval()\nfor epoch:\n    t_out = teacher(x)  # no_grad\n    s_out = student(x)\n    loss = hard + soft"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Teacher",
+          "definition": "大模型,提供软标签,不训练"
+        },
+        {
+          "name": "Student",
+          "definition": "小模型,学习 teacher"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需 class_def。",
+          "astType": "class_def",
+          "name": "Student",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t64-distillation-s3",
+      "taskId": "t64-distillation",
+      "order": 3,
+      "title": "蒸馏总结",
+      "instruction": "### 目标\n理解**数据蒸馏**:不比模型比数据——用大模型生成高质量训练数据,是小团队弯道超车的关键打法。\n\n### 背景: Self-Instruct 与数据飞轮\n2022 年 Self-Instruct 论文开了这条路:让 GPT 自己生成指令数据,再拿来微调小模型。流程:\n1. **种子任务**:人工写 ~100 个高质量(指令, 输入, 输出)样例\n2. **生成新指令**:让大模型照种子的样子批量造新任务\n3. **过滤**:去重、去低质(规则+模型打分)\n4. **微调**:用过滤后的数据训练小模型\n\nAlpaca(52K 数据,$500 成本复现 ChatGPT 七成能力)、WizardLM、DeepSeek-R1 蒸馏数据——全是这个套路。\n\n### 数据质量的三条铁律\n1. **多样性 > 数量**:1 万条覆盖 100 种任务 > 10 万条全是翻译任务\n2. **难度要有梯度**:全简单题学生学不到推理;全难题学生学不会\n3. **宁可少不要错**:错误标签的破坏力远超想象(模型会把错误学得很扎实)\n\n### 操作\n1. 手写 5 个种子任务(不同任务类型)\n2. 模拟\"大模型生成\":按种子模板批量扩展(加变化)\n3. 实现过滤:去重(相似度)+ 长度过滤,统计保留率",
+      "starterCode": "# t64-s3: 数据蒸馏 —— 种子扩展与过滤\nimport difflib\n\n# 种子任务(人工精写, 覆盖不同任务类型)\nseeds = [\n    {\"instruction\": \"把这句话翻译成英文\", \"input\": \"今天天气很好\", \"output\": \"The weather is great today.\"},\n    {\"instruction\": \"提取文本中的所有数字\", \"input\": \"我有3个苹果和25块钱\", \"output\": \"[3, 25]\"},\n    {\"instruction\": \"用一句话总结这段话\", \"input\": \"(长文略)\", \"output\": \"本文讨论了注意力机制的原理。\"},\n    {\"instruction\": \"判断这句话的情感倾向\", \"input\": \"这家餐厅太难吃了\", \"output\": \"负面\"},\n    {\"instruction\": \"把下面的话改写得更正式\", \"input\": \"这事儿搞不定啊\", \"output\": \"该事项暂无法完成。\"},\n]\n\n\ndef mock_llm_generate(seed: dict, n: int) -> list:\n    \"\"\"模拟大模型按种子扩展(真实环境调API): 变换任务要素生成新样例。\"\"\"\n    # TODO: 按 seed 的类型生成 n 个变体(换输入内容/换输出)\n    # 提示: 可用字符串模板+预置变化池, 保持任务类型不变\n    return []\n\n\ndef dedup_filter(samples: list, threshold: float = 0.85) -> list:\n    \"\"\"去重: 任意两条 instruction+input 相似度>threshold 则丢弃后出现的。\"\"\"\n    # TODO: 用 difflib.SequenceMatcher 两两比相似度\n    return samples\n\n\nif __name__ == \"__main__\":\n    pool = []\n    for s in seeds:\n        pool.extend(mock_llm_generate(s, 4))\n    print(f\"生成 {len(pool)} 条\")\n    kept = dedup_filter(pool)\n    print(f\"过滤后保留 {len(kept)} 条 (保留率 {len(kept)/max(1,len(pool))*100:.0f}%)\")\n",
+      "solutionCode": "# t64-s3: 数据蒸馏 —— 种子扩展与过滤\nimport difflib\n\nseeds = [\n    {\"instruction\": \"把这句话翻译成英文\", \"input\": \"今天天气很好\", \"output\": \"The weather is great today.\"},\n    {\"instruction\": \"提取文本中的所有数字\", \"input\": \"我有3个苹果和25块钱\", \"output\": \"[3, 25]\"},\n    {\"instruction\": \"用一句话总结这段话\", \"input\": \"(长文略)\", \"output\": \"本文讨论了注意力机制的原理。\"},\n    {\"instruction\": \"判断这句话的情感倾向\", \"input\": \"这家餐厅太难吃了\", \"output\": \"负面\"},\n    {\"instruction\": \"把下面的话改写得更正式\", \"input\": \"这事儿搞不定啊\", \"output\": \"该事项暂无法完成。\"},\n]\n\n# 变化池(真实环境由大模型自由生成, 这里模拟)\nEXPAND = {\n    \"把这句话翻译成英文\": [(\"明天要开会\", \"There is a meeting tomorrow.\"),\n                          (\"我爱编程\", \"I love programming.\")],\n    \"提取文本中的所有数字\": [(\"订单有100件商品\", \"[100]\"), (\"他身高178体重70\", \"[178, 70]\")],\n    \"用一句话总结这段话\": [(\"(科技新闻略)\", \"某公司发布了新款芯片。\"), (\"(体育新闻略)\", \"主队三比一获胜。\")],\n    \"判断这句话的情感倾向\": [(\"服务太贴心了\", \"正面\"), (\"等了一小时还没上菜\", \"负面\")],\n    \"把下面的话改写得更正式\": [(\"东西收到了\", \"物品已收悉。\"), (\"下周再聊\", \"下周再行沟通。\")],\n}\n\n\ndef mock_llm_generate(seed: dict, n: int) -> list:\n    \"\"\"模拟大模型按种子扩展: 保持任务类型, 变换输入输出。\"\"\"\n    variants = EXPAND.get(seed[\"instruction\"], [])[:n]\n    out = [{\"instruction\": seed[\"instruction\"], \"input\": i, \"output\": o} for i, o in variants]\n    # 模拟大模型会犯的错: 重复生成一条与原种子几乎一样的\n    out.append({\"instruction\": seed[\"instruction\"], \"input\": seed[\"input\"], \"output\": seed[\"output\"]})\n    return out\n\n\ndef dedup_filter(samples: list, threshold: float = 0.85) -> list:\n    kept = []\n    for s in samples:\n        key = s[\"instruction\"] + s[\"input\"]\n        dup = any(difflib.SequenceMatcher(None, key, k[\"instruction\"] + k[\"input\"]).ratio() > threshold\n                  for k in kept)\n        if not dup:\n            kept.append(s)\n    return kept\n\n\nif __name__ == \"__main__\":\n    pool = []\n    for s in seeds:\n        pool.extend(mock_llm_generate(s, 2))\n    print(f\"生成 {len(pool)} 条\")\n    kept = dedup_filter(pool)\n    print(f\"过滤后保留 {len(kept)} 条 (保留率 {len(kept)/len(pool)*100:.0f}%)\")\n    print()\n    print(\"保住的样例(前5条):\")\n    for k in kept[:5]:\n        print(f\"  [{k['instruction']}] {k['input']} → {k['output']}\")\n    print()\n    print(\"要点: 数据飞轮 = 少量精写种子 → 大模型扩展 → 严格过滤 → 微调\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "蒸馏:小模型学大模型,省部署成本。"
+        },
+        {
+          "order": 2,
+          "text": "软标签比硬标签信息更丰富。"
+        },
+        {
+          "order": 3,
+          "text": "适合边缘部署/低延迟场景。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 蒸馏: 小学大\n# 价值: 部署便宜\n# 局限: 不如 teacher"
+        }
+      ],
+      "terms": [
+        {
+          "name": "软标签",
+          "definition": "teacher 概率,含类间关系"
+        },
+        {
+          "name": "边缘部署",
+          "definition": "小模型适合手机/IoT"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "torch",
+          "role": "深度学习",
+          "description": "PyTorch 是主流深度学习框架,提供张量计算与自动求导。用于训练/微调小模型、定义神经网络结构。",
+          "officialUrl": "https://pytorch.org",
+          "category": "深度学习框架",
+          "installHint": "pip install torch"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 mock_llm_generate。",
+          "astType": "function_def",
+          "name": "mock_llm_generate",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 dedup_filter。",
+          "astType": "function_def",
+          "name": "dedup_filter",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

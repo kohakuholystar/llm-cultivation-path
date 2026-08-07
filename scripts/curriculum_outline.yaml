@@ -1,0 +1,325 @@
+# LLM Agent 工程师修炼之路 — 课程大纲 v2（项目制重构 2026-07-31）
+# 课程元数据源：merge_curriculum.py 读取本文件 + chapters/ 散文件 → curriculum.json
+# 内容为 Agent 精写（不走 LLM 批量生成），每步规范见 scripts/prompts/system_prompt.txt
+#
+# 解锁数值设计（累计可获得 exp：步骤 211×10 + 任务 1210 = 3320，满级约 L6）：
+#   ch01 累计 350 → ch02 解锁 L2/100
+#   ch02 累计 710 → ch03 解锁 L3/400
+#   ch03 累计 1120 → ch04 解锁 L3/900
+#   ch04 累计 1500 → ch05 解锁 L3/1400
+#   ch05 累计 1910 → ch06 解锁 L4/1800
+#   ch06 累计 2300 → ch07 解锁 L4/2200
+#   ch07 累计 2780 → ch08 解锁 L5/2600
+
+course:
+  id: llm-agent-engineer
+  title: LLM Agent 工程师修炼之路
+  description: 项目制打怪升级：每章构建一个真实小产品，从 API 调用到自建小模型，成为 Agent 开发工程师
+  version: "2.0"
+
+defaults:
+  exp_easy: 10
+  exp_medium: 20
+  exp_hard: 40
+  exp_boss: 80
+  needs_sandbox: true       # 项目制课程几乎全部需要跑代码
+  needs_network: false      # 调 LLM API 的任务在 task 级标 true
+
+chapters:
+  # ============ 第一章 初入江湖 · LLM 基础 —— 项目「灵讯通」CLI 智能对话工具 ============
+  - id: ch01-llm-basics
+    title: 第一章 初入江湖 · LLM 基础
+    description: 构建 CLI 智能对话工具「灵讯通」：API 接入、多轮对话、流式输出、结构化输出、Token 经济学
+    theme: 你是一名新晋修行者,要打造自己的第一件法器——CLI 智能对话工具「灵讯通」
+    unlock: { required_level: 1, required_exp: 0 }
+    tasks:
+      - id: t01-deepseek-connect
+        title: 接入 DeepSeek：从配置到首次对话
+        difficulty: easy
+        topic: 配置并验证 DeepSeek API。env 读取配置、OpenAI SDK 客户端封装、首次 chat 调用、连接自测、错误分类处理（401/429/超时）。
+        steps: 6
+        needs_network: true
+      - id: t02-chat-session
+        title: 多轮对话与上下文管理
+        difficulty: easy
+        topic: ChatSession 类：消息历史维护、system prompt 人设、滑动窗口截断、token 预算控制。
+        steps: 5
+        needs_network: true
+      - id: t03-streaming-ui
+        title: 流式输出与打字机界面
+        difficulty: medium
+        topic: stream=True 增量接收、TTFT 测量、打字机渲染、健壮的流式消费封装（断流/空 chunk 处理）。
+        steps: 5
+        needs_network: true
+      - id: t04-structured-output
+        title: 结构化输出与 JSON 模式
+        difficulty: medium
+        topic: response_format JSON mode、Pydantic schema 校验、解析失败重试、few-shot 格式约束。
+        steps: 6
+        needs_network: true
+      - id: t05-token-economics
+        title: Token 经济学：计数与成本守卫
+        difficulty: medium
+        topic: tiktoken 计数、费率表建模、预算守卫装饰器、用量统计报表。
+        steps: 5
+        needs_network: false
+
+  # ============ 第二章 拜入山门 · LangChain —— 项目「铸剑台」提示词工程工作台 ============
+  - id: ch02-langchain
+    title: 第二章 拜入山门 · LangChain 架构
+    description: 构建提示词工程工作台「铸剑台」：LCEL 管道、模板工程、输出解析、对话记忆、链式路由
+    theme: 拜入 LangChain 山门,打造提示词工程工作台「铸剑台」
+    unlock: { required_level: 2, required_exp: 100, prerequisite_task_ids: [t05-token-economics] }
+    tasks:
+      - id: t10-lcel-basics
+        title: LCEL 基础：组件与管道
+        difficulty: easy
+        topic: ChatOpenAI 封装、prompt|model|parser 管道、batch 批量调用、与原生 SDK 对比。
+        steps: 5
+        needs_network: true
+      - id: t11-prompt-templates
+        title: 提示词模板工程
+        difficulty: easy
+        topic: ChatPromptTemplate、few-shot 模板、模板组合复用、变量校验与部分填充。
+        steps: 5
+        needs_network: false
+      - id: t12-output-parsers
+        title: 输出解析器与结构化链
+        difficulty: medium
+        topic: PydanticOutputParser、带重试的结构化链、自定义 parser、解析异常修复。
+        steps: 6
+        needs_network: true
+      - id: t13-memory-trio
+        title: 对话记忆三剑客
+        difficulty: medium
+        topic: Buffer/Window/Summary 三种记忆封装对比、token 上限控制、记忆持久化。
+        steps: 5
+        needs_network: true
+      - id: t14-chain-routing
+        title: 链的组合与路由
+        difficulty: hard
+        topic: RunnableBranch 意图路由、多链编排、fallback 降级链、完整工作台组装。
+        steps: 5
+        needs_network: true
+
+  # ============ 第三章 秘境探宝 · RAG —— 项目「藏经阁」本地知识库问答 ============
+  - id: ch03-rag
+    title: 第三章 秘境探宝 · RAG 检索增强
+    description: 构建本地知识库问答系统「藏经阁」：文档切分、向量入库、检索重排、RAG 链、效果评估
+    theme: 深入秘境建造「藏经阁」,让 LLM 能查阅你的私藏典籍
+    unlock: { required_level: 3, required_exp: 400, prerequisite_task_ids: [t14-chain-routing] }
+    tasks:
+      - id: t20-doc-loading
+        title: 文档加载与智能切分
+        difficulty: easy
+        topic: 多格式文档加载、递归字符切分、chunk 元数据设计、切分质量评估。
+        steps: 6
+        needs_network: false
+      - id: t21-embedding-store
+        title: Embedding 与向量入库
+        difficulty: medium
+        topic: sentence-transformers 本地嵌入、ChromaDB 集合管理、批量入库、增量更新。
+        steps: 6
+        needs_network: false
+      - id: t22-retrieval-rerank
+        title: 检索策略与重排序
+        difficulty: medium
+        topic: 相似度/MMR 检索对比、score 阈值过滤、交叉特征重排序、检索命中率评估。
+        steps: 6
+        needs_network: false
+      - id: t23-rag-chain
+        title: RAG 链组装与引用溯源
+        difficulty: hard
+        topic: 检索增强生成全链组装、答案携带引用来源、无资料时的幻觉兜底。
+        steps: 5
+        needs_network: true
+      - id: t24-rag-eval
+        title: 多查询扩展与 RAG 评估
+        difficulty: hard
+        topic: MultiQuery 问题改写、召回率/忠实度评估脚本、bad case 分析。
+        steps: 5
+        needs_network: true
+
+  # ============ 第四章 炼器宗师 · Agent —— 项目「百宝囊」工具型智能体 ============
+  - id: ch04-agent
+    title: 第四章 炼器宗师 · Agent 智能体
+    description: 构建工具型智能体「百宝囊」：自定义工具、手写 ReAct、AgentExecutor、结构化工具、人机协同
+    theme: 成为炼器宗师,打造能自主调用工具的「百宝囊」智能体
+    unlock: { required_level: 3, required_exp: 900, prerequisite_task_ids: [t24-rag-eval] }
+    tasks:
+      - id: t30-custom-tools
+        title: 自定义工具开发
+        difficulty: easy
+        topic: "@tool 装饰器、计算器/文本处理/文件工具集开发、工具单元测试。"
+        steps: 6
+        needs_network: false
+      - id: t31-react-from-scratch
+        title: 手写 ReAct：从零理解 Agent
+        difficulty: medium
+        topic: Thought-Action-Observation 循环手写、动作解析器、执行轨迹记录。
+        steps: 6
+        needs_network: true
+      - id: t32-agent-executor
+        title: AgentExecutor 工程化
+        difficulty: medium
+        topic: 工具箱组装、max_iterations 防失控、错误恢复策略、verbose 调试。
+        steps: 5
+        needs_network: true
+      - id: t33-structured-tools
+        title: 结构化工具与参数校验
+        difficulty: medium
+        topic: Pydantic 入参 schema、多参数工具、异步工具、工具异常规范化。
+        steps: 5
+        needs_network: true
+      - id: t34-agent-memory-hitl
+        title: Agent 记忆与人机协同
+        difficulty: hard
+        topic: Agent 挂对话记忆、危险操作中断确认、人工接管钩子。
+        steps: 5
+        needs_network: true
+
+  # ============ 第五章 内功心法 · Harness 工程 —— 项目「乾坤圈」通用 Agent 运行时 ============
+  - id: ch05-harness
+    title: 第五章 内功心法 · Harness 工程
+    description: 构建通用 Agent 运行时「乾坤圈」：核心循环、上下文管理、错误韧性、可观测性、插件架构
+    theme: 修炼内功,打造支撑一切 Agent 的运行时「乾坤圈」
+    unlock: { required_level: 3, required_exp: 1400, prerequisite_task_ids: [t34-agent-memory-hitl] }
+    tasks:
+      - id: t40-harness-loop
+        title: Harness 核心循环
+        difficulty: medium
+        topic: agent-loop 状态机、step 抽象与生命周期、终止条件设计、手写 vs 框架对比实验。
+        steps: 6
+        needs_network: false
+      - id: t41-context-window
+        title: 上下文窗口管理
+        difficulty: medium
+        topic: token 预算分配、消息压缩摘要、重要性淘汰策略、溢出恢复。
+        steps: 6
+        needs_network: false
+      - id: t42-error-resilience
+        title: 错误处理与韧性设计
+        difficulty: hard
+        topic: 指数退避重试、降级链、熔断器模式、幂等执行保证。
+        steps: 5
+        needs_network: false
+      - id: t43-observability
+        title: 可观测性体系
+        difficulty: medium
+        topic: 结构化日志、trace 追踪、指标统计、运行报告生成。
+        steps: 5
+        needs_network: false
+      - id: t44-plugin-architecture
+        title: 插件化架构
+        difficulty: hard
+        topic: 钩子系统、插件注册表、生命周期管理、配置热加载。
+        steps: 5
+        needs_network: false
+
+  # ============ 第六章 分身之术 · 多 Agent —— 项目「天庭」虚拟开发团队 ============
+  - id: ch06-multi-agent
+    title: 第六章 分身之术 · 多 Agent 协作
+    description: 构建虚拟开发团队「天庭」：消息总线、Supervisor 编排、辩论机制、CrewAI 实战
+    theme: 习得分身之术,组建你的虚拟开发团队「天庭」
+    unlock: { required_level: 4, required_exp: 1800, prerequisite_task_ids: [t44-plugin-architecture] }
+    tasks:
+      - id: t50-message-bus
+        title: Agent 通信与消息总线
+        difficulty: medium
+        topic: 消息协议 dataclass、发布订阅总线、共享黑板模式。
+        steps: 6
+        needs_network: false
+      - id: t51-supervisor
+        title: Supervisor 编排模式
+        difficulty: hard
+        topic: 任务分派策略、结果聚合、手写迷你 StateGraph。
+        steps: 5
+        needs_network: true
+      - id: t52-debate
+        title: 辩论与评审机制
+        difficulty: hard
+        topic: 多角色辩论、裁判裁决、共识收敛判定。
+        steps: 5
+        needs_network: true
+      - id: t53-crewai-team
+        title: CrewAI 团队实战
+        difficulty: boss
+        topic: 角色/任务/流程定义、顺序与层级双模式、完整团队协作项目。
+        steps: 5
+        needs_network: true
+
+  # ============ 第七章 袖里乾坤 · 小模型 —— 项目「袖里乾坤」微型 GPT 从零造 ============
+  - id: ch07-tiny-model
+    title: 第七章 袖里乾坤 · 自建小模型
+    description: 从零造微型 GPT：Tokenizer、numpy 手写 Transformer、训练循环、微调蒸馏、量化部署
+    theme: 参悟袖里乾坤,用 numpy 从零炼出一个微型 GPT
+    unlock: { required_level: 4, required_exp: 2200, prerequisite_task_ids: [t53-crewai-team] }
+    tasks:
+      - id: t60-tokenizer-data
+        title: Tokenizer 与数据管线
+        difficulty: easy
+        topic: BPE 原理手写实现、语料编码、数据集构建、train/val 切分。
+        steps: 6
+        needs_network: false
+      - id: t61-numpy-transformer
+        title: numpy 手写 Transformer
+        difficulty: hard
+        topic: 注意力矩阵、多头机制、前馈网络、完整 forward 传播。
+        steps: 6
+        needs_network: false
+      - id: t62-training-loop
+        title: 训练循环与优化
+        difficulty: hard
+        topic: 损失曲线、学习率调度、梯度裁剪、checkpoint 保存。
+        steps: 5
+        needs_network: false
+      - id: t63-finetune-distill
+        title: 微调与知识蒸馏
+        difficulty: hard
+        topic: LoRA 思想手写、蒸馏损失函数、教师-学生模型对比。
+        steps: 5
+        needs_network: false
+      - id: t64-quantize-deploy
+        title: 量化与部署
+        difficulty: boss
+        topic: int8 量化、推理加速对比、模型打包、简易推理服务。
+        steps: 5
+        needs_network: false
+
+  # ============ 第八章 渡劫飞升 · 毕业设计 —— 项目「渡劫飞升」完整 Agent 应用 ============
+  - id: ch08-capstone
+    title: 第八章 渡劫飞升 · 毕业设计
+    description: 整合全部所学：从需求分析到 Docker 部署,交付一个完整的 Agent 应用
+    theme: 渡劫飞升,整合七章所学交付完整 Agent 应用
+    unlock: { required_level: 5, required_exp: 2600, prerequisite_task_ids: [t64-quantize-deploy] }
+    tasks:
+      - id: t70-prd-architecture
+        title: 需求分析与系统设计
+        difficulty: medium
+        topic: PRD 文档撰写、架构图（mermaid）、数据模型设计、接口契约定义。
+        steps: 5
+        needs_network: false
+      - id: t71-rag-pipeline
+        title: 核心 RAG 管道实现
+        difficulty: hard
+        topic: 整合 ch03 成果：生产级知识库问答模块（加载/切分/检索/生成全链）。
+        steps: 6
+        needs_network: true
+      - id: t72-agent-layer
+        title: Agent 决策层实现
+        difficulty: hard
+        topic: 整合 ch04/05 成果：工具调度 + Harness 运行时 + 记忆。
+        steps: 6
+        needs_network: true
+      - id: t73-docker-deploy
+        title: 服务化与 Docker 部署
+        difficulty: boss
+        topic: FastAPI 服务封装、Dockerfile 编写、docker-compose 编排、健康检查。
+        steps: 6
+        needs_network: false
+      - id: t74-acceptance
+        title: 验收测试与上线清单
+        difficulty: boss
+        topic: pytest 集成测试、性能基线测试、上线 checklist、项目复盘文档。
+        steps: 5
+        needs_network: false

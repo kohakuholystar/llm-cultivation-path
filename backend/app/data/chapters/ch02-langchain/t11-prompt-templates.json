@@ -1,0 +1,405 @@
+{
+  "steps": [
+    {
+      "id": "t11-prompt-templates-s1",
+      "taskId": "t11-prompt-templates",
+      "order": 1,
+      "title": "铸剑开模:ChatPromptTemplate 基础",
+      "instruction": "### 目标\n\n把「铸剑台」的提示词从\"字符串拼接\"升级为 `ChatPromptTemplate` 模板:system 锁定铸剑师人设,human 接收铸剑需求,变量显式声明。本任务全程**只渲染 prompt、不调用模型**——提示词工程的第一课是先把\"发给模型的文本\"本身管好。\n\n### 原理\n\n新手写提示词是这样:\n\n```python\nprompt = \"你是\" + sect + \"的铸剑师。我要铸\" + sword_type  # 脆弱、难复用、漏变量不报错\n```\n\n模板化的本质是**把提示词变成带签名的函数**:\n\n- `{sect}`、`{sword_type}` 这类花括号占位符就是模板的\"参数表\"。LangChain 会解析出 `input_variables`——调用时少传一个,`invoke` 直接抛 `KeyError`,而不是悄悄拼出一段缺胳膊少腿的怪文本送进模型。把错误暴露在渲染期,远比暴露在模型输出期便宜。\n- `from_messages` 接收 `(角色, 模板串)` 元组列表,渲染产物是 `SystemMessage` / `HumanMessage` 等**消息对象**而非一个大字符串。对话模型吃的本来就是消息序列,system 管人设与约束、human 管当前输入,职责分离后每类指令都能独立迭代。\n- 模板是数据,不是代码:可以存数据库、做版本管理、A/B 对比——前提是它先以模板形式存在。\n\n### 操作\n\n1. 在 `build_forge_prompt()` 里用 `ChatPromptTemplate.from_messages([...])` 定义两条消息:system(含 `{sect}`)与 human(含 `{sword_type}`、`{material}`)。\n2. `prompt.invoke({...})` 注入变量,`.to_messages()` 拿到消息列表,逐条打印 `msg.type` 与 `msg.content`。\n3. 打印 `prompt.input_variables`,观察模板自动解析出的变量签名;再换一批变量渲染一次,体会\"一份模板、多种产出\"。\n\n### 常见坑\n\n- **变量名写岔**:`{sword_type}` 在模板里、`swordType` 在调用时——`KeyError` 立刻报错。报错是好事,照着 `input_variables` 对一遍即可。\n- **内容里想出现字面花括号**:比如想在提示词里写 JSON 示例 `{\"name\": ...}`,会被当成变量。要转义成 `{{\"name\": ...}}`(双写花括号)。\n- **把 system 和 human 拼成一条 human**:模型对 system 指令的服从度通常更高,角色分离不是形式主义。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "模板不是字符串拼接,而是 ChatPromptTemplate.from_messages([...]) 创建的带变量签名的对象,列表元素是 (角色, 模板串) 元组。"
+        },
+        {
+          "order": 2,
+          "text": "在 build_forge_prompt() 里 return ChatPromptTemplate.from_messages([(\"system\", \"...{sect}...\"), (\"human\", \"...{sword_type}...{material}...\")])。"
+        },
+        {
+          "order": 3,
+          "text": "完整写法:return ChatPromptTemplate.from_messages([(\"system\", \"你是铸剑台的总铸剑师,出身门派「{sect}」。你只回答铸剑相关问题,其余话题一律回绝。\"), (\"human\", \"我要铸一柄{sword_type},主材是{material},请给出锻造要点。\")])"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "from_messages 最小示例",
+          "language": "python",
+          "code": "from langchain_core.prompts import ChatPromptTemplate\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是{role}\"),\n    (\"human\", \"{question}\"),\n])\nmsgs = prompt.invoke({\"role\": \"铸剑师\", \"question\": \"如何淬火?\"}).to_messages()\nfor m in msgs:\n    print(m.type, \"->\", m.content)",
+          "description": "双角色模板的创建与渲染,渲染产物是消息对象列表。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ChatPromptTemplate",
+          "definition": "LangChain 的聊天提示词模板类,用 (角色, 模板串) 元组列表定义多消息模板,渲染产出消息对象序列。",
+          "referenceUrl": "https://python.langchain.com/docs/concepts/prompt_templates/"
+        },
+        {
+          "name": "input_variables",
+          "definition": "模板自动从花括号占位符解析出的变量签名列表,invoke 时必须全部提供,否则抛 KeyError。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "提示词模板与消息抽象",
+          "description": "LangChain 的核心库,提供 ChatPromptTemplate、FewShotChatMessagePromptTemplate 等提示词组件与消息对象模型,是铸剑台提示词层的基石。",
+          "officialUrl": "https://python.langchain.com/docs/concepts/prompt_templates/",
+          "category": "框架",
+          "installHint": "pip install langchain-core(沙箱已内置,无需安装)"
+        },
+        {
+          "name": "LangChain",
+          "role": "LLM 应用框架",
+          "description": "把提示词、模型、解析器统一为可组合的 Runnable 组件;本任务的模板部件化与 partial 派生正是其组合哲学的体现。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain(沙箱已内置,无需安装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请先完成 # TODO: 处的模板定义,不要留空。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应定义 build_forge_prompt() 函数。",
+          "astType": "function_def",
+          "name": "build_forge_prompt"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须使用 ChatPromptTemplate.from_messages 创建模板。",
+          "pattern": "ChatPromptTemplate\\.from_messages"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应渲染出 system 人设消息。",
+          "expectedStdout": "\\[system\\] 你是铸剑台的总铸剑师",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t11-prompt-templates-s2",
+      "taskId": "t11-prompt-templates",
+      "order": 2,
+      "title": "示例喂招:Few-shot 示例模板",
+      "instruction": "### 目标\n\n给铸剑台喂\"铸剑示例\":用 `FewShotChatMessagePromptTemplate` 把若干条\"需求→标准剑谱\"的对照样例插进提示词,让模型模仿示例的字段与风格输出——这就是 **few-shot prompting**。\n\n### 原理\n\n只下指令(零样本)时,模型输出格式全看它心情:今天 Markdown 表格,明天自由散文。下游程序要解析输出时,格式飘忽是灾难。few-shot 的底层机制是**上下文学习(in-context learning)**:模型在预训练中见过海量\"样例→模仿\"的文本模式,你在上下文里摆出 N 条输入输出对,它会自动归纳出格式规律并沿用——不需要任何训练,纯靠提示词。\n\nLangChain 把这件事拆成两层:\n\n- `example_prompt`:定义**单条**示例长什么样,通常是一对 `(\"human\", ...)` / `(\"ai\", ...)` 消息——注意示例答案用 ai 角色,等于告诉模型\"你以前就是这么答的\"。\n- `FewShotChatMessagePromptTemplate`:把示例库按 `example_prompt` 逐条渲染,作为一个**消息块**插进主模板。渲染后示例在消息序列里是真实的 human/ai 交替,模型无法区分它们是\"示例\"还是\"历史对话\"。\n\n示例不在多而在精:3~5 条覆盖主要形态即可,塞太多既贵(每条都占 token)又可能带偏。\n\n### 操作\n\n1. 定义 `FORGE_EXAMPLES` 示例库,每条含 `request`(铸剑需求)与 `recipe`(标准剑谱)。\n2. 用 `ChatPromptTemplate.from_messages([(\"human\",\"{request}\"),(\"ai\",\"{recipe}\")])` 定义单条示例格式。\n3. 组装 `FewShotChatMessagePromptTemplate(examples=..., example_prompt=...)`,再把它作为一条\"消息\"放进主模板的 system 与 human 之间。\n4. 渲染并打印全部消息,数一数家:1 条 system + 2×N 条示例 + 1 条当前需求。\n\n### 常见坑\n\n- **示例答案写成 human 角色**:那模型会以为用户在自问自答。示例的\"输出\"必须用 `ai` 角色。\n- **示例库字段与 example_prompt 变量对不上**:比如示例 dict 里没有 `recipe` 键,渲染时报 `KeyError`。\n- **示例风格不统一**:三条示例三种格式,模型学到的是\"格式可以随意\"——示例本身就是你要的标准。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "示例的呈现格式也是一个模板:一对 (\"human\", \"{request}\") 和 (\"ai\", \"{recipe}\") 消息——示例答案要用 ai 角色。"
+        },
+        {
+          "order": 2,
+          "text": "build_example_prompt() 返回 ChatPromptTemplate.from_messages([(\"human\", \"{request}\"), (\"ai\", \"{recipe}\")]);build_fewshot_block() 用它组装 FewShotChatMessagePromptTemplate。"
+        },
+        {
+          "order": 3,
+          "text": "完整写法:return FewShotChatMessagePromptTemplate(examples=examples, example_prompt=build_example_prompt()),example_prompt 即上一条的 from_messages 结果。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "FewShotChatMessagePromptTemplate 最小示例",
+          "language": "python",
+          "code": "from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate\n\nexample_prompt = ChatPromptTemplate.from_messages([\n    (\"human\", \"{q}\"), (\"ai\", \"{a}\"),\n])\nfewshot = FewShotChatMessagePromptTemplate(\n    examples=[{\"q\": \"1+1?\", \"a\": \"2\"}],\n    example_prompt=example_prompt,\n)\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是算术助手\"), fewshot, (\"human\", \"{q}\"),\n])\nfor m in prompt.invoke({\"q\": \"2+2?\"}).to_messages():\n    print(m.type, \"->\", m.content)",
+          "description": "示例块插入主模板后,渲染成真实的 human/ai 交替消息。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "FewShotChatMessagePromptTemplate",
+          "definition": "把示例库按指定格式逐条渲染成 human/ai 消息对、作为整体插入主模板的组件。",
+          "referenceUrl": "https://python.langchain.com/docs/how_to/few_shot_examples_chat/"
+        },
+        {
+          "name": "few-shot prompting(少样本提示)",
+          "definition": "在提示词中给出少量输入输出示例,让模型通过上下文学习模仿示例格式与风格的技术。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "提示词模板与消息抽象",
+          "description": "LangChain 的核心库,提供 ChatPromptTemplate、FewShotChatMessagePromptTemplate 等提示词组件与消息对象模型,是铸剑台提示词层的基石。",
+          "officialUrl": "https://python.langchain.com/docs/concepts/prompt_templates/",
+          "category": "框架",
+          "installHint": "pip install langchain-core(沙箱已内置,无需安装)"
+        },
+        {
+          "name": "LangChain",
+          "role": "LLM 应用框架",
+          "description": "把提示词、模型、解析器统一为可组合的 Runnable 组件;本任务的模板部件化与 partial 派生正是其组合哲学的体现。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain(沙箱已内置,无需安装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请先完成 # TODO: 处的示例模板定义,不要留空。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应定义 build_fewshot_block() 函数。",
+          "astType": "function_def",
+          "name": "build_fewshot_block"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须使用 FewShotChatMessagePromptTemplate 组装示例块。",
+          "pattern": "FewShotChatMessagePromptTemplate\\("
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应渲染出 8 条消息(1 system + 6 示例 + 1 需求)。",
+          "expectedStdout": "渲染出 8 条消息",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t11-prompt-templates-s3",
+      "taskId": "t11-prompt-templates",
+      "order": 3,
+      "title": "积木拼接:模板组合与复用",
+      "instruction": "### 目标\n\n把铸剑台模板拆成\"乐高积木\":人设块、格式块、示例块、需求块各自独立定义、独立测试,再用一次 `from_messages` 拼成主模板。换人设想换?只改人设块,其他一行不动。\n\n### 原理\n\n提示词一大就会得\"巨模板病\":几百行字符串里,人设、约束、示例、格式要求搅在一起,改一处怕碰坏三处。解法和代码工程一样——**分解与组合**。\n\n关键机制:`ChatPromptTemplate.from_messages()` 的列表元素不仅可以是 `(角色, 模板串)` 元组,还可以**直接放另一个模板对象**(`ChatPromptTemplate` 或 `FewShotChatMessagePromptTemplate`)。组装时:\n\n- 子模板按声明顺序就地展开,消息序列无缝衔接;\n- 各子模板的 `input_variables` 自动**求并集**,成为主模板的变量签名——你不需要手工登记。\n\n这带来两个工程收益:其一,每个部件可以单独渲染、单独写单测,问题定位到块;其二,部件可跨场景复用——同一个\"剑谱格式块\",既能插进铸剑台,也能插进鉴剑台。这正是 LangChain 的设计哲学:prompt 是**可组合组件**,与后面 LCEL 用 `|` 管道组合 Runnable 一脉相承。\n\n### 操作\n\n1. 把第 2 步的主模板拆成四个工厂函数:`build_persona_block()`(system 人设)、`build_format_block()`(system 格式要求)、`build_fewshot_block()`(示例块)、`build_request_block()`(human 需求)。\n2. 在 `build_forge_prompt()` 里用 `from_messages([人设, 格式, 示例, 需求])` 组装。\n3. 打印主模板的 `input_variables`,验证它是各部件变量的并集;渲染并逐条打印,确认消息顺序 = 组装顺序 = 模型看到的顺序。\n\n### 常见坑\n\n- **以为组合后要手工汇总变量**:不用,`input_variables` 自动并集;但反之,某个部件悄悄引入新变量,主模板签名也会跟着变——改部件后应复查签名。\n- **部件顺序乱摆**:示例块放到当前需求之后,模型会先看到问题再看到\"该怎么答\"的示范,效果大打折扣。消息顺序就是模型阅读的顺序。\n- **拆得过碎**:一条消息一个函数是过度工程;按\"会不会独立变化/复用\"来切分,通常人设、格式、示例三块足矣。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "from_messages 的列表元素不仅可以是 (角色, 模板串) 元组,还能直接放子模板对象——把四个工厂函数的返回值按顺序放进去即可。"
+        },
+        {
+          "order": 2,
+          "text": "build_format_block() 返回 ChatPromptTemplate.from_messages([(\"system\", \"剑谱必须遵循以下格式:{format_spec}\")])。"
+        },
+        {
+          "order": 3,
+          "text": "build_forge_prompt() 完整写法:return ChatPromptTemplate.from_messages([build_persona_block(), build_format_block(), build_fewshot_block(examples), build_request_block()])。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "子模板嵌套组装示例",
+          "language": "python",
+          "code": "from langchain_core.prompts import ChatPromptTemplate\n\npersona = ChatPromptTemplate.from_messages([(\"system\", \"你是{role}\")])\nquestion = ChatPromptTemplate.from_messages([(\"human\", \"{q}\")])\nmain = ChatPromptTemplate.from_messages([persona, question])  # 直接放子模板\nprint(sorted(main.input_variables))  # 变量自动并集:['q', 'role']\nfor m in main.invoke({\"role\": \"铸剑师\", \"q\": \"如何选钢?\"}).to_messages():\n    print(m.type, \"->\", m.content)",
+          "description": "from_messages 嵌套子模板对象,变量签名自动求并集。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "模板组合(prompt composition)",
+          "definition": "把多个子模板对象作为 from_messages 的列表元素拼接成主模板的技术,子模板按序展开、变量自动求并集。"
+        },
+        {
+          "name": "单一事实来源(single source of truth)",
+          "definition": "每块提示词内容只在一个部件里定义,修改即全局生效,避免多处拷贝漂移。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "提示词模板与消息抽象",
+          "description": "LangChain 的核心库,提供 ChatPromptTemplate、FewShotChatMessagePromptTemplate 等提示词组件与消息对象模型,是铸剑台提示词层的基石。",
+          "officialUrl": "https://python.langchain.com/docs/concepts/prompt_templates/",
+          "category": "框架",
+          "installHint": "pip install langchain-core(沙箱已内置,无需安装)"
+        },
+        {
+          "name": "LangChain",
+          "role": "LLM 应用框架",
+          "description": "把提示词、模型、解析器统一为可组合的 Runnable 组件;本任务的模板部件化与 partial 派生正是其组合哲学的体现。",
+          "officialUrl": "https://python.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain(沙箱已内置,无需安装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请先完成 # TODO: 处的部件与组装代码,不要留空。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应定义 build_format_block() 函数。",
+          "astType": "function_def",
+          "name": "build_format_block"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "build_forge_prompt 中应通过工厂函数组合子模板。",
+          "pattern": "build_persona_block\\(\\)[\\s\\S]*build_request_block\\(\\)"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行应打印组装后的变量并集。",
+          "expectedStdout": "组装后的变量全集: \\['format_spec', 'request', 'sect'\\]",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t11-prompt-templates-s4",
+      "taskId": "t11-prompt-templates",
+      "order": 4,
+      "title": "一派一台:partial 预绑定变量",
+      "instruction": "### 目标\n\n用 `.partial()` 给主模板**预绑定**门派与格式规范,一份主模板派生出\"玄铁阁铸剑台\"\"百花谷铸剑台\"两个专用变体——调用方从此只需传 `request` 一个变量。\n\n### 原理\n\n主模板有三个变量,但对某个具体铸剑台来说,`sect` 和 `format_spec` 是长期不变的\"配置\",只有 `request` 是每次不同的\"输入\"。把配置混进输入,既啰嗦又危险(调用方可能传错门派)。\n\n`.partial(**kwargs)` 的机制类似函数式编程里的**偏函数**(functools.partial):它不改原模板,而是返回一个新模板,其中被绑定的变量在渲染前自动填入绑定值。两个可观察的效果:\n\n- 新模板的 `input_variables` **缩水**——已绑定的变量从签名中消失,调用契约随之收窄;\n- 绑定值记录在 `partial_variables` 属性里,可 introspect,便于审计\"这个变体到底锁了什么\"。\n\n这套\"通用模板 + 预绑定派生\"是提示词工程的经典复用模式:平台维护一份主模板(单一事实来源),各业务线 partial 出自己的变体;主模板升级,所有变体自动受益。它和第 3 步的组合是互补的两把刀:组合解决\"结构复用\",partial 解决\"配置复用\"。\n\n### 操作\n\n1. 沿用第 3 步的部件化主模板。\n2. 写 `make_sect_forge(prompt, sect, format_spec)`,内部调用 `prompt.partial(sect=..., format_spec=...)` 返回变体。\n3. 派生玄铁阁、百花谷两个变体,分别打印绑定前后的 `input_variables`,观察签名从 3 个变量缩到 1 个。\n4. 两个变体各渲染一次,只传 `{\"request\": ...}`。\n\n### 常见坑\n\n- **以为 partial 会改原模板**:不会,它返回新对象;`prompt.partial(...)` 不赋值等于白调。\n- **绑了不存在的变量名**:`partial(secct=\"玄铁阁\")` 不报错也不生效——变量名拼写错误在 partial 里是静默的,绑完务必打印 `input_variables` 核对。\n- **调用时又把已绑变量传一遍**:多此一举;若传了,传入值通常优先生效,容易搞混\"到底谁说了算\"。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "partial 像偏函数:预绑定部分变量并返回一个新模板,不改原模板;已绑变量会从 input_variables 中消失。"
+        },
+        {
+          "order": 2,
+          "text": "make_sect_forge() 里 return prompt.partial(sect=sect, format_spec=format_spec);main 里用 xuantie.invoke({\"request\": ...}) 渲染。"
+        },
+        {
+          "order": 3,
+          "text": "main 末尾补两行:render_and_show(xuantie, {\"request\": \"镇派重剑,主材玄铁精金\"}) 和 render_and_show(baihua, {\"request\": \"一柄缠枝细剑,主材精钢\"})。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "partial 派生变体示例",
+          "language": "python",
+          "code": "from langchain_core.prompts import ChatPromptTemplate\n\nbase = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是{sect}的铸剑师,格式:{fmt}\"), (\"human\", \"{req}\"),\n])\nxuantie = base.partial(sect=\"玄铁阁\", fmt=\"《剑名》|特性\")\nprint(sorted(xuantie.input_variables))   # 只剩 ['req']\nprint(xuantie.invoke({\"req\": \"铸重剑\"}).to_string())",
+          "description": "partial 预绑定配置变量,调用契约收窄到剩余变量。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "partial(部分应用)",
+          "definition": "预绑定模板的部分变量并返回新模板的方法,类似 functools.partial;被绑变量从 input_variables 移除并记入 partial_variables。"
+        },
+        {
+          "name": "偏函数(partial function)",
+          "definition": "固定函数部分参数得到新函数的函数式编程技巧,模板的 .partial() 借用了同一思想。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "提示词模板与消息抽象",
+          "description": "LangChain 的核心库,提供 ChatPromptTemplate、FewShotChatMessagePromptTemplate 等提示词组件与消息对象模型,是铸剑台提示词层的基石。",
+          "officialUrl": "https://python.langchain.com/docs/concepts/prompt_templates/",
+          "category": "框架",
+          "installHint": "pip install langchain-core(沙箱已内置,无需安装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请先完成 # TODO: 处的 partial 派生代码,不要留空。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应定义 make_sect_forge() 函数。",
+          "astType": "function_def",
+          "name": "make_sect_forge"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中必须使用 .partial() 预绑定变量。",
+          "pattern": "\\.partial\\(sect="
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行后玄铁阁变体的变量应只剩 request。",
+          "expectedStdout": "预绑定后\\(玄铁阁\\)的变量: \\['request'\\]",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t11-prompt-templates-s5",
+      "taskId": "t11-prompt-templates",
+      "order": 5,
+      "title": "验收闸门:变量校验与健壮渲染",
+      "instruction": "### 目标\n\n给铸剑台装上\"验收闸\":写 `validate_variables()` 与 `render_prompt()` 安全渲染层——渲染前先比对模板签名与实际传参,缺参、多参都给出中文提示,而不是甩给使用者一个裸 `KeyError` 堆栈。至此「铸剑台」提示词层收官。\n\n### 原理\n\n模板自带的 `KeyError` 防线有两处不足:其一,报错信息是英文变量名,师门弟子(调用方)看不懂;其二,它只管\"缺\"不管\"多\"——多传的变量被静默吞掉,往往意味着调用方以为生效的配置其实没生效,这类 bug 极难查。\n\n健壮渲染层的职责是**把契约检查前移并翻译成业务语言**:\n\n- `prompt.input_variables` 是模板自己声明的\"必需签名\",`partial_variables` 是已预绑的配置——两者之和才是模板的全部变量。校验时拿 `set(input_variables)` 与 `set(传入dict)` 做差集:必需减实际得\"缺参清单\",实际减必需(再排除已 partial 的)得\"多传清单\"。\n- 校验失败要**fail fast**:在渲染前拦下,打印清单并返回 `None`/`False`,让调用方立即知道,而不是带着残缺提示词去烧 token。\n- 这正是不调模型也要先把这层做好的原因:提示词层是 Agent 的\"编译期\",能静态查出的错,绝不留到运行期。\n\n### 操作\n\n1. 写 `validate_variables(prompt, data) -> list[str]`:对比签名与传参,返回问题清单(空列表表示通过)。\n2. 写 `render_prompt(prompt, data) -> str | None`:先校验,通过才 `invoke` 并返回拼接文本;失败打印 `[校验失败]` 清单并返回 `None`。\n3. 自检环节:打印模板的必需变量与已绑变量;然后依次演练正常渲染、缺参(传空 dict)、多参(夹带已绑定的 `sect`),观察三种结局。\n4. 通读整个文件——这就是「铸剑台」提示词层的完整形态:部件化组装 + partial 派生 + 校验渲染。\n\n### 常见坑\n\n- **校验时漏算 `partial_variables`**:把已绑定变量当成\"缺参\"误报,或把多传的已绑变量当成合法。签名判断要同时考虑两者。\n- **校验通过就以为万事大吉**:变量在、值不对(空串、类型错)同样毁输出——必要时给关键变量加值校验(如 `request` 非空)。\n- **错误处理写成 print 后继续跑**:校验失败必须短路返回,否则残缺提示词照样发给模型,校验形同虚设。",
+      "hints": [
+        {
+          "order": 1,
+          "text": "校验就是集合运算:缺参 = set(input_variables) - set(data);多传 = set(data) - set(input_variables),其中落在 partial_variables 里的要单独提醒。"
+        },
+        {
+          "order": 2,
+          "text": "validate_variables() 用 required = set(prompt.input_variables)、bound = set(prompt.partial_variables)、provided = set(data) 三个集合,差集结果逐条 append 中文说明。"
+        },
+        {
+          "order": 3,
+          "text": "render_prompt():problems = validate_variables(prompt, data);if problems: 逐条 print(\"[校验失败]\", p) 并 return None;否则 return prompt.invoke(data).to_string()。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "签名校验函数骨架",
+          "language": "python",
+          "code": "def validate_variables(prompt, data):\n    required = set(prompt.input_variables)   # 模板还需的变量\n    bound = set(prompt.partial_variables)    # 已 partial 绑定的变量\n    provided = set(data)\n    problems = []\n    for name in sorted(required - provided):\n        problems.append(f\"缺少必需变量: {name}\")\n    for name in sorted(provided - required - bound):\n        problems.append(f\"多传了无用变量: {name}\")\n    return problems",
+          "description": "用集合差集比对模板签名与传参,返回问题清单。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "fail fast(快速失败)",
+          "definition": "在最早可能的环节(渲染前)拦截错误并停止流程,避免残缺输入流向昂贵或不可撤销的下游操作。"
+        },
+        {
+          "name": "partial_variables",
+          "definition": "ChatPromptTemplate 上记录 partial 预绑定变量名与值的属性,校验时需与 input_variables 一并考虑。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "提示词模板与消息抽象",
+          "description": "LangChain 的核心库,提供 ChatPromptTemplate、FewShotChatMessagePromptTemplate 等提示词组件与消息对象模型,是铸剑台提示词层的基石。",
+          "officialUrl": "https://python.langchain.com/docs/concepts/prompt_templates/",
+          "category": "框架",
+          "installHint": "pip install langchain-core(沙箱已内置,无需安装)"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请先完成 # TODO: 处的校验与渲染函数,不要留空。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应定义 validate_variables() 函数。",
+          "astType": "function_def",
+          "name": "validate_variables"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "校验逻辑应读取模板的 input_variables 签名。",
+          "pattern": "input_variables"
+        },
+        {
+          "type": "sandbox_run",
+          "message": "缺参演练应打印中文校验失败信息。",
+          "expectedStdout": "\\[校验失败\\] 缺少必需变量: request",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

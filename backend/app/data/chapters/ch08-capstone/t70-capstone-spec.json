@@ -1,0 +1,206 @@
+{
+  "steps": [
+    {
+      "id": "t70-capstone-spec-s1",
+      "taskId": "t70-capstone-spec",
+      "order": 1,
+      "title": "选定综合项目",
+      "instruction": "### 目标\n选定毕业设计项目,产出一份**可执行的需求文档(PRD)**。这一步不写功能代码,但它决定后 4 个任务的成败——真实工程里,需求不清是项目失败的第一大原因。\n\n### 背景: 怎么写好 Agent 项目的 PRD\n一份能指导开发的 PRD 必须回答 4 个问题:\n1. **用户是谁,痛点是什么** —— 一句话说清\"什么人遇到什么问题\"。例如\"研究生读论文慢,读完就忘\"\n2. **核心闭环是什么** —— Agent 产品一定有\"输入→处理→输出\"主链路。知识库 Agent 的闭环:上传文档→向量化→提问→带引用的回答\n3. **MVP 砍到什么程度** —— 第一版只做闭环主链路,砍掉一切\"锦上添花\"。判断标准:砍掉它闭环还成立吗?成立就砍\n4. **怎么算成功** —— 定可量化的验收指标。例如\"上传 50 页 PDF,10 个问题答对 8 个且引用页码正确\"\n\n### 反模式(不要这么写)\n- ❌ \"做一个很智能的 AI 助手\" —— 没有闭环,无法验收\n- ❌ 功能清单列 20 条 —— 第一版超过 5 个功能就是没想清楚\n- ❌ 没有量化指标 —— \"好用\"不是指标,\"10 题答对 8 题\"才是\n\n### 操作\n1. 用 `dict` 结构化描述你的项目(名称/痛点/闭环/功能/MVP/指标)\n2. 实现 `render_prd()` 把 dict 渲染成格式整齐的文档\n3. 运行,检查输出的 PRD 是否回答了上面 4 个问题\n\n### 完成标准\n输出一份格式整齐的 PRD,包含:项目名称、用户痛点、核心闭环、功能清单(≤5)、MVP 范围、量化验收指标。",
+      "starterCode": "# 毕业设计 Step1: 用数据结构写 PRD(而非零散 print)\n# 结构化描述迫使你想清每个字段, 这就是建模的意义\n\nproject = {\n    \"name\": \"\",           # TODO: 项目名称, 如 \"个人知识库 Agent\"\n    \"pain_point\": \"\",     # TODO: 用户痛点一句话, \"什么人遇到什么问题\"\n    \"core_loop\": [],      # TODO: 核心闭环, 输入→处理→输出的步骤列表\n    \"features\": [],       # TODO: 完整功能清单(可以多想, ≤8条)\n    \"mvp\": [],            # TODO: MVP 范围(从 features 里砍到 ≤3条, 只留闭环必需)\n    \"metrics\": [],        # TODO: 量化验收指标(可测量的, 如 \"10题答对8题\")\n}\n\n\ndef render_prd(p: dict) -> str:\n    \"\"\"把项目 dict 渲染成格式整齐的 PRD 文档。\"\"\"\n    lines = [f\"# PRD: {p['name']}\", \"\"]\n    lines.append(f\"## 用户痛点\\n{p['pain_point']}\")\n    # TODO: 追加 核心闭环(用 → 连接)、功能清单(编号列表)、\n    #       MVP 范围、验收指标 四个小节, 返回 \"\\n\".join(lines)\n    return \"\\n\".join(lines)\n\n\nif __name__ == \"__main__\":\n    print(render_prd(project))\n",
+      "solutionCode": "# 毕业设计 Step1: 用数据结构写 PRD\nproject = {\n    \"name\": \"个人知识库 Agent\",\n    \"pain_point\": \"研究生读论文慢, 读完就忘, 无法针对自己的文献库提问\",\n    \"core_loop\": [\"上传文档\", \"切分+向量化入库\", \"用户提问\", \"检索相关片段\", \"LLM 生成带引用的回答\"],\n    \"features\": [\n        \"上传 PDF/Markdown 文档\",\n        \"文档切分与向量化存储\",\n        \"基于检索的问答(RAG)\",\n        \"回答标注引用来源页码\",\n        \"多轮对话记忆\",\n        \"多文档跨库检索\",\n        \"对话历史导出\",\n    ],\n    \"mvp\": [\"上传 PDF/Markdown 文档\", \"文档切分与向量化存储\", \"基于检索的问答(RAG)\", \"回答标注引用来源页码\"],\n    \"metrics\": [\"上传 50 页 PDF 后, 10 个测试问题答对 8 个\", \"每个回答标注的引用页码人工抽查 90% 正确\", \"单次问答端到端延迟 < 10 秒\"],\n}\n\n\ndef render_prd(p: dict) -> str:\n    \"\"\"把项目 dict 渲染成格式整齐的 PRD 文档。\"\"\"\n    lines = [f\"# PRD: {p['name']}\", \"\"]\n    lines.append(f\"## 用户痛点\\n{p['pain_point']}\")\n    lines.append(\"## 核心闭环\\n\" + \" → \".join(p[\"core_loop\"]))\n    lines.append(\"## 功能清单\\n\" + \"\\n\".join(f\"{i}. {f}\" for i, f in enumerate(p[\"features\"], 1)))\n    lines.append(\"## MVP 范围(第一版只做这些)\\n\" + \"\\n\".join(f\"- {m}\" for m in p[\"mvp\"]))\n    lines.append(\"## 验收指标\\n\" + \"\\n\".join(f\"- {m}\" for m in p[\"metrics\"]))\n    return \"\\n\\n\".join(lines)\n\n\nif __name__ == \"__main__\":\n    print(render_prd(project))\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "选一个能应用 RAG+Agent 的项目。"
+        },
+        {
+          "order": 2,
+          "text": "MVP 先做核心(单文档问答)。"
+        },
+        {
+          "order": 3,
+          "text": "后续扩展(多文档/记忆)。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# MVP 范围\nprint('核心: 上传+问答+引用')\nprint('后续: 多文档/记忆')"
+        }
+      ],
+      "terms": [
+        {
+          "name": "MVP",
+          "definition": "最小可行产品,核心功能"
+        },
+        {
+          "name": "需求文档",
+          "definition": "明确做什么"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Markdown",
+          "role": "文档",
+          "description": "需求文档撰写",
+          "officialUrl": "https://www.markdownguide.org/",
+          "category": "文档",
+          "installHint": ""
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "需定义 render_prd。",
+          "astType": "function_def",
+          "name": "render_prd",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t70-capstone-spec-s2",
+      "taskId": "t70-capstone-spec",
+      "order": 2,
+      "title": "技术选型",
+      "instruction": "### 目标\n把 PRD 细化成**用户故事(User Story)** 和**明确的边界声明**——做什么,更重要的是**不做什么**。\n\n### 背景: 用户故事的正确写法\n标准格式: `作为 <角色>, 我希望 <动作>, 以便 <价值>`。\n- 角色要具体:不是\"用户\",是\"正在写文献综述的研究生\"\n- 价值是动作的动机,能帮你判断这个功能该不该做\n- 每个用户故事配**验收条件**(Given/When/Then),开发完对照验收\n\n### 边界声明(Out of Scope)为什么重要\nAgent 项目最大的风险是范围蔓延——\"顺便加个语音输入吧\"\"顺便支持视频理解吧\"。每个\"顺便\"都让项目延期。明确写下**本期不做**的事,是对自己的承诺。常见边界:\n- 不做多用户/权限系统(单机自用)\n- 不做实时协作\n- 不处理扫描件 OCR(只支持文本型 PDF)\n\n### 操作\n1. 写 3-5 个用户故事(标准格式 + 验收条件)\n2. 写 3 条以上的边界声明\n3. 用数据结构组织并渲染输出",
+      "starterCode": "# 毕业设计 Step2: 用户故事 + 边界声明\nstories = [\n    {\n        # TODO: 用户故事1, 标准格式: 作为<角色>, 我希望<动作>, 以便<价值>\n        \"story\": \"\",\n        # TODO: 验收条件 Given...When...Then...\n        \"acceptance\": \"\",\n    },\n    # TODO: 再补 2 个用户故事(其中一个必须关于'防幻觉/引用核对')\n]\n\nout_of_scope = [\n    # TODO: 至少 3 条边界声明(本期明确不做什么)\n]\n\nlines = [\"# 用户故事与边界\", \"\"]\nfor i, s in enumerate(stories, 1):\n    lines.append(f\"## 故事 {i}\\n{s['story']}\\n**验收**: {s['acceptance']}\")\nlines.append(\"## 明确不做(Out of Scope)\\n\" + \"\\n\".join(f\"- {o}\" for o in out_of_scope))\nprint(\"\\n\\n\".join(lines))\n",
+      "solutionCode": "# 毕业设计 Step2: 用户故事 + 边界声明\nstories = [\n    {\n        \"story\": \"作为正在写文献综述的研究生, 我希望上传一批 PDF 论文后能直接用中文提问, 以便快速定位支持我论点的段落\",\n        \"acceptance\": \"Given 已上传3篇PDF, When 提问'Transformer的注意力机制怎么计算', Then 返回答案且附论文名+页码\",\n    },\n    {\n        \"story\": \"作为研究生, 我希望回答标注引用来源, 以便我能跳转原文核对, 防止 AI 幻觉误导我的论文\",\n        \"acceptance\": \"Given 任意回答, When 查看引用, Then 每条引用都能在实际文档中找到对应原文\",\n    },\n    {\n        \"story\": \"作为研究生, 我希望系统告诉我'文献里没有相关内容', 以便区分'AI不知道'和'文献没写'\",\n        \"acceptance\": \"Given 提问超出文档范围, When 检索无高相关片段, Then 明确回答'知识库中未找到相关内容'而非编造\",\n    },\n]\n\nout_of_scope = [\n    \"不做多用户与权限系统(单机自用)\",\n    \"不处理扫描件 OCR(仅支持文本型 PDF)\",\n    \"不做实时协作与分享\",\n    \"不支持图片/表格内容的理解(仅纯文本)\",\n]\n\nlines = [\"# 用户故事与边界\", \"\"]\nfor i, s in enumerate(stories, 1):\n    lines.append(f\"## 故事 {i}\\n{s['story']}\\n**验收**: {s['acceptance']}\")\nlines.append(\"## 明确不做(Out of Scope)\\n\" + \"\\n\".join(f\"- {o}\" for o in out_of_scope))\nprint(\"\\n\\n\".join(lines))\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "选熟悉的技术降低风险。"
+        },
+        {
+          "order": 2,
+          "text": "向量库选 Chroma(轻量)。"
+        },
+        {
+          "order": 3,
+          "text": "LLM 选便宜的 deepseek-v4-pro。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "# 选型\n前端: React\n后端: FastAPI\n向量库: Chroma"
+        }
+      ],
+      "terms": [
+        {
+          "name": "技术选型",
+          "definition": "根据需求选合适技术"
+        },
+        {
+          "name": "依赖",
+          "definition": "项目所需库"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "LangChain",
+          "role": "技术选型",
+          "description": "RAG/Agent 框架选型",
+          "officialUrl": "https://www.langchain.com/",
+          "category": "LLM 框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    },
+    {
+      "id": "t70-capstone-spec-s3",
+      "taskId": "t70-capstone-spec",
+      "order": 3,
+      "title": "项目结构规划",
+      "instruction": "### 目标\n为项目做**技术选型**并写出**选型理由**——选型不是堆砌热门技术,而是为每个组件回答\"为什么是它,而不是替代品\"。\n\n### 背景: Agent 技术栈的选型决策点\n| 决策点 | 常见选项 | 选择依据 |\n|--------|----------|----------|\n| LLM | DeepSeek / 通义 / OpenAI | 成本×能力×国内可达性 |\n| 编排框架 | LangChain / 裸 SDK / LlamaIndex | 需要 Chain/Agent 抽象就 LangChain,简单调用裸 SDK 更轻 |\n| 向量库 | Chroma / FAISS / Qdrant | 本地开发 Chroma 零运维;极致性能 FAISS;生产集群 Qdrant |\n|  embedding | BGE / OpenAI text-embedding | 中文场景 BGE 系列效果好且可本地跑 |\n| 文档解析 | pypdf / unstructured | 纯文本 PDF 用 pypdf 足够,复杂版面才上 unstructured |\n\n### 选型三原则\n1. **够用原则**:选能满足 MVP 的最简单方案,不选\"最强\"方案\n2. **可替换原则**:在接口层做抽象(如 Embedding 接口),方便日后换实现\n3. **写下理由**:每个选型写一句\"为什么\",逼自己思考而非跟风\n\n### 操作\n1. 为 LLM/框架/向量库/embedding/文档解析 各选一个技术\n2. 每个写出\"选它的理由\"+\"放弃了哪个替代品,为什么\"\n3. 渲染成选型表输出",
+      "starterCode": "# 毕业设计 Step3: 技术选型与理由\nselections = [\n    {\n        \"component\": \"LLM\",\n        \"choice\": \"\",          # TODO: 选什么, 如 DeepSeek (deepseek-v4-pro)\n        \"reason\": \"\",          # TODO: 为什么选它(成本/能力/可达性)\n        \"alternative\": \"\",     # TODO: 放弃了谁, 为什么\n    },\n    # TODO: 补 编排框架 / 向量库 / Embedding / 文档解析 四项选型\n]\n\nlines = [\"# 技术选型\", \"\"]\nfor s in selections:\n    lines.append(f\"## {s['component']}: {s['choice']}\")\n    lines.append(f\"**理由**: {s['reason']}\")\n    lines.append(f\"**取舍**: {s['alternative']}\")\nprint(\"\\n\\n\".join(lines))\n",
+      "solutionCode": "# 毕业设计 Step3: 技术选型与理由\nselections = [\n    {\n        \"component\": \"LLM\",\n        \"choice\": \"DeepSeek (deepseek-v4-pro)\",\n        \"reason\": \"中文能力强, API 便宜(约为 GPT-4o 的 1/10), OpenAI 兼容接口国内直连\",\n        \"alternative\": \"放弃 GPT-4o: 成本高且国内访问需代理, 毕业设计成本敏感\",\n    },\n    {\n        \"component\": \"编排框架\",\n        \"choice\": \"LangChain\",\n        \"reason\": \"课程第2章已掌握 Chain/Retriever 抽象, RetrievalQA 开箱即用, 生态成熟\",\n        \"alternative\": \"放弃裸 SDK: RAG 链路要自己拼装检索+拼prompt+解析, 重复造轮子\",\n    },\n    {\n        \"component\": \"向量库\",\n        \"choice\": \"ChromaDB\",\n        \"reason\": \"pip 安装即用, 支持持久化到本地目录, 自带 metadata 过滤(存页码)\",\n        \"alternative\": \"放弃 FAISS: 纯索引无元数据管理, 引用页码要另存, 增加复杂度\",\n    },\n    {\n        \"component\": \"Embedding\",\n        \"choice\": \"BGE-small-zh (sentence-transformers)\",\n        \"reason\": \"中文检索效果第一梯队, 24MB 小模型本地可跑, 免 API 费用\",\n        \"alternative\": \"放弃 OpenAI embedding: 按 token 收费且中文效果不如 BGE\",\n    },\n    {\n        \"component\": \"文档解析\",\n        \"choice\": \"pypdf\",\n        \"reason\": \"MVP 只处理文本型 PDF, pypdf 按页提取正好满足'引用页码'需求\",\n        \"alternative\": \"放弃 unstructured: 功能强但依赖重, MVP 阶段杀鸡用牛刀\",\n    },\n]\n\nlines = [\"# 技术选型\", \"\"]\nfor s in selections:\n    lines.append(f\"## {s['component']}: {s['choice']}\")\n    lines.append(f\"**理由**: {s['reason']}\")\n    lines.append(f\"**取舍**: {s['alternative']}\")\nprint(\"\\n\\n\".join(lines))\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "前端:上传+对话界面。"
+        },
+        {
+          "order": 2,
+          "text": "后端:routers(API)+services(逻辑)。"
+        },
+        {
+          "order": 3,
+          "text": "数据流:上传→存;提问→检索→答。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "示例",
+          "language": "python",
+          "code": "knowledge-agent/\n├── frontend/\n├── backend/\n│   ├── routers/\n│   └── services/"
+        }
+      ],
+      "terms": [
+        {
+          "name": "项目结构",
+          "definition": "目录组织"
+        },
+        {
+          "name": "数据流",
+          "definition": "数据在系统中的流向"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Markdown",
+          "role": "文档",
+          "description": "项目结构规划",
+          "officialUrl": "https://www.markdownguide.org/",
+          "category": "文档",
+          "installHint": ""
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "代码应成功运行并输出结果。",
+          "expectedStdout": ".+",
+          "stderrMustBeEmpty": true,
+          "expectedExitCode": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "steps": [
+    {
+      "id": "t13-memory-s1",
+      "taskId": "t13-memory",
+      "order": 1,
+      "title": "体验“记忆”：Buffer 模式",
+      "instruction": "## 目标\n使用 `ConversationBufferMemory` 手动存储和加载对话历史，让模型知道前文。\n\n## 概念\n没有记忆的对话模型就像一位健忘的朋友——每次交流都从头开始。在 LangChain 中，**记忆（Memory）** 是存储对话历史并注入到新提示中的组件。最简单的记忆是 `ConversationBufferMemory`，它把所有交互原样存入缓冲区，形成一个完整的对话记录。这种方式简单直接，适合短对话。\n\n想象一个笔记本：每说完一句话就写下来，下次说话前翻看前面的内容。Buffer 就是这样一个“笔记本”。\n\n## 操作\n1. 导入 `ConversationBufferMemory` 和 `ChatOpenAI`。\n2. 创建 LLM 实例（如 `deepseek-v4-pro`）。\n3. 初始化 memory，并设置 `memory_key`（默认为 `history`）和 `return_messages`（返回 Message 对象而不是字符串）。\n4. 手动模拟对话：用 `memory.save_context({\"input\": \"...\"}, {\"output\": \"...\"})` 保存一轮对话。\n5. 用 `memory.load_memory_variables({})` 查看记忆中的内容。\n\n请在 `# TODO` 处完成保存和加载记忆的操作，并打印记忆内容。",
+      "starterCode": "import os\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_openai import ChatOpenAI\n\n# 配置 API key（假设已通过环境变量设置）\n# os.environ[\"OPENAI_API_KEY\"] = \"...\"\n\nllm = ChatOpenAI(model=\"deepseek-v4-pro\", temperature=0)\n\n# 创建记忆\nmemory = ConversationBufferMemory(memory_key=\"history\", return_messages=True)\n\n# TODO: 使用 memory.save_context 保存以下对话\n# 提示: memory.save_context({\"input\": \"你好，我叫小明\"}, {\"output\": \"你好小明！我是你的AI助手。\"})\n# 用户: \"你好，我叫小明\"\n# 助手: \"你好小明！我是你的AI助手。\"\n\n# TODO: 加载记忆变量，并打印 history\n# 提示: print(\"历史记录:\", memory_vars[\"history\"])\n\n# TODO: 再保存一轮对话\n# 提示: memory.save_context({\"input\": \"你好，我叫小明\"}, {\"output\": \"你好小明！我是你的AI助手。\"})\n# 用户: \"我住在北京\"\n# 助手: \"北京是个好地方！\"\n\n# TODO: 再次加载记忆并打印，观察历史变化\n# 提示: print(\"历史记录:\", memory_vars[\"history\"])\n",
+      "solutionCode": "import os\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_openai import ChatOpenAI\n\n# 配置 API key（假设已通过环境变量设置）\n# os.environ[\"OPENAI_API_KEY\"] = \"...\"\n\nllm = ChatOpenAI(model=\"deepseek-v4-pro\", temperature=0)\n\n# 创建记忆\nmemory = ConversationBufferMemory(memory_key=\"history\", return_messages=True)\n\n# 保存第一轮对话\nmemory.save_context({\"input\": \"你好，我叫小明\"}, {\"output\": \"你好小明！我是你的AI助手。\"})\n\n# 加载记忆并打印\nmemory_vars = memory.load_memory_variables({})\nprint(\"历史记录:\", memory_vars[\"history\"])\n\n# 保存第二轮对话\nmemory.save_context({\"input\": \"我住在北京\"}, {\"output\": \"北京是个好地方！\"})\n\n# 再次加载记忆\nmemory_vars = memory.load_memory_variables({})\nprint(\"更新后的历史:\", memory_vars[\"history\"])\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "save_context 需要两个字典参数：第一个是输入，第二个是输出。"
+        },
+        {
+          "order": 2,
+          "text": "load_memory_variables 返回一个字典，键是 memory_key 的值（这里是 'history'）。"
+        },
+        {
+          "order": 3,
+          "text": "保存第二轮对话后，调用 load_memory_variables 会看到包含两轮对话的历史。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "ConversationBufferMemory 基本用法",
+          "language": "python",
+          "code": "from langchain.memory import ConversationBufferMemory\nmemory = ConversationBufferMemory()\nmemory.save_context({\"input\": \"hi\"}, {\"output\": \"hello\"})\nprint(memory.load_memory_variables({}))",
+          "description": "演示保存和加载记忆"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ConversationBufferMemory",
+          "definition": "一种记忆组件，按顺序存储对话历史中的所有消息，适合短对话场景。"
+        },
+        {
+          "name": "memory_key",
+          "definition": "记忆在提示模板中占位的变量名，默认为 'history'。"
+        },
+        {
+          "name": "return_messages",
+          "definition": "若为 True，加载记忆时返回 Message 对象列表；False 则返回拼接后的字符串。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。构建 LLM 应用，提供 Memory 抽象",
+          "officialUrl": "https://www.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        },
+        {
+          "name": "langchain-openai",
+          "role": "集成",
+          "description": "LangChain 的 OpenAI 集成包,提供 ChatOpenAI 类封装对话模型。LangChain 的 OpenAI 集成",
+          "officialUrl": "https://python.langchain.com/docs/integrations/chat/openai/",
+          "category": "集成包",
+          "installHint": "pip install langchain-openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请完成所有 TODO 标注的代码。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含至少一条历史消息（如 '你好' 或 '小明'）。",
+          "text": "小明",
+          "caseSensitive": false,
+          "blocking": false
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 save_context 方法调用。",
+          "pattern": "save_context",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-s2",
+      "taskId": "t13-memory",
+      "order": 2,
+      "title": "自动化记忆管理：RunnableWithMessageHistory",
+      "instruction": "## 目标\n使用 `RunnableWithMessageHistory` 自动捕获并传递对话历史，免去手动保存。\n\n## 概念\n上一步我们手动调用了 `save_context`，但每次对话都这样操作很繁琐。LangChain 提供了 `RunnableWithMessageHistory`，它能自动将会话历史注入到链的输入中，并在每次调用后将新消息追加到记忆里。你只需提供两个东西：\n- 一个可运行的链（如 `llm` 或 `ChatPromptTemplate | llm`）\n- 一个 `get_session_history` 函数，它通过 `session_id` 返回一个 `BaseChatMessageHistory` 对象（实际存储）。\n\n这就像有一个自动笔记本：你说一句话，助手回应后，笔记本自动记录；下次说话时，自动把前面的记录放在你眼前。\n\n## 操作\n1. 从 `langchain_community.chat_message_histories` 导入 `ChatMessageHistory`。\n2. 定义一个简单链：`ChatPromptTemplate.from_template(...) | llm`。\n3. 定义一个字典 `store` 用于按 session 存储历史。\n4. 定义 `get_session_history(session_id)` 函数，返回 `store[session_id]`（若不存在则新建 `ChatMessageHistory()`）。\n5. 用 `RunnableWithMessageHistory` 包裹链，指定 `get_session_history` 和 `input_messages_key`、`history_messages_key`。\n6. 调用 `with_message_history.invoke`，传入 `config={\"configurable\": {\"session_id\": \"...\"}}`。\n\n请完成 `# TODO` 部分，实现自动记忆的对话。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder\nfrom langchain_core.runnables.history import RunnableWithMessageHistory\nfrom langchain_community.chat_message_histories import ChatMessageHistory\n\n# llm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\n\n# 带记忆占位符的提示模板\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是乐于助人的助手。\"),\n    MessagesPlaceholder(variable_name=\"history\"),\n    (\"human\", \"{input}\")\n])\n\n# 组合成链\nchain = prompt | llm\n\n# 存储会话历史的字典\nstore = {}\n\n# 定义 get_session_history 函数\n# 输入 session_id，返回 store 中对应的 ChatMessageHistory，若不存在则创建\n\n# 用 RunnableWithMessageHistory 包裹链\n# 指定参数：get_session_history, input_messages_key=\"input\", history_messages_key=\"history\"\n\n# 测试对话\nconfig = {\"configurable\": {\"session_id\": \"user123\"}}\n\n# TODO: 第一轮：询问“我的名字是什么？”（此时没有记忆，模型不知道）\n# 提示: llm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\n\n# TODO: 第二轮：告诉模型“我叫小明”，然后再次询问“我的名字是什么？”\n# 提示: llm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\n\n# 观察两次回答的区别\n",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder\nfrom langchain_core.runnables.history import RunnableWithMessageHistory\nfrom langchain_community.chat_message_histories import ChatMessageHistory\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是乐于助人的助手。\"),\n    MessagesPlaceholder(variable_name=\"history\"),\n    (\"human\", \"{input}\")\n])\n\nchain = prompt | llm\n\nstore = {}\n\ndef get_session_history(session_id: str) -> ChatMessageHistory:\n    if session_id not in store:\n        store[session_id] = ChatMessageHistory()\n    return store[session_id]\n\nwith_message_history = RunnableWithMessageHistory(\n    chain,\n    get_session_history,\n    input_messages_key=\"input\",\n    history_messages_key=\"history\"\n)\n\nconfig = {\"configurable\": {\"session_id\": \"user123\"}}\n\n# 第一轮：不知道名字\nresponse1 = with_message_history.invoke(\n    {\"input\": \"我的名字是什么？\"},\n    config=config\n)\nprint(\"第一轮回答:\", response1.content)\n\n# 第二轮：告知名字\nresponse2 = with_message_history.invoke(\n    {\"input\": \"我叫小明\"},\n    config=config\n)\nprint(\"第二轮回答:\", response2.content)\n\n# 第三轮：再次询问\nresponse3 = with_message_history.invoke(\n    {\"input\": \"我的名字是什么？\"},\n    config=config\n)\nprint(\"第三轮回答:\", response3.content)\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "ChatMessageHistory 是实际存储消息的类，一个 session_id 对应一个实例。"
+        },
+        {
+          "order": 2,
+          "text": "RunnableWithMessageHistory 需要两个关键参数：get_session_history 函数和键名映射。"
+        },
+        {
+          "order": 3,
+          "text": "config 字典中要包含 session_id，用于区分不同对话。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "RunnableWithMessageHistory 基本配置",
+          "language": "python",
+          "code": "from langchain_core.runnables.history import RunnableWithMessageHistory\nfrom langchain_community.chat_message_histories import ChatMessageHistory\n\nstore = {}\ndef get_session_history(session_id):\n    if session_id not in store:\n        store[session_id] = ChatMessageHistory()\n    return store[session_id]\n\nwith_history = RunnableWithMessageHistory(\n    chain,\n    get_session_history,\n    input_messages_key=\"input\",\n    history_messages_key=\"history\"\n)",
+          "description": "创建 RunnableWithMessageHistory 实例"
+        }
+      ],
+      "terms": [
+        {
+          "name": "RunnableWithMessageHistory",
+          "definition": "一个 Runnable 包装器，自动管理对话历史，将历史注入输入并追加新消息。"
+        },
+        {
+          "name": "ChatMessageHistory",
+          "definition": "基于内存列表的对话历史存储，每个会话维护一个消息列表。"
+        },
+        {
+          "name": "MessagesPlaceholder",
+          "definition": "在提示模板中占位，用于插入从历史获取的消息列表。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain-core",
+          "role": "核心",
+          "description": "Runnable 和基础组件",
+          "officialUrl": "https://python.langchain.com/docs/modules/model_io/"
+        },
+        {
+          "name": "langchain-community",
+          "role": "社区集成",
+          "description": "ChatMessageHistory 等社区维护的实现",
+          "officialUrl": "https://python.langchain.com/docs/integrations/chat/"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请完成所有 TODO 标注的代码。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中必须包含 get_session_history 函数定义。",
+          "astType": "function_def",
+          "name": "get_session_history",
+          "blocking": true
+        },
+        {
+          "type": "output_contains",
+          "message": "第三轮回答应包含'小明'（因为模型知道了名字）。",
+          "text": "小明",
+          "caseSensitive": false,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-s3",
+      "taskId": "t13-memory",
+      "order": 3,
+      "title": "选择记忆策略：窗口与摘要",
+      "instruction": "## 目标\n比较 `ConversationBufferWindowMemory` 和 `ConversationSummaryMemory`，处理长对话记忆的局限性。\n\n## 概念\n当对话变长时，`Buffer` 会塞满所有历史，不仅 token 消耗巨大，还可能超出模型上下文限制。这时需要更聪明的记忆策略：\n- **窗口记忆（ConversationBufferWindowMemory）**：只保留最近 N 轮对话，就像翻阅最近的几页笔记，旧内容自然遗忘。\n- **摘要记忆（ConversationSummaryMemory）**：利用 LLM 对历史对话进行摘要，动态压缩信息，用少量的 token 保留要点。\n\n两种策略各有适用场景：窗口记忆实现简单，适合对近期信息敏感的场景；摘要记忆能长期保留关键信息，但摘要本身可能丢失细节。\n\n## 操作\n1. 导入 `ConversationBufferWindowMemory` 和 `ConversationSummaryMemory`。\n2. 创建窗口记忆实例，设置 `k=2`（保留最近 2 轮）并模拟多轮对话，观察历史内容。\n3. 创建摘要记忆实例，需要传入 `llm` 和 `max_token_limit=100`（限制摘要长度）。\n4. 模拟相同对话，对比两者加载的记忆内容。\n\n请在 `# TODO` 处完成窗口和摘要记忆的创建与测试。",
+      "starterCode": "import os\nfrom langchain.memory import ConversationBufferWindowMemory, ConversationSummaryMemory\nfrom langchain_openai import ChatOpenAI\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\n# 模拟多轮对话\nconversation = [\n    (\"你好\", \"你好！有什么可以帮你的？\"),\n    (\"我叫小明\", \"很高兴认识你，小明！\"),\n    (\"我住在北京\", \"北京是一座美丽的城市。\"),\n    (\"今天天气怎么样？\", \"抱歉，我无法获取实时天气。\")\n]\n\n# 创建窗口记忆 k=2\n# 遍历对话保存上下文，并每轮后打印记忆内容\n\nprint(\"\\n--- 窗口记忆 ---\")\n# ... 实现代码\n\n# 创建摘要记忆，max_token_limit=100\n# 同样遍历对话保存上下文，打印记忆内容\n\nprint(\"\\n--- 摘要记忆 ---\")\n# ... 实现代码\n",
+      "solutionCode": "import os\nfrom langchain.memory import ConversationBufferWindowMemory, ConversationSummaryMemory\nfrom langchain_openai import ChatOpenAI\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\nconversation = [\n    (\"你好\", \"你好！有什么可以帮你的？\"),\n    (\"我叫小明\", \"很高兴认识你，小明！\"),\n    (\"我住在北京\", \"北京是一座美丽的城市。\"),\n    (\"今天天气怎么样？\", \"抱歉，我无法获取实时天气。\")\n]\n\n# 窗口记忆 k=2\nprint(\"--- 窗口记忆 ---\")\nwindow_memory = ConversationBufferWindowMemory(k=2, return_messages=True)\nfor user, ai in conversation:\n    window_memory.save_context({\"input\": user}, {\"output\": ai})\n    print(f\"历史（k=2）: {window_memory.load_memory_variables({})}\")\n\n# 摘要记忆\nprint(\"\\n--- 摘要记忆 ---\")\nsummary_memory = ConversationSummaryMemory(llm=llm, max_token_limit=100, return_messages=True)\nfor user, ai in conversation:\n    summary_memory.save_context({\"input\": user}, {\"output\": ai})\n    print(f\"摘要记忆: {summary_memory.load_memory_variables({})}\")\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "窗口记忆的 k 参数表示保留最近的 k 轮完整交互（输入-输出对）。"
+        },
+        {
+          "order": 2,
+          "text": "摘要记忆需要提供 llm 和 max_token_limit，摘要会动态更新。"
+        },
+        {
+          "order": 3,
+          "text": "加载记忆时，窗口记忆返回消息列表，而摘要记忆可能返回一个总结字符串。设置 return_messages=True 可保持一致。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "ConversationBufferWindowMemory 示例",
+          "language": "python",
+          "code": "memory = ConversationBufferWindowMemory(k=2)\nmemory.save_context({\"input\": \"hi\"}, {\"output\": \"hello\"})\nmemory.save_context({\"input\": \"how are you\"}, {\"output\": \"fine\"})\nmemory.save_context({\"input\": \"bye\"}, {\"output\": \"bye\"})\nprint(memory.load_memory_variables({}))",
+          "description": "窗口记忆只保留最近2轮，'hi' 将被遗忘。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "ConversationBufferWindowMemory",
+          "definition": "只保留最近 k 轮对话的记忆策略，超出窗口的消息自动丢弃。"
+        },
+        {
+          "name": "ConversationSummaryMemory",
+          "definition": "使用 LLM 对历史对话进行摘要并存储为记忆，适合长时间对话。"
+        },
+        {
+          "name": "max_token_limit",
+          "definition": "摘要记忆允许的最大 token 数，控制记忆长度。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "核心",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 Memory 抽象和具体实现",
+          "officialUrl": "https://www.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请完成所有 TODO 标注的代码。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 ConversationBufferWindowMemory 的实例化。",
+          "pattern": "ConversationBufferWindowMemory",
+          "blocking": false
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 ConversationSummaryMemory 的实例化。",
+          "pattern": "ConversationSummaryMemory",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t13-memory-s4",
+      "taskId": "t13-memory",
+      "order": 4,
+      "title": "打造有记忆的聊天机器人",
+      "instruction": "## 目标\n综合使用 `ConversationBufferMemory`、`LLMChain` 和自定义 `PromptTemplate` 构建一个完整的对话机器人，并能通过命令行交互。\n\n## 概念\n在前几步中，我们学习了手动记忆、自动记忆和不同策略。现在我们将这些组件串联起来，构建一个实用的聊天机器人。使用 `LLMChain` 可以轻松地将提示模板、记忆和 LLM 组合在一起。记忆会被自动注入到提示的 `history` 变量中，并在链的每次调用后更新。\n\n这就像是给机器人安装了一个“大脑”，它不仅能对话，还能记住你说过的话，让交流更加自然。\n\n## 操作\n1. 创建 `ChatPromptTemplate`，包含系统消息、历史占位符和用户输入。\n2. 创建 `ConversationBufferMemory`，设置 `memory_key=\"history\"`，`return_messages=True`。\n3. 用 `LLMChain` 组合 `llm`、`prompt` 和 `memory`。\n4. 实现一个循环，接收用户输入，调用链，打印回答，直到输入 \"quit\"。\n\n请在 `# TODO` 处补全链的构建和循环调用逻辑。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder\nfrom langchain.chains import LLMChain\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0.7)\n\n# 提示模板\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是友好的聊天助手，乐于回答各种问题。\"),\n    MessagesPlaceholder(variable_name=\"history\"),\n    (\"human\", \"{input}\")\n])\n\n# 创建 ConversationBufferMemory\n\n# 创建 LLMChain，传入 llm, prompt, memory\n\nprint(\"聊天机器人已启动，输入 'quit' 退出。\")\nwhile True:\n    user_input = input(\"你: \")\n    if user_input.lower() == \"quit\":\n        break\n    # TODO: 调用链获取回复，并打印\n# 提示: print(\"聊天机器人已启动，输入 'quit' 退出。\")\n    # 注意链返回的是字典，包含 'text' 等字段\n",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.memory import ConversationBufferMemory\nfrom langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder\nfrom langchain.chains import LLMChain\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0.7)\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是友好的聊天助手，乐于回答各种问题。\"),\n    MessagesPlaceholder(variable_name=\"history\"),\n    (\"human\", \"{input}\")\n])\n\n# 创建记忆\nmemory = ConversationBufferMemory(memory_key=\"history\", return_messages=True)\n\n# 创建链\nchain = LLMChain(llm=llm, prompt=prompt, memory=memory)\n\nprint(\"聊天机器人已启动，输入 'quit' 退出。\")\nwhile True:\n    user_input = input(\"你: \")\n    if user_input.lower() == \"quit\":\n        break\n    response = chain.invoke({\"input\": user_input})\n    print(\"AI:\", response[\"text\"])\n",
+      "hints": [
+        {
+          "order": 1,
+          "text": "LLMChain 将 prompt、llm 和 memory 整合在一起，自动处理历史注入。"
+        },
+        {
+          "order": 2,
+          "text": "chain.invoke 需要传入一个字典，key 必须与模板中的变量名一致（这里是 \"input\"）。"
+        },
+        {
+          "order": 3,
+          "text": "LLMChain 返回的字典中，'text' 对应模型的文本输出。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "LLMChain 与 Memory 结合",
+          "language": "python",
+          "code": "from langchain.chains import LLMChain\nchain = LLMChain(llm=llm, prompt=prompt, memory=memory)\nresponse = chain.invoke({\"input\": \"你好\"})\nprint(response['text'])",
+          "description": "一个简单的 LLMChain 调用"
+        }
+      ],
+      "terms": [
+        {
+          "name": "LLMChain",
+          "definition": "最基础的链，它将提示模板、LLM 和可选记忆串联起来，简化对话流程。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "核心",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 Chain 和 Memory 组件",
+          "officialUrl": "https://www.langchain.com/",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请完成所有 TODO 标注的代码。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "代码中应包含 LLMChain 的实例化。",
+          "pattern": "LLMChain",
+          "blocking": false
+        },
+        {
+          "type": "ast_structure",
+          "message": "代码中应包含 ConversationBufferMemory 的实例化。",
+          "astType": "assign",
+          "name": "memory",
+          "blocking": false
+        },
+        {
+          "type": "sandbox_run",
+          "message": "程序应能正常运行（无语法错误）。",
+          "expectedExitCode": 0,
+          "blocking": true,
+          "stderrMustBeEmpty": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,263 @@
+{
+  "steps": [
+    {
+      "id": "t02-prompt-engineering-s1",
+      "taskId": "t02-prompt-engineering",
+      "order": 1,
+      "title": "初识 System Message 与 User Message",
+      "instruction": "### 目标\n掌握提示词的第一性原理:**清晰、具体、给上下文**。对比模糊提示和精准提示的输出差异。\n\n### 背景: 模型不会读心术\n\"帮我写个总结\"是坏提示——总结什么?给谁看?多长?什么语气?模型只能猜,猜出来自然五花八门。好提示词的公式:\n\n**任务动词 + 对象 + 约束(长度/格式/语气) + 受众**\n\n❌ \"总结一下这篇文章\"\n✅ \"用 3 个要点总结以下技术博客,每个要点不超过 20 字,面向没读过原文的产品经理,语气客观\"\n\n### 迭代式提示词开发\n没有人生来会写好提示词,都是**跑→看输出→改→再跑**迭代出来的:\n1. 先写个大概,跑\n2. 看输出哪里不对(太长?跑题?格式乱?)\n3. 把\"不对\"翻译成一条明确的约束加进提示词\n4. 重复直到稳定\n\n### 操作\n1. 先用模糊提示调用一次,记录输出\n2. 按公式改写提示词,再调一次\n3. 对比两次输出的质量差异",
+      "starterCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[\n        {\"role\": \"system\", \"content\": \"# 在这里填写系统消息内容\"},\n        {\"role\": \"user\", \"content\": \"什么是机器学习？\"}\n    ]\n)\nprint(response.choices[0].message.content)",
+      "solutionCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[\n        {\"role\": \"system\", \"content\": \"你是一个友好的AI助手，总是用中文回答，并且回答简洁。\"},\n        {\"role\": \"user\", \"content\": \"什么是机器学习？\"}\n    ]\n)\nprint(response.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "system message 的 role 是 \"system\"，它的 content 应该包含你对模型行为的设定。"
+        },
+        {
+          "order": 2,
+          "text": "试着用中文写一句指令，要求模型用中文回答且回答简洁。"
+        },
+        {
+          "order": 3,
+          "text": "例如：\"你是一个友好的AI助手，总是用中文回答，并且回答简洁。\""
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "System message 示例",
+          "language": "python",
+          "code": "messages = [\n    {\"role\": \"system\", \"content\": \"你是一个历史专家，用英文回答。\"},\n    {\"role\": \"user\", \"content\": \"Who built the Great Wall?\"}\n]",
+          "description": "设定角色和语言"
+        }
+      ],
+      "terms": [
+        {
+          "name": "System message",
+          "definition": "对话开始时的系统级指令，用于设定模型的行为、角色和输出格式。",
+          "referenceUrl": "https://platform.openai.com/docs/guides/chat/introduction"
+        },
+        {
+          "name": "User message",
+          "definition": "用户输入的消息，包含具体问题或命令。",
+          "referenceUrl": ""
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 调用",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。用于与 OpenAI 的 ChatCompletion 接口交互",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "api_call_exists",
+          "message": "必须调用 client.chat.completions.create",
+          "api": "client.chat.completions.create",
+          "minCount": 1
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含中文回答",
+          "text": "机器",
+          "caseSensitive": false,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t02-prompt-engineering-s2",
+      "taskId": "t02-prompt-engineering",
+      "order": 2,
+      "title": "控制温度：temperature 参数",
+      "instruction": "### 目标\n掌握 **Few-shot(少样本)提示**:给几个例子让模型模仿,比干巴巴的描述有效 10 倍。\n\n### 背景: 为什么例子比描述强\n你说\"把句子改得正式一点\",模型的理解五花八门;但你给一个例子:\n```\n输入: 这事儿搞不定啊\n输出: 该事项暂时无法推进。\n```\n模型立刻明白\"正式\"具体是什么样子——**例子定义了你心里的标准**。\n\n### Few-shot 的三条军规\n1. **例子要有代表性**:覆盖典型情况,别全是一种模式(模型会过拟合你的例子)\n2. **格式严格一致**:所有例子的输入输出格式统一,模型学的是格式\n3. **数量够用就好**:2-5 个足够,更多例子收益递减还费 token\n\n### Zero-shot CoT 技巧\n对于推理题,不用给例子,加一句\"让我们一步步思考(Let's think step by step)\"就能显著提升正确率——这就是著名的思维链(CoT)提示。\n\n### 操作\n1. 不用例子让模型做格式转换,看输出\n2. 给 2-3 个输入输出例子,再做一次\n3. 对比:例子的约束力强在哪",
+      "starterCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nprompt = \"给一个关于AI的创意想法\"\n\nresponse_low = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": prompt}],\n    temperature=# 设置低温度\n)\nprint(\"低温度输出:\", response_low.choices[0].message.content)\n\nresponse_high = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": prompt}],\n    temperature=# 设置高温度\n)\nprint(\"高温度输出:\", response_high.choices[0].message.content)",
+      "solutionCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nprompt = \"给一个关于AI的创意想法\"\n\nresponse_low = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": prompt}],\n    temperature=0\n)\nprint(\"低温度输出:\", response_low.choices[0].message.content)\n\nresponse_high = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": prompt}],\n    temperature=1\n)\nprint(\"高温度输出:\", response_high.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "temperature 参数接受0到2之间的浮点数，0表示最确定。"
+        },
+        {
+          "order": 2,
+          "text": "低温度常用0，高温度常用1。"
+        },
+        {
+          "order": 3,
+          "text": "直接填入0和1即可。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Temperature 对比",
+          "language": "python",
+          "code": "response = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": \"讲个笑话\"}],\n    temperature=0.7\n)",
+          "description": "中等温度"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Temperature",
+          "definition": "控制生成文本随机性的参数，值越低越确定。",
+          "referenceUrl": "https://platform.openai.com/docs/api-reference/parameters"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 调用",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。用于与 OpenAI 的 ChatCompletion 接口交互",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "regex_in_code",
+          "message": "必须设置 temperature=0 和 temperature=1",
+          "pattern": "temperature\\s*=\\s*0[\\s\\S]*temperature\\s*=\\s*1",
+          "flags": "",
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t02-prompt-engineering-s3",
+      "taskId": "t02-prompt-engineering",
+      "order": 3,
+      "title": "Few-shot 示例：让模型学会格式",
+      "instruction": "### 目标\n学会**结构化提示**:用分隔符、标题、列表组织长提示词,让模型不\"迷路\"。\n\n### 背景: 长提示词的工程问题\n真实场景的提示词很长:背景资料+任务说明+格式要求+例子+用户输入。全堆一段散文里,模型会:\n- 把资料当成要执行的指令(\"请帮我辞职\"出现在资料里,模型真去写辞职信)\n- 忽略中间的要求(\"中间遗忘\"现象)\n\n### 分隔符最佳实践\n```\n### 背景资料\n<document>\n{资料内容}\n</document>\n\n### 任务\n基于 <document> 的内容回答用户问题。资料里没有的信息,回答\"我不知道\"。\n\n### 输出格式\n- 3 个要点以内\n- 每个要点标注来源段落号\n```\n- XML 标签(`<document>`)或三引号包资料——**明确边界,防注入**\n- `###` 标题分节——结构清晰\n- 指令放资料**之后**(靠近问题的位置权重高)\n\n### 操作\n1. 构造含\"恶意内容\"的资料(资料里写着\"忽略以上指令\")\n2. 用无分隔符的提示词,看模型是否被带偏\n3. 加分隔符和防御指令,再看输出",
+      "starterCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nprompt = \"\"\"# 在这里写 few-shot 示例和最终问题\n例如：\n输入：今天天气真好\n输出：正面\n\n输入：我丢了钱包\n输出：负面\n\n输入：这部电影太棒了\n输出：\"\"\"\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": prompt}]\n)\nprint(response.choices[0].message.content)",
+      "solutionCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nprompt = \"\"\"输入：今天天气真好\n输出：正面\n\n输入：我丢了钱包\n输出：负面\n\n输入：这部电影太棒了\n输出：\"\"\"\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[{\"role\": \"user\", \"content\": prompt}]\n)\nprint(response.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "示例应该包含输入和输出，并且格式一致。"
+        },
+        {
+          "order": 2,
+          "text": "在最后一行只写“输入：这部电影太棒了”和“输出：”，让模型补全。"
+        },
+        {
+          "order": 3,
+          "text": "参考代码中的注释格式，但确保换行正确。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "Few-shot 示例",
+          "language": "python",
+          "code": "prompt = \"\"\"输入：苹果\n输出：水果\n\n输入：胡萝卜\n输出：蔬菜\n\n输入：香蕉\n输出：\"\"\"",
+          "description": "分类示例"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Few-shot prompting",
+          "definition": "在 prompt 中提供少量示例来引导模型输出。",
+          "referenceUrl": "https://arxiv.org/abs/2005.14165"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 调用",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。用于与 OpenAI 的 ChatCompletion 接口交互",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_contains",
+          "message": "输出应包含“正面”",
+          "text": "正面",
+          "caseSensitive": false,
+          "blocking": true
+        }
+      ]
+    },
+    {
+      "id": "t02-prompt-engineering-s4",
+      "taskId": "t02-prompt-engineering",
+      "order": 4,
+      "title": "综合实战：格式化输出 JSON",
+      "instruction": "### 目标\n掌握**输出格式控制**:让模型输出严格符合下游程序需要的格式(JSON/列表/表格)。\n\n### 背景: 给程序用的输出必须机器可读\nAgent 系统里,LLM 的输出往往要交给代码处理。自由文本没法解析,必须:\n1. **明确声明格式**:\"只输出 JSON,不要任何解释\"\n2. **给出 schema**:```{\"name\": string, \"score\": 0-100}```\n3. **用 response_format**(如果平台支持):`response_format={\"type\": \"json_object\"}`,API 层面保证合法 JSON\n\n### 解析容错三件套\n即使声明了,模型偶尔会多输出\"好的,这是您要的 JSON:\"之类废话:\n1. 正则提取 ```json ... ``` 代码块或第一个 { 到最后一个 }\n2. `json.loads` 失败时重试一次(把错误信息反馈给模型让它改)\n3. 用 pydantic 校验结构(第 2 章 t14 会深入)\n\n### 操作\n1. 让模型提取人物信息为 JSON(声明格式+schema)\n2. 写解析函数:从输出中提取并 json.loads\n3. 故意不给格式要求,观察解析失败的概率",
+      "starterCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[\n        {\"role\": \"system\", \"content\": \"# 设置 system message 要求输出 JSON\"},\n        {\"role\": \"user\", \"content\": \"# 提供 few-shot 示例和最终输入\"}\n    ],\n    temperature=# 设置温度\n)\nprint(response.choices[0].message.content)",
+      "solutionCode": "from openai import OpenAI\n\nimport os\nclient = OpenAI(\n    api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"),\n    base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"),\n)\nmodel = os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\")\n\nresponse = client.chat.completions.create(\n    model=\"deepseek-v4-pro\",\n    messages=[\n        {\"role\": \"system\", \"content\": \"你是一个情感分析助手。请以JSON格式输出，包含sentence和sentiment字段。\"},\n        {\"role\": \"user\", \"content\": \"输入：阳光明媚\\n输出：{\\\"sentence\\\": \\\"阳光明媚\\\", \\\"sentiment\\\": \\\"正面\\\"}\\n\\n输入：考试不及格\\n输出：{\\\"sentence\\\": \\\"考试不及格\\\", \\\"sentiment\\\": \\\"负面\\\"}\\n\\n输入：今天心情很好\\n输出：\"}\n    ],\n    temperature=0\n)\nprint(response.choices[0].message.content)",
+      "hints": [
+        {
+          "order": 1,
+          "text": "system message 应该明确要求输出 JSON 格式。"
+        },
+        {
+          "order": 2,
+          "text": "few-shot 示例中，输出必须是合法的 JSON 字符串。注意转义引号。"
+        },
+        {
+          "order": 3,
+          "text": "temperature 设为 0 以确保输出稳定。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "JSON 输出示例",
+          "language": "python",
+          "code": "messages = [\n    {\"role\": \"system\", \"content\": \"输出JSON格式\"},\n    {\"role\": \"user\", \"content\": \"输入：开心\\n输出：{\\\"emotion\\\": \\\"happy\\\"}\\n\\n输入：悲伤\\n输出：\"}\n]",
+          "description": "使用转义引号"
+        }
+      ],
+      "terms": [
+        {
+          "name": "JSON",
+          "definition": "一种轻量级数据交换格式，易于人阅读和编写。",
+          "referenceUrl": ""
+        }
+      ],
+      "techStack": [
+        {
+          "name": "OpenAI Python SDK",
+          "role": "API 调用",
+          "description": "OpenAI 官方 Python SDK,提供 chat.completions.create 调用对话模型。用于与 OpenAI 的 ChatCompletion 接口交互",
+          "officialUrl": "https://pypi.org/project/openai/",
+          "category": "SDK",
+          "installHint": "pip install openai"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 # TODO: 占位符",
+          "placeholder": "# TODO:"
+        },
+        {
+          "type": "output_matches",
+          "message": "输出应为包含sentence和sentiment的JSON",
+          "pattern": "\\{\\\"sentence\\\":.*\\\"sentiment\\\":.*\\}",
+          "flags": "",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

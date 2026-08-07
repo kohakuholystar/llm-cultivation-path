@@ -1,0 +1,204 @@
+{
+  "steps": [
+    {
+      "id": "t31-agent-executor-s1",
+      "taskId": "t31-agent-executor",
+      "order": 1,
+      "title": "定义工具与创建 Agent",
+      "instruction": "### 目标\n用 LangChain 的 `create_tool_calling_agent` 创建一个能调用工具的 Agent。\n\n### 概念\n- **Agent**:能自主决定调用哪个工具的 LLM 实体。\n- **Tool**:Agent 可调用的函数(如搜索、计算)。\n- `create_tool_calling_agent`:基于模型原生 tool calling 能力创建 Agent。\n- `AgentExecutor`:Agent 的运行时,管理循环/超时/错误。\n\n### 操作\n1. 用 `@tool` 装饰器定义一个简单工具(如计算器)\n2. 创建 ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), 支持 tool calling)\n3. 用 `create_tool_calling_agent(llm, tools, prompt)` 创建 agent\n4. 用 `AgentExecutor(agent, tools)` 创建执行器\n5. `executor.invoke({'input': '问题'})` 运行\n\n### ReAct 模式(重要)\nAgent 的核心推理模式是 **ReAct**(Reason + Act,推理+行动):\n1. **Thought**: LLM 思考当前该做什么\n2. **Action**: 选择并调用一个工具\n3. **Observation**: 观察工具返回结果\n4. 循环直到得出最终答案\n\nLangChain 的 `create_tool_calling_agent` 基于模型原生 tool calling 能力,本质就是 ReAct 循环——AgentExecutor 自动管理这个循环(调用工具→把结果喂回 LLM→LLM 决定下一步),你只需定义工具和提示词。",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n# 定义一个计算工具\n@tool\ndef calculate(expression: str) -> str:\n    \"\"\"计算数学表达式,如 '2+3*4'\"\"\"\n    # 用 eval 计算(注意:生产环境不要用 eval)\n    return \n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [calculate]\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个助手,可以调用工具。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\n\n# 创建 agent 和 executor\nagent = #\nexecutor = #\n\nresult = executor.invoke({\"input\": \"计算 2+3*4\"})\nprint(result[\"output\"])",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef calculate(expression: str) -> str:\n    \"\"\"计算数学表达式,如 '2+3*4'\"\"\"\n    try:\n        return str(eval(expression))\n    except Exception as e:\n        return f\"计算失败: {e}\"\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [calculate]\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个助手,可以调用工具。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\n\nagent = create_tool_calling_agent(llm, tools, prompt)\nexecutor = AgentExecutor(agent=agent, tools=tools, verbose=True)\n\nresult = executor.invoke({\"input\": \"计算 2+3*4\"})\nprint(result[\"output\"])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "@tool 装饰器把普通函数变成工具,函数要加 docstring 描述用途。"
+        },
+        {
+          "order": 2,
+          "text": "create_tool_calling_agent 需要 llm, tools, prompt 三个参数。"
+        },
+        {
+          "order": 3,
+          "text": "AgentExecutor(agent=agent, tools=tools),invoke 传 {'input': '问题'}。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "@tool 装饰器",
+          "language": "python",
+          "code": "from langchain_core.tools import tool\n\n@tool\ndef search(query: str) -> str:\n    \"\"\"搜索互联网\"\"\"\n    return f'结果: {query}'"
+        }
+      ],
+      "terms": [
+        {
+          "name": "Tool Calling Agent",
+          "definition": "基于 LLM 原生 tool calling 能力的 Agent。"
+        },
+        {
+          "name": "AgentExecutor",
+          "definition": "Agent 运行时,管理工具调用循环。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。create_tool_calling_agent + AgentExecutor。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "必须用 create_tool_calling_agent。",
+          "api": "create_tool_calling_agent",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "api_call_exists",
+          "message": "必须用 AgentExecutor。",
+          "api": "AgentExecutor",
+          "minCount": 1,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t31-agent-executor-s2",
+      "taskId": "t31-agent-executor",
+      "order": 2,
+      "title": "执行与 verbose 输出解读",
+      "instruction": "### 目标\n运行 Agent,理解 verbose 输出的 Thought-Action-Observation 循环。\n\n### 概念\n- **verbose=True**:打印 Agent 的推理过程。\n- **Thought**:LLM 思考该用什么工具。\n- **Action**:调用工具。\n- **Observation**:工具返回结果。\n- 循环直到 LLM 给出最终答案(Final Answer)。\n\n### 操作\n1. 创建带多个工具的 Agent(计算器 + 字符串长度)\n2. verbose=True 运行\n3. 观察输出中的 Thought/Action/Observation",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef calculate(expression: str) -> str:\n    \"\"\"计算数学表达式\"\"\"\n    return str(eval(expression))\n\n@tool\ndef word_length(text: str) -> str:\n    \"\"\"返回字符串的字符数\"\"\"\n    return str(len(text))\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [calculate, word_length]\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是助手,可用工具。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\n# 创建 executor, 开启 verbose\nexecutor = AgentExecutor(agent=agent, tools=tools)\n\n# 问一个需要多步的问题\nresult = executor.invoke({\"input\": })\nprint(\"最终答案:\", result[\"output\"])",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef calculate(expression: str) -> str:\n    \"\"\"计算数学表达式\"\"\"\n    return str(eval(expression))\n\n@tool\ndef word_length(text: str) -> str:\n    \"\"\"返回字符串的字符数\"\"\"\n    return str(len(text))\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [calculate, word_length]\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是助手,可用工具。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\nexecutor = AgentExecutor(agent=agent, tools=tools, verbose=True)\n\nresult = executor.invoke({\"input\": \"计算 15*3,然后告诉我结果有几个字符\"})\nprint(\"最终答案:\", result[\"output\"])",
+      "hints": [
+        {
+          "order": 1,
+          "text": "AgentExecutor 加 verbose=True 会打印推理过程。"
+        },
+        {
+          "order": 2,
+          "text": "问一个多步问题,如'计算X再告诉我结果长度',Agent 会调两次工具。"
+        },
+        {
+          "order": 3,
+          "text": "starterCode 的 invoke 里 input 是空的,填一个问题字符串。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "verbose 输出结构",
+          "language": "text",
+          "code": "> Entering Agent Executor chain...\nThought: 我需要先计算 15*3\nAction: calculate\nAction Input: 15*3\nObservation: 45\nThought: 现在计算 45 的字符数\n..."
+        }
+      ],
+      "terms": [
+        {
+          "name": "Thought",
+          "definition": "Agent 的思考过程,决定下一步。"
+        },
+        {
+          "name": "Observation",
+          "definition": "工具返回的结果,Agent 据此继续推理。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。verbose 模式打印 ReAct 循环。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需开启 verbose。",
+          "pattern": "verbose",
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "id": "t31-agent-executor-s3",
+      "taskId": "t31-agent-executor",
+      "order": 3,
+      "title": "控制 Agent 行为与错误处理",
+      "instruction": "### 目标\n用 AgentExecutor 的参数控制 Agent 行为,处理工具异常。\n\n### 概念\n- `max_iterations`:最大循环次数,防止死循环。\n- `handle_tool_error=True`:工具出错时把错误返回给 Agent(而非崩溃)。\n- `early_stopping_method`:达到 max_iterations 时的处理方式。\n- `return_intermediate_steps`:返回中间步骤(调试用)。\n\n### 操作\n1. 创建一个会出错的工具(如除法,除以0时异常)\n2. AgentExecutor 设 max_iterations=3, handle_tool_error=True\n3. 问一个会触发错误的问题,观察 Agent 如何恢复",
+      "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef divide(a: float, b: float) -> str:\n    \"\"\"计算 a 除以 b\"\"\"\n    return str(a / b)  # b=0 时会 ZeroDivisionError\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [divide]\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是助手。如果工具报错,向用户解释错误。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\n\n# 创建 executor, 设 max_iterations=3, handle_tool_error=True, return_intermediate_steps=True\nexecutor = AgentExecutor(agent=agent, tools=tools)\n\nresult = executor.invoke({\"input\": \"计算 10 除以 0\"})\nprint(\"输出:\", result[\"output\"])\n# TODO: 打印中间步骤数量(result[\"intermediate_steps\"])\n# 提示: print(\"输出:\", result[\"output\"])\n",
+      "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef divide(a: float, b: float) -> str:\n    \"\"\"计算 a 除以 b\"\"\"\n    return str(a / b)\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [divide]\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是助手。如果工具报错,向用户解释错误。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\n\nexecutor = AgentExecutor(\n    agent=agent,\n    tools=tools,\n    max_iterations=3,\n    handle_tool_error=True,\n    return_intermediate_steps=True,\n    verbose=True,\n)\n\nresult = executor.invoke({\"input\": \"计算 10 除以 0\"})\nprint(\"输出:\", result[\"output\"])\nprint(\"中间步骤数:\", len(result[\"intermediate_steps\"]))",
+      "hints": [
+        {
+          "order": 1,
+          "text": "handle_tool_error=True 让工具异常不崩溃,而是把错误传给 Agent。"
+        },
+        {
+          "order": 2,
+          "text": "max_iterations=3 限制最多 3 次工具调用,防止死循环。"
+        },
+        {
+          "order": 3,
+          "text": "return_intermediate_steps=True 后,result['intermediate_steps'] 是中间步骤列表。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "AgentExecutor 关键参数",
+          "language": "python",
+          "code": "executor = AgentExecutor(\n    agent=agent, tools=tools,\n    max_iterations=5,          # 最大循环\n    handle_tool_error=True,    # 工具出错不崩溃\n    return_intermediate_steps=True,  # 返回中间步骤\n    early_stopping_method='generate', # 超限时生成回复\n)"
+        }
+      ],
+      "terms": [
+        {
+          "name": "max_iterations",
+          "definition": "Agent 最大工具调用次数,防死循环。"
+        },
+        {
+          "name": "handle_tool_error",
+          "definition": "工具异常时把错误返回给 Agent 而非崩溃。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "langchain",
+          "role": "Agent 框架",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。AgentExecutor 提供行为控制参数。",
+          "officialUrl": "https://python.langchain.com",
+          "category": "框架",
+          "installHint": "pip install langchain"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请替换 TODO。",
+          "placeholder": "# TODO",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "需设 max_iterations。",
+          "pattern": "max_iterations",
+          "blocking": true
+        }
+      ]
+    }
+  ]
+}

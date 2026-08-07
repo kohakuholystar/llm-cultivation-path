@@ -1,0 +1,215 @@
+{
+  "steps": [
+    {
+      "id": "t43-error-handling-s1",
+      "taskId": "t43-error-handling",
+      "order": 1,
+      "title": "模拟 API 调用失败与重试",
+      "instruction": "## 目标\n实现一个带重试机制的模拟 API 调用函数，处理临时性错误。\n\n## 概念\n- **重试（Retry）**：当调用失败时，自动重新尝试，直到成功或达到最大次数。\n- **指数退避（Exponential Backoff）**：每次重试间隔时间逐渐增加，避免对服务造成压力。\n\n## 操作\n1. 编写函数 `call_api_with_retry(url, max_retries=3)`。\n2. 使用 `mock_api_call(url)` 模拟调用，该函数随机返回成功或抛出 `ConnectionError`。\n3. 在循环中捕获 `ConnectionError`，每次失败后等待 `2 ** attempt` 秒（指数退避），然后重试。\n4. 如果所有重试都失败，则抛出 `RuntimeError`。\n\n注意：不需要真实的网络请求，所有代码在本地沙箱运行。",
+      "starterCode": "import time\nimport random\n\ndef mock_api_call(url: str) -> str:\n    \"\"\"模拟 API 调用，随机失败\"\"\"\n    if random.random() < 0.5:\n        raise ConnectionError(\"模拟网络错误\")\n    return f\"成功响应来自 {url}\"\n\ndef call_api_with_retry(url: str, max_retries: int = 3) -> str:\n    \"\"\"带重试的 API 调用\"\"\"\n    # TODO: 实现重试逻辑，使用指数退避\n# 提示: if random.random() < 0.5:\n    pass",
+      "solutionCode": "import time\nimport random\n\ndef mock_api_call(url: str) -> str:\n    if random.random() < 0.5:\n        raise ConnectionError(\"模拟网络错误\")\n    return f\"成功响应来自 {url}\"\n\ndef call_api_with_retry(url: str, max_retries: int = 3) -> str:\n    for attempt in range(max_retries):\n        try:\n            return mock_api_call(url)\n        except ConnectionError as e:\n            if attempt == max_retries - 1:\n                raise RuntimeError(f\"所有重试失败: {e}\")\n            wait = 2 ** attempt\n            time.sleep(wait)\n    # 不会执行到这里\n    raise RuntimeError(\"未知错误\")",
+      "hints": [
+        {
+          "order": 1,
+          "text": "使用 for 循环遍历 range(max_retries) 来管理重试次数。"
+        },
+        {
+          "order": 2,
+          "text": "在 except 块中判断是否是最后一次尝试，如果是则抛出 RuntimeError，否则等待 2**attempt 秒。"
+        },
+        {
+          "order": 3,
+          "text": "注意：重试次数从0开始，最后一次尝试失败后不再等待直接抛异常。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "指数退避示例",
+          "language": "python",
+          "code": "import time\nfor attempt in range(3):\n    wait = 2 ** attempt\n    print(f\"等待 {wait} 秒\")\n    time.sleep(wait)",
+          "description": "展示了指数退避的等待时间增长模式。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "指数退避",
+          "definition": "一种重试策略，每次重试的等待时间呈指数增长，常用于网络请求避免拥塞。"
+        },
+        {
+          "name": "重试",
+          "definition": "在操作失败后再次尝试执行该操作。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "提供 sleep 函数实现等待",
+          "description": "标准库，用于时间相关操作。",
+          "officialUrl": "https://docs.python.org/3/library/time.html"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为实际的代码实现。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请确保定义了 call_api_with_retry 函数。",
+          "astType": "function_def",
+          "name": "call_api_with_retry",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行代码应无错误，且返回字符串。",
+          "expectedExitCode": 0,
+          "stderrMustBeEmpty": true
+        }
+      ]
+    },
+    {
+      "id": "t43-error-handling-s2",
+      "taskId": "t43-error-handling",
+      "order": 2,
+      "title": "降级策略：缓存与默认值",
+      "instruction": "## 目标\n在重试失败后，实现降级策略：返回缓存数据或默认值，而不是直接抛出异常。\n\n## 概念\n- **降级（Degradation）**：当核心功能不可用时，提供备选方案（如缓存、默认响应）以保证系统部分可用。\n- **优雅失败（Graceful Failure）**：失败时不崩溃，而是以可控方式处理。\n\n## 操作\n1. 修改 `call_api_with_retry` 为 `call_api_with_fallback(url, cache, default=\"默认响应\")`。\n2. 函数先尝试调用 `mock_api_call`，成功则更新缓存并返回。\n3. 若重试全部失败，检查 `cache` 中是否有该 URL 的缓存，有则返回缓存。\n4. 若没有缓存，则返回 `default`。\n5. 缓存是一个字典，键为 URL，值为上次成功的结果。\n\n提示：使用 `time.sleep(0.1)` 代替指数退避以加快测试。",
+      "starterCode": "import time\nimport random\n\n# 全局缓存\nglobal_cache = {}\n\ndef mock_api_call(url: str) -> str:\n    if random.random() < 0.5:\n        raise ConnectionError(\"模拟网络错误\")\n    return f\"成功响应来自 {url}\"\n\ndef call_api_with_fallback(url: str, cache: dict, default: str = \"默认响应\") -> str:\n    \"\"\"带降级的 API 调用\"\"\"\n    # TODO: 实现重试逻辑，成功则更新缓存并返回；失败则尝试缓存或默认值\n# 提示: global_cache = {}\n    pass",
+      "solutionCode": "import time\nimport random\n\nglobal_cache = {}\n\ndef mock_api_call(url: str) -> str:\n    if random.random() < 0.5:\n        raise ConnectionError(\"模拟网络错误\")\n    return f\"成功响应来自 {url}\"\n\ndef call_api_with_fallback(url: str, cache: dict, default: str = \"默认响应\") -> str:\n    max_retries = 3\n    for attempt in range(max_retries):\n        try:\n            result = mock_api_call(url)\n            cache[url] = result\n            return result\n        except ConnectionError:\n            if attempt < max_retries - 1:\n                time.sleep(0.1)\n    # 所有重试失败，降级\n    if url in cache:\n        return cache[url]\n    return default",
+      "hints": [
+        {
+          "order": 1,
+          "text": "在 except 块中不要立即返回，先判断是否还有重试机会。"
+        },
+        {
+          "order": 2,
+          "text": "在循环结束后（所有重试失败），检查缓存字典中是否有该 URL 的键。"
+        },
+        {
+          "order": 3,
+          "text": "如果缓存中有，返回缓存值；否则返回 default 参数。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "缓存使用示例",
+          "language": "python",
+          "code": "cache = {}\ndef get_data(key):\n    if key in cache:\n        return cache[key]\n    result = fetch_from_source(key)\n    cache[key] = result\n    return result",
+          "description": "展示了缓存的基本模式。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "降级",
+          "definition": "当系统部分功能不可用时，提供备选方案以保证核心功能运行。"
+        },
+        {
+          "name": "缓存",
+          "definition": "临时存储数据以加速后续访问或作为故障时的后备。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "实现缓存存储",
+          "description": "内置字典类型。",
+          "officialUrl": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为代码。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请确保定义了 call_api_with_fallback 函数。",
+          "astType": "function_def",
+          "name": "call_api_with_fallback",
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行代码应无错误，且返回字符串。",
+          "expectedExitCode": 0,
+          "stderrMustBeEmpty": true
+        }
+      ]
+    },
+    {
+      "id": "t43-error-handling-s3",
+      "taskId": "t43-error-handling",
+      "order": 3,
+      "title": "日志记录与优雅失败",
+      "instruction": "## 目标\n为 API 调用添加日志记录，实现可观测性，并确保失败时记录详细信息。\n\n## 概念\n- **日志（Logging）**：记录程序运行时的关键事件，用于调试和监控。\n- **优雅失败（Graceful Failure）**：失败时记录错误信息，而不是静默失败或崩溃。\n\n## 操作\n1. 导入 `logging` 模块，配置基本日志（级别 INFO，格式 `%(asctime)s - %(levelname)s - %(message)s`）。\n2. 创建一个 logger 对象。\n3. 在 `call_api_with_fallback` 中添加日志：\n   - 每次重试前记录 `INFO` 级别日志，包含尝试次数。\n   - 捕获异常时记录 `WARNING` 级别日志，包含异常信息。\n   - 使用缓存时记录 `INFO` 级别日志。\n   - 返回默认值时记录 `ERROR` 级别日志。\n4. 使用 `logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')` 配置。\n\n提示：日志输出到标准输出，无需文件。",
+      "starterCode": "import time\nimport random\nimport logging\n\n# 配置日志\n\nglobal_cache = {}\n\ndef mock_api_call(url: str) -> str:\n    if random.random() < 0.5:\n        raise ConnectionError(\"模拟网络错误\")\n    return f\"成功响应来自 {url}\"\n\ndef call_api_with_fallback(url: str, cache: dict, default: str = \"默认响应\") -> str:\n    logger = logging.getLogger(__name__)\n    max_retries = 3\n    for attempt in range(max_retries):\n        # 记录尝试日志\n        try:\n            result = mock_api_call(url)\n            cache[url] = result\n            return result\n        except ConnectionError as e:\n            # 记录警告日志\n            if attempt < max_retries - 1:\n                time.sleep(0.1)\n    # 降级\n    if url in cache:\n        # 记录缓存命中日志\n        return cache[url]\n    # 记录错误日志\n    return default",
+      "solutionCode": "import time\nimport random\nimport logging\n\nlogging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')\n\nglobal_cache = {}\n\ndef mock_api_call(url: str) -> str:\n    if random.random() < 0.5:\n        raise ConnectionError(\"模拟网络错误\")\n    return f\"成功响应来自 {url}\"\n\ndef call_api_with_fallback(url: str, cache: dict, default: str = \"默认响应\") -> str:\n    logger = logging.getLogger(__name__)\n    max_retries = 3\n    for attempt in range(max_retries):\n        logger.info(f\"尝试第 {attempt+1} 次调用 {url}\")\n        try:\n            result = mock_api_call(url)\n            cache[url] = result\n            return result\n        except ConnectionError as e:\n            logger.warning(f\"调用失败: {e}\")\n            if attempt < max_retries - 1:\n                time.sleep(0.1)\n    if url in cache:\n        logger.info(f\"使用缓存: {cache[url]}\")\n        return cache[url]\n    logger.error(f\"所有重试失败，返回默认值\")\n    return default",
+      "hints": [
+        {
+          "order": 1,
+          "text": "使用 logging.basicConfig 设置根日志器的格式和级别。"
+        },
+        {
+          "order": 2,
+          "text": "在每个位置调用 logger.info, logger.warning, logger.error 记录相应信息。"
+        },
+        {
+          "order": 3,
+          "text": "注意：日志消息中应包含有意义的上下文，如 URL、尝试次数、异常信息。"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "logging 基本用法",
+          "language": "python",
+          "code": "import logging\nlogging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')\nlogger = logging.getLogger(__name__)\nlogger.info('这是一条信息')",
+          "description": "展示了日志的配置和基本使用。"
+        }
+      ],
+      "terms": [
+        {
+          "name": "日志",
+          "definition": "记录程序运行事件的信息，用于监控和调试。"
+        },
+        {
+          "name": "优雅失败",
+          "definition": "在失败时以可控方式处理，记录错误并继续运行或返回降级结果。"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "Python 标准库",
+          "role": "提供日志记录功能",
+          "description": "标准库，用于灵活记录日志。",
+          "officialUrl": "https://docs.python.org/3/library/logging.html"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "请将 # TODO: 替换为实际的日志代码。",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "ast_structure",
+          "message": "请确保使用了 logging.basicConfig 配置。",
+          "astType": "call",
+          "name": "basicConfig",
+          "minCount": 1,
+          "blocking": true
+        },
+        {
+          "type": "sandbox_run",
+          "message": "运行代码应无错误，且输出包含日志信息。",
+          "expectedExitCode": 0,
+          "stderrMustBeEmpty": true
+        }
+      ]
+    }
+  ]
+}
