@@ -66,6 +66,32 @@ Open http://localhost:3200, click **开始修炼**, and clear your first task.
 pnpm build:sandbox   # builds the llmquest-sandbox Docker image
 ```
 
+## 📦 Deployment
+
+The section above is dev mode; for a **production-ish local/LAN deployment** (assumes Node ≥ 20, pnpm ≥ 9, Python ≥ 3.12):
+
+```bash
+# 1. Install deps and build the frontend (bakes the backend URL into the bundle)
+pnpm install
+VITE_API_BASE_URL=http://localhost:4200 pnpm build                  # Git Bash / macOS / Linux
+# $env:VITE_API_BASE_URL="http://localhost:4200"; pnpm build        # Windows PowerShell
+
+# 2. Start the backend (port 4200)
+cd backend
+python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
+# source .venv/bin/activate                             # macOS / Linux
+pip install -e .
+uvicorn app.main:app --host 0.0.0.0 --port 4200
+
+# 3. Serve the frontend statically (second terminal; -s handles SPA route fallback)
+npx serve -s frontend/dist -l 3200
+```
+
+Open http://localhost:3200.
+
+- **Different port?** If the frontend isn't served on 3200, set the backend env var `CORS_ORIGINS` accordingly (default allows only `http://localhost:3200`).
+- **Docker?** Docker is only used for the code-execution sandbox: `pnpm build:sandbox` (requires Docker Desktop). The app itself ships no image — the three steps above are all you need; without the sandbox image, execution tasks fall back to frontend validation.
+
 ## 🔑 API Key
 
 Any OpenAI-compatible provider works (DeepSeek, Tongyi, Moonshot/Kimi, …). Either:

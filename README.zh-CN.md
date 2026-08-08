@@ -66,6 +66,32 @@ pnpm dev           # Vite,端口 3200
 pnpm build:sandbox   # 构建 llmquest-sandbox Docker 镜像
 ```
 
+## 📦 快速部署
+
+上文「快速开始」是开发模式;下面是**生产部署**(本机/局域网,假设已有 Node ≥ 20、pnpm ≥ 9、Python ≥ 3.12):
+
+```bash
+# 1. 安装依赖并构建前端(把后端地址打进静态包)
+pnpm install
+VITE_API_BASE_URL=http://localhost:4200 pnpm build                  # Git Bash / macOS / Linux
+# $env:VITE_API_BASE_URL="http://localhost:4200"; pnpm build        # Windows PowerShell
+
+# 2. 启动后端(端口 4200)
+cd backend
+python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
+# source .venv/bin/activate                             # macOS / Linux
+pip install -e .
+uvicorn app.main:app --host 0.0.0.0 --port 4200
+
+# 3. 静态托管前端(另开终端;-s 处理 SPA 路由回退)
+npx serve -s frontend/dist -l 3200
+```
+
+访问 http://localhost:3200 即可。
+
+- **换端口?** 前端若不用 3200,需同步设置后端环境变量 `CORS_ORIGINS`(默认只放行 `http://localhost:3200`)
+- **Docker?** 本项目的 Docker 仅用于代码沙箱组件:`pnpm build:sandbox`(需 Docker Desktop)。应用本体不提供镜像,按上面三步部署即可;没有沙箱镜像也能正常运行,代码执行任务会降级为前端验证
+
 ## 🔑 API Key
 
 支持任何 OpenAI 兼容厂商(DeepSeek、通义、Moonshot/Kimi……),二选一:
