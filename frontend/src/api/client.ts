@@ -2,7 +2,8 @@ import type { Course, Chapter, Task, SandboxRunRequest, SandboxRunResponse } fro
 
 // 开发环境走 vite proxy(/api → 后端4200, 见 vite.config.ts), 用相对路径即可。
 // 仅当显式设置了 VITE_API_BASE_URL(如部署到不同域名)时才用绝对 URL。
-const BASE = import.meta.env.VITE_API_BASE_URL || ''
+// 子路径部署时(云端 /llm-cultivation-path/)API 走同级子路径, 由 Caddy strip 前缀反代到后端。
+const BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.BASE_URL.replace(/\/$/, '')
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(`${BASE}${url}`, {
