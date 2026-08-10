@@ -6,7 +6,7 @@ import { Card, Badge } from '@/components/ui'
 import { levelFromExp } from '@shared/types'
 
 /** 测试阶段: 强制解锁所有章节(上线前改为 false)。 */
-const TEST_UNLOCK_ALL = true
+const TEST_UNLOCK_ALL = false
 
 /** 修炼之路: 章节地图, 展示解锁状态与进度。 */
 export function CourseMap() {
