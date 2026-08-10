@@ -66,3 +66,39 @@ def test_rate_limit_off_when_zero(monkeypatch):
         client.post("/api/sandbox/run", json=BODY).status_code for _ in range(5)
     ]
     assert all(c == 503 for c in codes)
+
+
+def test_queue_timeout_returns_503(monkeypatch):
+    """并发槽位占满且排队超时 → 503 沙箱繁忙, 而不是无限挂起。"""
+    import asyncio
+    import time
+
+    from fastapi import HTTPException
+
+    from app.models.sandbox import SandboxRunRequest, SandboxRunResponse
+    from app.services.sandbox_runner import SandboxRunner
+
+    monkeypatch.setattr(settings, "sandbox_max_concurrency", 1)
+    monkeypatch.setattr(settings, "sandbox_queue_timeout", 1)
+
+    runner = SandboxRunner()
+
+    def fake_container(req):
+        time.sleep(2)
+        return SandboxRunResponse(
+            stdout="", stderr="", exit_code=0, duration_ms=0, timed_out=False
+        )
+
+    monkeypatch.setattr(runner, "_run_container", fake_container)
+
+    async def main():
+        req = SandboxRunRequest(code="print(1)")
+        t1 = asyncio.create_task(runner.run(req))
+        await asyncio.sleep(0.1)  # 确保 t1 先占住唯一槽位
+        t2 = asyncio.create_task(runner.run(req))
+        return await asyncio.gather(t1, t2, return_exceptions=True)
+
+    first, second = asyncio.run(main())
+    assert not isinstance(first, Exception)
+    assert isinstance(second, HTTPException) and second.status_code == 503
+    assert "沙箱繁忙" in second.detail

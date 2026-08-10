@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     access_codes: str = ""
     # 每 IP 每分钟沙箱运行次数上限; 0 = 不限
     sandbox_rate_limit: int = 10
+    # 并发槽位满时排队等待上限(秒), 超时返回 503 沙箱繁忙而不是无限挂起
+    sandbox_queue_timeout: int = 20
 
     # === 课程数据 ===
     data_dir: str = "app/data"
