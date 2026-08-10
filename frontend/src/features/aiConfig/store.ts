@@ -20,6 +20,8 @@ interface AiConfigState {
   baseUrl: string
   /** 模型名 */
   model: string
+  /** 服务器版访问口令(邀请码); 本地开发后端未启用口令时可留空 */
+  accessCode: string
   /** 是否已完成首次配置(用于引导弹窗) */
   configured: boolean
   /** 配置弹窗是否打开(全局可控, 任何组件能触发) */
@@ -27,7 +29,7 @@ interface AiConfigState {
 }
 
 interface AiConfigActions {
-  setConfig: (cfg: Partial<Pick<AiConfigState, 'apiKey' | 'baseUrl' | 'model'>>) => void
+  setConfig: (cfg: Partial<Pick<AiConfigState, 'apiKey' | 'baseUrl' | 'model' | 'accessCode'>>) => void
   /** 标记为已配置(用户点过保存即算) */
   markConfigured: () => void
   /** 重置为默认值(清空 key) */
@@ -42,6 +44,7 @@ const defaultState: AiConfigState = {
   apiKey: '',
   baseUrl: DEFAULT_BASE_URL,
   model: DEFAULT_MODEL,
+  accessCode: '',
   configured: false,
   modalOpen: false,
 }
@@ -73,6 +76,7 @@ export const useAiConfig = create<AiConfigStore>()(
         apiKey: s.apiKey,
         baseUrl: s.baseUrl,
         model: s.model,
+        accessCode: s.accessCode,
         configured: s.configured,
       }),
     },

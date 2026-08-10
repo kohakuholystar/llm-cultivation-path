@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     sandbox_default_timeout: int = 10
     sandbox_enabled: bool = True
 
+    # === 公网防护(服务器版) ===
+    # 访问口令(邀请码), 逗号分隔多个; 空 = 关闭门槛(本地开发无感)
+    access_codes: str = ""
+    # 每 IP 每分钟沙箱运行次数上限; 0 = 不限
+    sandbox_rate_limit: int = 10
+
     # === 课程数据 ===
     data_dir: str = "app/data"
 
@@ -46,6 +52,11 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         """CORS 来源按逗号拆分。"""
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def access_codes_list(self) -> list[str]:
+        """访问口令按逗号拆分; 空列表 = 不启用门槛。"""
+        return [c.strip() for c in self.access_codes.split(",") if c.strip()]
 
     @property
     def project_root(self) -> Path:
