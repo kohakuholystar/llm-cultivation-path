@@ -90,7 +90,6 @@ npx serve -s frontend/dist -l 3200
 访问 http://localhost:3200 即可。
 
 - **换端口?** 前端若不用 3200,需同步设置后端环境变量 `CORS_ORIGINS`(默认只放行 `http://localhost:3200`)
-- **邀请码(公网部署建议开启):** 在 `.env` 配置 `ACCESS_CODES=码1,码2`(逗号分隔),启用后访问者需在站点右上角 AI 配置中填入邀请码才能运行沙箱;`SANDBOX_RATE_LIMIT` 控制每 IP 每分钟运行次数(默认 10,0 为不限)。沙箱运行日志见 `backend/logs/sandbox.log`
 - **Docker?** 本项目的 Docker 仅用于代码沙箱组件:`pnpm build:sandbox`(需 Docker Desktop)。应用本体不提供镜像,按上面三步部署即可;没有沙箱镜像也能正常运行,代码执行任务会降级为前端验证
 
 ## 🔑 API Key

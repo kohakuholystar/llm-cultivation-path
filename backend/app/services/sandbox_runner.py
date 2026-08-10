@@ -13,8 +13,6 @@ import asyncio
 import subprocess
 import time
 
-from fastapi import HTTPException
-
 from app.config import settings
 from app.models.sandbox import SandboxRunRequest, SandboxRunResponse
 
@@ -34,15 +32,8 @@ class SandboxRunner:
         return settings.sandbox_max_concurrency - self._sem._value
 
     async def run(self, req: SandboxRunRequest) -> SandboxRunResponse:
-        # 并发槽位满时排队, 但设上限: 超时报 503 沙箱繁忙, 避免公网大流量下请求无限挂起
-        try:
-            await asyncio.wait_for(self._sem.acquire(), timeout=settings.sandbox_queue_timeout)
-        except asyncio.TimeoutError:
-            raise HTTPException(503, f"沙箱繁忙: 排队超过 {settings.sandbox_queue_timeout} 秒, 请稍后重试")
-        try:
+        async with self._sem:
             return await asyncio.to_thread(self._run_container, req)
-        finally:
-            self._sem.release()
 
     def _run_container(self, req: SandboxRunRequest) -> SandboxRunResponse:
         start = time.time()

@@ -21,11 +21,10 @@ const PRESETS = [
  * 不填 key 则 fallback 后端 .env 配置。
  */
 export function AiConfigModal({ open, onClose }: AiConfigModalProps) {
-  const { apiKey, baseUrl, model, accessCode, setConfig } = useAiConfig()
+  const { apiKey, baseUrl, model, setConfig } = useAiConfig()
   const [draftKey, setDraftKey] = useState(apiKey)
   const [draftUrl, setDraftUrl] = useState(baseUrl)
   const [draftModel, setDraftModel] = useState(model)
-  const [draftCode, setDraftCode] = useState(accessCode)
   const [showKey, setShowKey] = useState(false)
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -36,13 +35,12 @@ export function AiConfigModal({ open, onClose }: AiConfigModalProps) {
       setDraftKey(apiKey)
       setDraftUrl(baseUrl)
       setDraftModel(model)
-      setDraftCode(accessCode)
       setSaved(false)
     }
-  }, [open, apiKey, baseUrl, model, accessCode])
+  }, [open, apiKey, baseUrl, model])
 
   const handleSave = () => {
-    setConfig({ apiKey: draftKey.trim(), baseUrl: draftUrl.trim(), model: draftModel.trim(), accessCode: draftCode.trim() })
+    setConfig({ apiKey: draftKey.trim(), baseUrl: draftUrl.trim(), model: draftModel.trim() })
     setSaved(true)
     setTimeout(onClose, 800)
   }
@@ -151,23 +149,6 @@ export function AiConfigModal({ open, onClose }: AiConfigModalProps) {
         <p className="mt-1 text-xs text-slate-400">
           DeepSeek 推荐 <code className="rounded bg-slate-100 px-1 text-brand-700">deepseek-v4-pro</code>(默认) 或{' '}
           <code className="rounded bg-slate-100 px-1 text-brand-700">deepseek-v4-flash</code>(更快更便宜)
-        </p>
-      </div>
-
-      {/* 访问口令(服务器版) */}
-      <div className="mb-4">
-        <label className="panel-title mb-1 block">访问口令(服务器版邀请码)</label>
-        <input
-          type="text"
-          value={draftCode}
-          onChange={(e) => setDraftCode(e.target.value)}
-          placeholder="本地使用可留空"
-          className="input w-full font-mono"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <p className="mt-1 text-xs text-slate-400">
-          仅当站点部署在服务器、管理员发放了邀请码时才需要填写
         </p>
       </div>
 

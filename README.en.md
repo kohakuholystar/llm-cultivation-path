@@ -90,7 +90,6 @@ npx serve -s frontend/dist -l 3200
 Open http://localhost:3200.
 
 - **Different port?** If the frontend isn't served on 3200, set the backend env var `CORS_ORIGINS` accordingly (default allows only `http://localhost:3200`).
-- **Invite codes (recommended for public deployments):** set `ACCESS_CODES=code1,code2` (comma-separated) in `.env` — visitors must then enter an invite code in the site's AI-config dialog before they can run the sandbox. `SANDBOX_RATE_LIMIT` caps runs per IP per minute (default 10, 0 = unlimited). Sandbox run logs go to `backend/logs/sandbox.log`.
 - **Docker?** Docker is only used for the code-execution sandbox: `pnpm build:sandbox` (requires Docker Desktop). The app itself ships no image — the three steps above are all you need; without the sandbox image, execution tasks fall back to frontend validation.
 
 ## 🔑 API Key

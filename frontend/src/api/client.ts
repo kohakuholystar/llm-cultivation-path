@@ -1,5 +1,4 @@
 import type { Course, Chapter, Task, SandboxRunRequest, SandboxRunResponse } from '@shared/types'
-import { useAiConfig } from '@/features/aiConfig/store'
 
 // 开发环境走 vite proxy(/api → 后端4200, 见 vite.config.ts), 用相对路径即可。
 // 仅当显式设置了 VITE_API_BASE_URL(如部署到不同域名)时才用绝对 URL。
@@ -36,8 +35,6 @@ export const api = {
   runSandbox: (req: SandboxRunRequest) =>
     fetchJson<SandboxRunResponse>('/api/sandbox/run', {
       method: 'POST',
-      // 服务器版访问口令(后端未启用时为空串, 不产生影响)
-      headers: { 'X-Access-Code': useAiConfig.getState().accessCode },
       body: JSON.stringify(req),
     }),
 }
