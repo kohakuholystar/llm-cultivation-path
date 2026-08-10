@@ -1,6 +1,6 @@
-# LLM Cultivation Path · LLM 修仙之路
+# LLM 修仙之路 · LLM Cultivation Path
 
-**A gamified, task-driven learning platform for the LLM stack — from your first API call to building a tiny model.**
+**打怪升级式、任务驱动的 LLM 技术栈学习平台 —— 从第一次 API 调用,到自建一个小模型。**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
@@ -8,97 +8,97 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](backend/pyproject.toml)
 [![pnpm](https://img.shields.io/badge/pnpm-9+-F69220?logo=pnpm&logoColor=white)](package.json)
 
-**English** | [简体中文](README.zh-CN.md)
+[English](README.en.md) | **简体中文**
 
-Learn LLM engineering like leveling up in a game: 8 chapters, 39 hands-on tasks, real code running in a real sandbox. Write Python in the built-in IDE, call actual LLM APIs, pass validation rules, earn EXP, and unlock the next stage — no login, no server-side account, your progress stays in your browser.
+像打游戏一样修炼 LLM 工程:8 章 39 个实战任务,真代码、真沙箱、真 API。在内置 IDE 里写 Python,调用真实的大模型接口,通过验证规则、赚取经验值、解锁下一关。无需注册登录,进度保存在你自己的浏览器里。
 
-![Hero](docs/screenshots/hero.png)
+![首页](docs/screenshots/hero.png)
 
-## ✨ Features
+## ✨ 特色
 
-- ⚔️ **Gamified curriculum** — 8 chapters / 39 tasks covering the full LLM stack, from API basics to a self-built tiny model
-- 💻 **Built-in IDE** — Monaco Editor with teaching comments baked into starter code; every task ships with a checklist, hints, and a reference solution
-- 🐳 **Real code execution** — your Python runs in a Docker sandbox against the live DeepSeek API (OpenAI-compatible), with real stdout back
-- ✅ **Smart validation** — 9 rule types (API-call inspection, output matching, unit tests, …) decide pass/fail precisely
-- 🤖 **LLM-generated courseware** — the curriculum itself is produced by an LLM pipeline (`scripts/generate_curriculum.py`) with Pydantic validation
-- 📦 **Local-first** — no sign-up; progress lives in `localStorage`
-- 📖 **Full docs site** — installation guide, learning path, and a searchable tech reference for every library used
+- ⚔️ **游戏化课程** —— 8 章 39 任务,覆盖 LLM 全技术栈,从 API 基础一路打到自建小模型
+- 💻 **内置 IDE** —— Monaco 编辑器,starter 代码自带教学注释;每个任务配任务清单、提示和参考代码
+- 🐳 **真实代码执行** —— Python 代码在 Docker 沙箱中运行,直连 DeepSeek(OpenAI 兼容)真实接口,看真实输出
+- ✅ **智能通关验证** —— 9 种验证规则(API 调用检查、输出匹配、单元测试……),精准判定掌握度
+- 🤖 **LLM 生成课程** —— 课程内容本身由 LLM 管线生成(`scripts/generate_curriculum.py`),Pydantic 全程校验
+- 📦 **本地优先** —— 无需登录,进度存浏览器 `localStorage`,数据在你手里
+- 📖 **完整文档站** —— 安装指南、学习路径、以及每个用到的库的搜索式技术参考
 
-## 📸 Screenshots
+## 📸 截图
 
-| Task Workspace (IDE + instructions) | Course Map |
+| 修炼工作区(IDE + 教学面板) | 课程地图 |
 | :---: | :---: |
-| ![Workspace](docs/screenshots/workspace.png) | ![Course map](docs/screenshots/course-map.png) |
+| ![工作区](docs/screenshots/workspace.png) | ![课程地图](docs/screenshots/course-map.png) |
 
-| Tech Reference Docs |
+| 技术参考文档 |
 | :---: |
-| ![Docs](docs/screenshots/docs.png) |
+| ![文档](docs/screenshots/docs.png) |
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-**Prerequisites:** Node.js ≥ 20, pnpm ≥ 9, Python ≥ 3.12, Docker (optional, for the code sandbox)
+**环境要求:** Node.js ≥ 20、pnpm ≥ 9、Python ≥ 3.12、Docker(可选,用于代码沙箱)
 
 ```bash
-# 1. Clone
+# 1. 克隆
 git clone https://github.com/kohakuholystar/llm-cultivation-path.git
 cd llm-cultivation-path
 
-# 2. Frontend deps
+# 2. 前端依赖
 pnpm install
 
-# 3. Backend (venv recommended)
+# 3. 后端(建议 venv)
 cd backend
 python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
 # source .venv/bin/activate                             # macOS / Linux
 pip install -e ".[dev]"
 cd ..
 
-# 4. Run (two terminals)
-pnpm dev:backend   # FastAPI on :4200
-pnpm dev           # Vite on :3200
+# 4. 启动(两个终端)
+pnpm dev:backend   # FastAPI,端口 4200
+pnpm dev           # Vite,端口 3200
 ```
 
-Open http://localhost:3200, click **开始修炼**, and clear your first task.
+打开 http://localhost:3200,点 **开始修炼**,通关你的第一个任务。
 
-**Optional — enable the code sandbox** (without it, tasks fall back to frontend validation):
+**可选 —— 启用代码沙箱**(不启用则部分任务降级为前端验证):
 
 ```bash
-pnpm build:sandbox   # builds the llmquest-sandbox Docker image
+pnpm build:sandbox   # 构建 llmquest-sandbox Docker 镜像
 ```
 
-## 📦 Deployment
+## 📦 快速部署
 
-The section above is dev mode; for a **production-ish local/LAN deployment** (assumes Node ≥ 20, pnpm ≥ 9, Python ≥ 3.12):
+上文「快速开始」是开发模式;下面是**生产部署**(本机/局域网,假设已有 Node ≥ 20、pnpm ≥ 9、Python ≥ 3.12):
 
 ```bash
-# 1. Install deps and build the frontend (bakes the backend URL into the bundle)
+# 1. 安装依赖并构建前端(把后端地址打进静态包)
 pnpm install
 VITE_API_BASE_URL=http://localhost:4200 pnpm build                  # Git Bash / macOS / Linux
 # $env:VITE_API_BASE_URL="http://localhost:4200"; pnpm build        # Windows PowerShell
 
-# 2. Start the backend (port 4200)
+# 2. 启动后端(端口 4200)
 cd backend
 python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
 # source .venv/bin/activate                             # macOS / Linux
 pip install -e .
 uvicorn app.main:app --host 0.0.0.0 --port 4200
 
-# 3. Serve the frontend statically (second terminal; -s handles SPA route fallback)
+# 3. 静态托管前端(另开终端;-s 处理 SPA 路由回退)
 npx serve -s frontend/dist -l 3200
 ```
 
-Open http://localhost:3200.
+访问 http://localhost:3200 即可。
 
-- **Different port?** If the frontend isn't served on 3200, set the backend env var `CORS_ORIGINS` accordingly (default allows only `http://localhost:3200`).
-- **Invite codes (recommended for public deployments):** set `ACCESS_CODES=code1,code2` (comma-separated) in `.env` — visitors must then enter an invite code in the site's AI-config dialog before they can run the sandbox. `SANDBOX_RATE_LIMIT` caps runs per IP per minute (default 10, 0 = unlimited). Sandbox run logs go to `backend/logs/sandbox.log`.
-- **Docker?** Docker is only used for the code-execution sandbox: `pnpm build:sandbox` (requires Docker Desktop). The app itself ships no image — the three steps above are all you need; without the sandbox image, execution tasks fall back to frontend validation.
+- **换端口?** 前端若不用 3200,需同步设置后端环境变量 `CORS_ORIGINS`(默认只放行 `http://localhost:3200`)
+- **邀请码(公网部署建议开启):** 在 `.env` 配置 `ACCESS_CODES=码1,码2`(逗号分隔),启用后访问者需在站点右上角 AI 配置中填入邀请码才能运行沙箱;`SANDBOX_RATE_LIMIT` 控制每 IP 每分钟运行次数(默认 10,0 为不限)。沙箱运行日志见 `backend/logs/sandbox.log`
+- **Docker?** 本项目的 Docker 仅用于代码沙箱组件:`pnpm build:sandbox`(需 Docker Desktop)。应用本体不提供镜像,按上面三步部署即可;没有沙箱镜像也能正常运行,代码执行任务会降级为前端验证
 
 ## 🔑 API Key
 
-Any OpenAI-compatible provider works (DeepSeek, Tongyi, Moonshot/Kimi, …). Either:
+支持任何 OpenAI 兼容厂商(DeepSeek、通义、Moonshot/Kimi……),二选一:
 
-- click the **AI 配置** gear in the top-right corner of the site and paste your key, or
-- copy `.env.example` to `.env` in the repo root:
+- 点网站右上角 **AI 配置** 直接填入,或
+- 复制根目录 `.env.example` 为 `.env`:
 
 ```bash
 OPENAI_API_KEY=sk-...
@@ -106,58 +106,58 @@ OPENAI_BASE_URL=https://api.deepseek.com
 GENERATOR_MODEL=deepseek-v4-pro
 ```
 
-## 🗺️ Curriculum
+## 🗺️ 修炼路线
 
-| Chapter | Theme |
+| 章节 | 内容 |
 | :--- | :--- |
-| 1 · 初入江湖 | LLM basics — DeepSeek setup, chat, streaming, structured output, token economics |
-| 2 · 拜入山门 | LangChain — LCEL pipes, prompt templates, output parsers, memory, routing |
-| 3 · 秘境探宝 | RAG — embeddings, vector stores, retrieval pipelines |
-| 4 · 御剑术 | Agent control — tools, structured calling, memory, human-in-the-loop |
-| 5 · 炼器 | Harness engineering — context windows, error resilience, observability, plugins |
-| 6 · 群侠论剑 | Multi-Agent — message bus, supervisor, debate patterns |
-| 7 · 铸魂 | Build a tiny model — tokenizer, training loop, inference |
-| 8 · 出师 | Capstone — ship a complete LLM application |
+| 第一章 · 初入江湖 | LLM 基础 —— DeepSeek 接入、多轮对话、流式输出、结构化输出、Token 经济学 |
+| 第二章 · 拜入山门 | LangChain —— LCEL 管道、提示词模板、输出解析器、对话记忆、链路由 |
+| 第三章 · 秘境探宝 | RAG —— 向量嵌入、向量库、检索增强管线 |
+| 第四章 · 御剑术 | Agent 控制 —— 工具调用、结构化工具、记忆、人工介入 |
+| 第五章 · 炼器 | Harness 工程 —— 上下文窗口、错误韧性、可观测性、插件架构 |
+| 第六章 · 群侠论剑 | 多 Agent —— 消息总线、Supervisor、辩论模式 |
+| 第七章 · 铸魂 | 自建小模型 —— 分词器、训练循环、推理 |
+| 第八章 · 出师 | 综合实战 —— 完整交付一个 LLM 应用 |
 
-## 🛠️ Tech Stack
+## 🛠️ 技术栈
 
-| Layer | Tech |
+| 层 | 技术 |
 | :--- | :--- |
-| Frontend | React 18 · TypeScript · Vite · Tailwind CSS · Monaco Editor · Zustand |
-| Backend | FastAPI · Pydantic v2 · OpenAI SDK · Uvicorn |
-| Sandbox | Docker (isolated Python execution) |
-| Tooling | pnpm workspace · pytest · Ruff |
+| 前端 | React 18 · TypeScript · Vite · Tailwind CSS · Monaco Editor · Zustand |
+| 后端 | FastAPI · Pydantic v2 · OpenAI SDK · Uvicorn |
+| 沙箱 | Docker(隔离执行 Python) |
+| 工程化 | pnpm workspace · pytest · Ruff |
 
-## 📁 Project Structure
+## 📁 项目结构
 
 ```
-├── frontend/            # React SPA (Vite, port 3200)
+├── frontend/            # React 单页应用(Vite,端口 3200)
 │   └── src/pages|components|features|data
-├── backend/             # FastAPI app (port 4200)
+├── backend/             # FastAPI 应用(端口 4200)
 │   ├── app/routers|services|models
-│   └── app/data/chapters/   # course content: 8 chapters, per-task starter/solution/tests
-├── shared/              # Shared TypeScript types
-├── scripts/             # LLM curriculum pipeline (generate / validate / verify)
-├── docker/              # Code-execution sandbox image
+│   └── app/data/chapters/   # 课程内容:8 章,每任务含 starter/solution/测试
+├── shared/              # 前后端共享 TypeScript 类型
+├── scripts/             # LLM 课程生成管线(生成 / 校验 / 答案验证)
+├── docker/              # 代码执行沙箱镜像
 └── docs/screenshots/
 ```
 
-## 🧪 Tests & Quality
+## 🧪 测试与质量
 
 ```bash
-pnpm test        # backend pytest suite
-pnpm typecheck   # TypeScript across workspaces
+pnpm test        # 后端 pytest 测试套件
+pnpm typecheck   # 全部 workspace 的 TypeScript 检查
 ```
 
-## 🤝 Contributing
+## 🤝 参与贡献
 
-Issues and PRs are welcome. If you add or rewrite course content, run the validators before submitting:
+欢迎 Issue 和 PR。如果新增或改写课程内容,提交前请先跑校验:
 
 ```bash
 python scripts/validate_curriculum.py
 python scripts/verify_solutions.py
 ```
 
-## 📄 License
+## 📄 许可证
 
 [MIT](LICENSE) © 2026 kohakuholystar
