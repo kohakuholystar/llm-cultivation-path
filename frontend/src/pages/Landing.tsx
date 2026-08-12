@@ -22,15 +22,17 @@ const features = [
   { icon: '📦', title: '本地优先,无需登录', desc: '进度存浏览器,开箱即用,数据在你手里', ring: 'from-accent-400 to-brand-500', bg: 'bg-accent-50' },
 ]
 
+// 章节标题必须与 backend/app/data/curriculum.json 保持一致
+// (2026-08-11 漂移事故: 此处硬编码与课程数据脱节, README 照抄错了 5/8 行)
 const chapters = [
-  { name: '项目起步 · LLM 基础', icon: '🗡️' },
-  { name: '进入项目组 · LangChain', icon: '⛩️' },
-  { name: '黑糖资料室 · 本地 RAG', icon: '📜' },
-  { name: '快速执行术 · Agent 控制', icon: '🗡️' },
-  { name: '工具开发 · Harness 工程', icon: '⚒️' },
-  { name: '协作评审 · 多 Agent', icon: '🤝' },
-  { name: '铸魂 · 自做小模型', icon: '🔮' },
-  { name: '出师 · 综合实战', icon: '🏆' },
+  { name: '项目起步 · LLM 基础', icon: '🚀' },
+  { name: '进入项目组 · LangChain 架构', icon: '⛓️' },
+  { name: '资料检索 · RAG 检索增强', icon: '📚' },
+  { name: '工具开发进阶 · Agent 智能体', icon: '🧰' },
+  { name: '运行时工程 · Harness 工程', icon: '⚙️' },
+  { name: '多 Agent 协作', icon: '🤝' },
+  { name: '微型模型实验 · 自建小模型', icon: '🧪' },
+  { name: '黑糖资料室 · 毕业设计', icon: '🎓' },
 ]
 
 const techs = [
