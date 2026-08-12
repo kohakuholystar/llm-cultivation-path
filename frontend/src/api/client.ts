@@ -1,15 +1,19 @@
 import type { Course, Chapter, Task, SandboxRunRequest, SandboxRunResponse, StepValidationResponse } from '@shared/types'
+import { useAiConfig } from '@/features/aiConfig/store'
 
 // 开发环境走 vite proxy(/api → 后端4200, 见 vite.config.ts), 用相对路径即可。
 // 仅当显式设置了 VITE_API_BASE_URL(如部署到不同域名)时才用绝对 URL。
 // 子路径部署时(云端 /llm-cultivation-path/)API 走同级子路径, 由 Caddy strip 前缀反代到后端。
+// ⚠ 本行必须与主树 client.ts 保持同步(2026-08-11 事故: overlay 旧行覆盖主树新逻辑致课程加载失败)
 const BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.BASE_URL.replace(/\/$/, '')
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const accessCode = useAiConfig.getState().accessCode.trim()
   const resp = await fetch(`${BASE}${url}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(accessCode ? { 'X-Access-Code': accessCode } : {}),
       ...init?.headers,
     },
   })
@@ -35,6 +39,14 @@ export const api = {
   getCourse: () => fetchJson<Course>('/api/course'),
   getChapter: (id: string) => fetchJson<Chapter>(`/api/course/${id}`),
   getTask: (id: string) => fetchJson<Task>(`/api/task/${id}`),
+
+  accessStatus: () => fetchJson<{ inviteRequired: boolean }>('/api/access/status'),
+
+  verifyAccess: (accessCode: string) =>
+    fetchJson<{ ok: boolean }>('/api/access/verify', {
+      method: 'POST',
+      headers: { 'X-Access-Code': accessCode },
+    }),
 
   runSandbox: (req: SandboxRunRequest) =>
     fetchJson<SandboxRunResponse>('/api/sandbox/run', {

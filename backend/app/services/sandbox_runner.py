@@ -15,6 +15,8 @@ import subprocess
 import time
 from urllib.parse import urlparse
 
+from fastapi import HTTPException
+
 from app.config import settings
 from app.models.sandbox import SandboxRunRequest, SandboxRunResponse
 
@@ -53,16 +55,29 @@ class SandboxRunner:
         if not self.is_available(req.sandbox_profile):
             image = settings.sandbox_ml_image if req.sandbox_profile == "ml" else self._image
             raise SandboxConfigurationError(f"{req.sandbox_profile} 教学沙箱镜像未就绪：{image}")
-        async with self._sem:
+        # 并发槽位满时排队, 设上限: 超时 503 沙箱繁忙, 避免公网请求无限挂起
+        try:
+            await asyncio.wait_for(self._sem.acquire(), timeout=settings.sandbox_queue_timeout)
+        except asyncio.TimeoutError:
+            raise HTTPException(503, f"沙箱繁忙: 排队超过 {settings.sandbox_queue_timeout} 秒, 请稍后重试") from None
+        try:
             return await asyncio.to_thread(self._run_container, req)
+        finally:
+            self._sem.release()
 
     async def run_pytest(self, req: SandboxRunRequest, test_code: str) -> SandboxRunResponse:
         """Run trusted pytest against student code in an isolated per-run workspace."""
         if not self.is_available(req.sandbox_profile):
             image = settings.sandbox_ml_image if req.sandbox_profile == "ml" else self._image
             raise SandboxConfigurationError(f"{req.sandbox_profile} 教学沙箱镜像未就绪：{image}")
-        async with self._sem:
+        try:
+            await asyncio.wait_for(self._sem.acquire(), timeout=settings.sandbox_queue_timeout)
+        except asyncio.TimeoutError:
+            raise HTTPException(503, f"沙箱繁忙: 排队超过 {settings.sandbox_queue_timeout} 秒, 请稍后重试") from None
+        try:
             return await asyncio.to_thread(self._run_pytest_container, req, test_code)
+        finally:
+            self._sem.release()
 
     def _run_container(self, req: SandboxRunRequest) -> SandboxRunResponse:
         start = time.time()
