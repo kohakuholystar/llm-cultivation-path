@@ -1,4 +1,5 @@
-"""百宝囊 v0.4 —— 新增文件法宝:只许在 pouch_notes/ 目录内活动的笔记读写。"""
+"""社团工具箱 v0.4 —— 新增文件工具:只许在 pouch_notes/ 目录内活动的笔记读写。"""
+# ??????????????????????????_safe_path?write_note?read_note?list_notes???????????????????????????????pathlib????????t30-s3??????????? pouch_notes ?????
 import ast
 import operator
 import random
@@ -69,7 +70,7 @@ def convert_case(text: str, mode: str = "upper") -> str:
     return modes[mode](text) if mode in modes else f"错误:不支持 mode {mode!r}"
 
 
-NOTES_DIR = Path("pouch_notes")  # 笔记专用目录:文件法宝只许在这堵墙内活动
+NOTES_DIR = Path("pouch_notes")  # 笔记专用目录:文件工具只许在这堵墙内活动
 NOTES_DIR.mkdir(exist_ok=True)
 
 
@@ -84,7 +85,7 @@ def _safe_path(filename: str):
 def write_note(filename: str, content: str) -> str:
     """把文字保存为 .txt 笔记。用户要求记录、保存内容时使用,如 write_note("todo.txt", "买牛奶")。"""
     # TODO: 双重把关——扩展名 .txt 且 _safe_path 放行,通过后写入文件
-    # 提示:filename.endswith(".txt");用 path.write_text(content, encoding="utf-8");不合法时返回 "错误:文件名非法,只支持百宝囊目录下的 .txt 文件"
+    # 提示:filename.endswith(".txt");用 path.write_text(content, encoding="utf-8");不合法时返回 "错误:文件名非法,只支持社团工具箱目录下的 .txt 文件"
     raise NotImplementedError("s4-write-note 尚未实现:请按 TODO 提示完成笔记写入")
 
 
@@ -97,7 +98,7 @@ def read_note(filename: str) -> str:
 
 @tool
 def list_notes() -> str:
-    """列出百宝囊中所有 .txt 笔记的文件名。用户问保存了哪些笔记时使用。"""
+    """列出社团工具箱中所有 .txt 笔记的文件名。用户问保存了哪些笔记时使用。"""
     return "、".join(sorted(p.name for p in NOTES_DIR.glob("*.txt"))) or "还没有任何笔记"
 
 
@@ -105,7 +106,7 @@ def main() -> None:
     print(write_note("todo.txt", "1. 学完自定义工具\n2. 给工具写测试"))
     print("笔记列表:", list_notes())
     print("读取笔记:", read_note("todo.txt"))
-    # 路径穿越攻击:试图写到百宝囊目录之外,会被 _safe_path 拦截
+    # 路径穿越攻击:试图写到社团工具箱目录之外,会被 _safe_path 拦截
     print("穿越攻击:", write_note("../evil.txt", "hack"))
     print("读取不存在的笔记:", read_note("ghost.txt"))
 

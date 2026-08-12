@@ -1,4 +1,4 @@
-"""乾坤观测台 · s5:总装,观测与业务合一
+"""运行时观测台 · s5:总装,观测与业务合一
 
 前面的砖块都齐了,本步把它们砌成一座可复用的观测台:
 一次回合有 span、有计数、有成败打点,收尾自动出报告——观测与业务合一。
@@ -113,7 +113,7 @@ class QiankunObserver:
 
 def main() -> None:
     ob = QiankunObserver(stream=sys.stdout)
-    ob.run_agent_session(["帮我查飞剑的行情", "炸"])
+    ob.run_agent_session(["帮我查展示素材的行情", "炸"])
 
 
 if __name__ == "__main__":

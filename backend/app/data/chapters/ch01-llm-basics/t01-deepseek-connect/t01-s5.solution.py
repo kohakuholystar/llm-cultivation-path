@@ -1,4 +1,4 @@
-"""灵讯通 · s5:错误分类处理
+"""星澈助手 · s5:错误分类处理
 按"对策"给错误分类:401 查 Key、429 退避重试、超时/断连查网络。
 """
 import os
@@ -12,7 +12,7 @@ from openai import (OpenAI, AuthenticationError, RateLimitError,
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -72,7 +72,7 @@ def chat_safely(client: OpenAI, question: str):
     try:
         return chat_once(client, question)
     except Exception as exc:
-        print(f"[灵讯通] {friendly_error(exc)}")
+        print(f"[星澈助手] {friendly_error(exc)}")
         return None
 
 

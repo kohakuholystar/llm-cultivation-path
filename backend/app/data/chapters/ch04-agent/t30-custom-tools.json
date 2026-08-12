@@ -4,8 +4,8 @@
       "id": "t30-custom-tools-s1",
       "taskId": "t30-custom-tools",
       "order": 1,
-      "title": "百宝囊开工:手写 @tool 装饰器",
-      "instruction": "### 目标\n章项目「百宝囊」开工:不依赖任何框架,手写一个 `@tool` 装饰器,把普通 Python 函数变成\"能被 Agent 发现、按名调用\"的工具,并维护全项目的地基——工具注册表 `TOOLBOX`。\n\n### 原理\n**为什么需要注册表?** LLM 本身只会输出文本,要让它\"做事\",必须有一套约定:程序这边维护一张清单(有哪些工具、叫什么、干什么用),把清单写进 prompt;LLM 按名字\"点名\",程序按名字查表、取出函数、执行。这张表就是一个 dict:键是工具名,值是函数对象。\n\n**装饰器的本质是高阶函数。** `@tool` 只是语法糖,等价于 `system_time = tool(system_time)`:接收一个函数、加工、返回。Python 函数是一等对象,可以像行李一样被贴标签——`func.tool_name = ...` 就是在函数对象上动态挂属性。这些元数据将来要喂给 LLM,正是 function calling 里 `tools` 参数的雏形。\n\n**描述从哪来?** 直接取函数的 docstring。这确立了贯穿本章的约定:docstring 不只是写给人看的注释,更是写给 LLM 看的\"使用说明书\"。工业界的 `langchain_core.tools.tool` 做的是同一件事,只是额外自动生成参数 schema——本任务先手写原理,后面再对照。\n\n### 操作\n1. 实现 `tool` 装饰器:贴 `tool_name` / `tool_description` 两个标签,把函数登记进 `TOOLBOX`,原样返回\n2. 参考已完成的 `system_time`,用 `@tool` 装饰第二件法宝 `roll_dice`\n3. 运行,观察 `show_toolbox` 打印的清单,体会\"直接调用\"与\"按名调用\"两种姿势\n\n### 常见坑\n- 装饰器忘了 `return func`:被装饰的函数会变成 `None`,一调用就 `TypeError: 'NoneType' object is not callable`\n- 函数没写 docstring 时 `func.__doc__` 是 `None`,必须 `or \"暂无描述\"` 兜底,否则 `.strip()` 直接 `AttributeError`",
+      "title": "工具助手开工:手写 @tool 装饰器",
+      "instruction": "### 目标\n章项目「工具助手」开工:不依赖任何框架,手写一个 `@tool` 装饰器,把普通 Python 函数变成\"能被 Agent 发现、按名调用\"的工具,并维护全项目的地基——工具注册表 `TOOLBOX`。\n\n### 原理\n**为什么需要注册表?** LLM 本身只会输出文本,要让它\"做事\",必须有一套约定:程序这边维护一张清单(有哪些工具、叫什么、干什么用),把清单写进 prompt;LLM 按名字\"点名\",程序按名字查表、取出函数、执行。这张表就是一个 dict:键是工具名,值是函数对象。\n\n**装饰器的本质是高阶函数。** `@tool` 只是语法糖,等价于 `system_time = tool(system_time)`:接收一个函数、加工、返回。Python 函数是一等对象,可以像行李一样被贴标签——`func.tool_name = ...` 就是在函数对象上动态挂属性。这些元数据将来要喂给 LLM,正是 function calling 里 `tools` 参数的雏形。\n\n**描述从哪来?** 直接取函数的 docstring。这确立了贯穿本章的约定:docstring 不只是写给人看的注释,更是写给 LLM 看的\"使用说明书\"。工业界的 `langchain_core.tools.tool` 做的是同一件事,只是额外自动实现参数 schema——本任务先手写原理,后面再对照。\n\n### 操作\n1. 构建 `tool` 装饰器:贴 `tool_name` / `tool_description` 两个标签,把函数登记进 `TOOLBOX`,原样返回\n2. 参考已完成的 `system_time`,用 `@tool` 装饰第二件工具 `roll_dice`\n3. 运行,观察 `show_toolbox` 打印的清单,体会\"直接调用\"与\"按名调用\"两种姿势\n\n### 常见坑\n- 装饰器忘了 `return func`:被装饰的函数会变成 `None`,一调用就 `TypeError: 'NoneType' object is not callable`\n- 函数没写 docstring 时 `func.__doc__` 是 `None`,必须 `or \"暂无描述\"` 兜底,否则 `.strip()` 直接 `AttributeError`",
       "hints": [
         {
           "order": 1,
@@ -31,7 +31,7 @@
           "title": "对照:LangChain 的 @tool 做的是同一件事",
           "language": "python",
           "code": "from langchain_core.tools import tool\n\n@tool\ndef calculate(expression: str) -> str:\n    \"\"\"计算数学表达式。\"\"\"\n    ...\n\nprint(calculate.name)         # 'calculate'\nprint(calculate.description)  # '计算数学表达式。'",
-          "description": "沙箱里已装 langchain_core;它的 @tool 同样从函数名和 docstring 提取元数据,只是额外生成参数 JSON Schema。"
+          "description": "沙箱里已装 langchain_core;它的 @tool 同样从函数名和 docstring 提取元数据,只是额外实现参数 JSON Schema。"
         }
       ],
       "terms": [
@@ -50,9 +50,9 @@
       ],
       "techStack": [
         {
-          "name": "Python 标准库",
+          "name": "Python 精品库",
           "role": "装饰器与注册表的全部依赖",
-          "description": "手写 @tool 只需 Python 本身:函数是一等对象,属性可动态挂载。datetime/random 用于两件示例法宝。",
+          "description": "手写 @tool 只需 Python 本身:函数是一等对象,属性可动态挂载。datetime/random 用于两件示例工具。",
           "officialUrl": "https://docs.python.org/zh-cn/3/",
           "category": "语言内置",
           "installHint": "无需安装"
@@ -60,7 +60,7 @@
         {
           "name": "langchain-core",
           "role": "工业界对照(本步不要求使用)",
-          "description": "提供官方 @tool 装饰器,原理与本步手写版一致,额外生成参数 schema 并接入 LangChain Agent 体系。",
+          "description": "提供官方 @tool 装饰器,原理与本步手写版一致,额外实现参数 schema 并接入 LangChain Agent 体系。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain-core(沙箱已预装)"
@@ -69,7 +69,7 @@
       "validation": [
         {
           "type": "placeholder_filled",
-          "message": "还有 TODO 未填写:请补全 tool 装饰器与 roll_dice 法宝。",
+          "message": "还有 TODO 未填写:请补全 tool 装饰器与 roll_dice 工具。",
           "placeholder": "# TODO:",
           "blocking": true
         },
@@ -77,7 +77,7 @@
           "type": "ast_structure",
           "astType": "function_def",
           "name": "tool",
-          "message": "请保留并实现 tool 装饰器函数。",
+          "message": "请保留并构建 tool 装饰器函数。",
           "blocking": true
         },
         {
@@ -88,10 +88,10 @@
         },
         {
           "type": "sandbox_run",
-          "expectedStdout": "百宝囊中共有 3 件法宝",
+          "expectedStdout": "工具助手中共有 3 件工具",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
-          "message": "运行后应打印包含 3 件法宝的清单(system_time、roll_dice、hello)。",
+          "message": "运行后应打印包含 3 件工具的清单(system_time、roll_dice、hello)。",
           "blocking": true
         }
       ]
@@ -100,8 +100,8 @@
       "id": "t30-custom-tools-s2",
       "taskId": "t30-custom-tools",
       "order": 2,
-      "title": "计算器法宝:AST 白名单安全求值",
-      "instruction": "### 目标\n给百宝囊添第一件\"实战\"法宝 `calculate`:能算 `3 * (4 + 5)` 这样的表达式,同时挡住 `__import__('os')` 之类的恶意输入。本步还会做一次断舍离:s1 的演示辅助函数已完成使命,从文件中移除,只留正式法宝。\n\n### 原理\n**为什么绝不能 `eval(expression)`?** 工具的输入将来来自 LLM,而 LLM 的输出可能被用户 prompt 诱导——`eval(\"__import__('os').system('rm -rf /')\")` 就是远程代码执行。把不可信字符串直接交给 eval,等于把服务器钥匙交给陌生人。\n\n**AST 白名单为什么安全?** `ast.parse(code, mode=\"eval\")` 把表达式解析成一棵语法树,然后我们**递归遍历这棵树,只放行白名单里的节点**:数字常量(`Constant`)、四则与乘方取余(`BinOp` + 白名单 operator)、负号(`UnaryOp`)。函数调用是 `Call` 节点、属性访问是 `Attribute` 节点、变量名是 `Name` 节点——统统不在白名单,直接 `raise`。攻击面从\"整个 Python\"收缩到\"几个算术运算符\",这就是白名单思维:默认拒绝,显式放行。\n\n**为什么出错返回字符串而不是 raise?** 工具的调用方是 Agent 主循环。抛 traceback 会打断整个循环;返回 `\"错误:除数不能为 0\"` 这样的可读字符串,LLM 读到后能自我纠正重试——**错误信息也是给 LLM 的观测**。\n\n### 操作\n1. 定义 `_SAFE_OPS`:AST 运算符节点到 `operator` 模块函数的映射\n2. 实现 `_eval_node`:递归求值,白名单外一律 `raise ValueError`\n3. 实现 `calculate`:try 求值转字符串,异常统一翻译成\"错误:\"开头的提示\n4. 运行,观察正常计算、注入攻击、除零、语法错误四种结果\n\n### 常见坑\n- `ast.parse(\"1 +\")` 抛的是 `SyntaxError`,不在 `ValueError` 家族里,except 列表必须显式带上\n- 判断运算符要用 `type(node.op) in _SAFE_OPS`;`node.op` 是实例不是类,直接 `node.op in _SAFE_OPS` 永远匹配不上",
+      "title": "计算器工具:AST 白名单安全求值",
+      "instruction": "### 目标\n给工具助手添第一件\"实战\"工具 `calculate`:能算 `3 * (4 + 5)` 这样的表达式,同时挡住 `__import__('os')` 之类的恶意输入。本步还会做一次断舍离:s1 的演示辅助函数已完成使命,从文件中移除,只留正式工具。\n\n### 原理\n**为什么绝不能 `eval(expression)`?** 工具的输入将来来自 LLM,而 LLM 的输出可能被用户 prompt 诱导——`eval(\"__import__('os').system('rm -rf /')\")` 就是远程代码执行。把不可信字符串直接交给 eval,等于把服务器钥匙交给陌生人。\n\n**AST 白名单为什么安全?** `ast.parse(code, mode=\"eval\")` 把表达式解析成一棵语法树,然后我们**递归遍历这棵树,只放行白名单里的节点**:数字常量(`Constant`)、四则与乘方取余(`BinOp` + 白名单 operator)、负号(`UnaryOp`)。函数调用是 `Call` 节点、属性访问是 `Attribute` 节点、变量名是 `Name` 节点——统统不在白名单,直接 `raise`。攻击面从\"整个 Python\"收缩到\"几个算术运算符\",这就是白名单思维:默认拒绝,显式放行。\n\n**为什么出错返回字符串而不是 raise?** 工具的调用方是 Agent 主循环。抛 traceback 会打断整个循环;返回 `\"错误:除数不能为 0\"` 这样的可读字符串,LLM 读到后能自我纠正重试——**错误信息也是给 LLM 的观测**。\n\n### 操作\n1. 定义 `_SAFE_OPS`:AST 运算符节点到 `operator` 模块函数的映射\n2. 构建 `_eval_node`:递归求值,白名单外一律 `raise ValueError`\n3. 构建 `calculate`:try 求值转字符串,异常统一翻译成\"错误:\"开头的提示\n4. 运行,观察正常计算、注入攻击、除零、语法错误四种结果\n\n### 常见坑\n- `ast.parse(\"1 +\")` 抛的是 `SyntaxError`,不在 `ValueError` 家族里,except 列表必须显式带上\n- 判断运算符要用 `type(node.op) in _SAFE_OPS`;`node.op` 是实例不是类,直接 `node.op in _SAFE_OPS` 永远匹配不上",
       "hints": [
         {
           "order": 1,
@@ -140,9 +140,9 @@
       ],
       "techStack": [
         {
-          "name": "ast / operator(Python 标准库)",
+          "name": "ast / operator(Python 精品库)",
           "role": "安全求值的双件套",
-          "description": "ast 负责把表达式解析成语法树,operator 提供 add/mul 等函数形式的运算符,二者配合实现白名单求值。",
+          "description": "ast 负责把表达式解析成语法树,operator 提供 add/mul 等函数形式的运算符,二者配合构建白名单求值。",
           "officialUrl": "https://docs.python.org/zh-cn/3/library/ast.html",
           "category": "语言内置",
           "installHint": "无需安装"
@@ -159,7 +159,7 @@
           "type": "ast_structure",
           "astType": "function_def",
           "name": "calculate",
-          "message": "请保留并实现 calculate 工具函数。",
+          "message": "请保留并构建 calculate 工具函数。",
           "blocking": true
         },
         {
@@ -182,8 +182,8 @@
       "id": "t30-custom-tools-s3",
       "taskId": "t30-custom-tools",
       "order": 3,
-      "title": "文本法宝:统计与大小写转换",
-      "instruction": "### 目标\n再添两件文本法宝:`count_text`(统计字符/单词/行数)与 `convert_case`(大小写转换)。工具不多,但要借它们建立两个重要的工具设计直觉:纯函数与工具粒度。\n\n### 原理\n**工具函数应当是纯函数。** 同样的输入永远得到同样的输出,不读写全局状态、不产生副作用(文件法宝是下步才讨论的受控例外)。纯函数好在哪?Agent 可能反复调用同一个工具,结果可预期才敢让它自主决策;测试也只需\"输入-输出\"断言,不必搭建复杂环境。\n\n**工具粒度:一个带参数的工具,胜过三个相似工具。** 要不要拆成 `to_upper` / `to_lower` / `to_title` 三件法宝?不要。每多一件工具,LLM 选择时的歧义就多一分,prompt 里的清单也长一截。正确做法是合并成一件,用 `mode` 参数区分行为——这就是 `convert_case(text, mode)` 的设计。参数化的另一个好处:LLM 填错 `mode` 时,你的错误提示能现场教它正确取值,下一轮它就改对了。\n\n**dict 分发替代 if-elif 链。** `{\"upper\": str.upper, ...}` 把字符串映射到函数对象,一行完成分派;新增模式只改字典不改分支逻辑。这也是\"函数是一等对象\"的又一次实战。\n\n### 操作\n1. 实现 `count_text`:一行 f-string 返回三项统计\n2. 实现 `convert_case`:dict 分发 + 非法 mode 的可读报错\n3. 运行,观察古诗统计结果与四种 mode 的表现\n\n### 常见坑\n- `text.split(\" \")` 遇到连续空格会产生空串计数;`split()` 不带参数按任意空白切分并自动忽略空串,才是正确姿势\n- 中英文混排时 `len(text)` 数的是字符(一个汉字算 1),不是字节;若按\"词\"统计中文则需要分词库,本步描述里只说\"单词数\"就是按空白切分的结果",
+      "title": "文本工具:统计与大小写转换",
+      "instruction": "### 目标\n再添两件文本工具:`count_text`(统计字符/单词/行数)与 `convert_case`(大小写转换)。工具不多,但要借它们建立两个重要的工具设计直觉:纯函数与工具粒度。\n\n### 原理\n**工具函数应当是纯函数。** 同样的输入永远得到同样的输出,不读写全局状态、不产生副作用(文件工具是下步才讨论的受控例外)。纯函数好在哪?Agent 可能反复调用同一个工具,结果可预期才敢让它自主决策;测试也只需\"输入-输出\"断言,不必搭建复杂环境。\n\n**工具粒度:一个带参数的工具,胜过三个相似工具。** 要不要拆成 `to_upper` / `to_lower` / `to_title` 三件工具?不要。每多一件工具,LLM 选择时的歧义就多一分,prompt 里的清单也长一截。正确做法是合并成一件,用 `mode` 参数区分行为——这就是 `convert_case(text, mode)` 的设计。参数化的另一个好处:LLM 填错 `mode` 时,你的错误提示能现场教它正确取值,下一轮它就改对了。\n\n**dict 分发替代 if-elif 链。** `{\"upper\": str.upper, ...}` 把字符串映射到函数对象,一行完成分派;新增模式只改字典不改分支逻辑。这也是\"函数是一等对象\"的又一次实战。\n\n### 操作\n1. 构建 `count_text`:一行 f-string 返回三项统计\n2. 构建 `convert_case`:dict 分发 + 非法 mode 的可读报错\n3. 运行,观察古诗统计结果与四种 mode 的表现\n\n### 常见坑\n- `text.split(\" \")` 遇到连续空格会产生空串计数;`split()` 不带参数按任意空白切分并自动忽略空串,才是正确姿势\n- 中英文混排时 `len(text)` 数的是字符(一个汉字算 1),不是字节;若按\"词\"统计中文则需要分词库,本步描述里只说\"单词数\"就是按空白切分的结果",
       "hints": [
         {
           "order": 1,
@@ -219,7 +219,7 @@
       "techStack": [
         {
           "name": "Python 字符串方法",
-          "role": "文本法宝的全部武器",
+          "role": "文本工具的全部武器",
           "description": "split/upper/lower/title/count 等内置方法足以覆盖大多数文本统计与转换需求,且都是一等函数可直接放入 dict 分发。",
           "officialUrl": "https://docs.python.org/zh-cn/3/library/stdtypes.html#text-sequence-type-str",
           "category": "语言内置",
@@ -237,14 +237,14 @@
           "type": "ast_structure",
           "astType": "function_def",
           "name": "count_text",
-          "message": "请保留并实现 count_text 工具函数。",
+          "message": "请保留并构建 count_text 工具函数。",
           "blocking": true
         },
         {
           "type": "ast_structure",
           "astType": "function_def",
           "name": "convert_case",
-          "message": "请保留并实现 convert_case 工具函数。",
+          "message": "请保留并构建 convert_case 工具函数。",
           "blocking": false
         },
         {
@@ -261,8 +261,8 @@
       "id": "t30-custom-tools-s4",
       "taskId": "t30-custom-tools",
       "order": 4,
-      "title": "文件法宝:给读写能力装上护栏",
-      "instruction": "### 目标\n补上最后一大类法宝:`write_note` / `read_note` / `list_notes` 三件文件工具。文件读写是 Agent 最强大也最危险的能力,本步的核心不是\"怎么读写文件\",而是\"怎么把读写关进笼子\"。\n\n### 原理\n**最小权限原则。** 给 Agent 文件工具,等于把系统权限的钥匙交给一个会被 prompt 诱导的组件。防御思路与本课程执行代码的 Docker 沙箱同源:不追求\"挡住所有攻击\",而是先把活动范围缩到最小——文件法宝只许在专用目录 `pouch_notes/` 里活动,目录之外一概拒绝。\n\n**路径穿越(Path Traversal)与 resolve 防御。** 如果直接把用户给的文件名拼进路径,`\"../../etc/passwd\"` 就能读写系统文件——这是 Web 安全里的经典漏洞。防御手法:`Path.resolve()` 会把 `..`、`.`、符号链接全部归一化成真实绝对路径,然后再比较\"父目录是不是 NOTES_DIR\"。先归一化再判断,顺序不能反。\n\n**为什么返回 None 而不是抛异常?** `_safe_path` 是内部哨兵,返回 None 让调用方决定怎么向 Agent 报告;配合\"错误:...\"字符串约定,非法文件名对 LLM 来说只是一条可读的反馈,而不是一次崩溃。\n\n### 操作\n1. 实现 `_safe_path`:resolve 归一化 + 父目录比较,越界返回 None\n2. 实现 `write_note`:扩展名 + 路径双重把关,显式 UTF-8 写入\n3. 运行,观察正常写读、路径穿越被拦截、读取不存在笔记三种情况\n\n### 常见坑\n- 只做字符串 `startswith(\"pouch_notes\")` 判断而不 resolve:`pouch_notes/../evil.txt` 这种拼出来的路径能轻松绕过\n- `write_text` 不显式指定 `encoding=\"utf-8\"`:Windows 默认 GBK,中文笔记换个平台就乱码",
+      "title": "文件工具:给读写能力装上护栏",
+      "instruction": "### 目标\n补上最后一大类工具:`write_note` / `read_note` / `list_notes` 三件文件工具。文件读写是 Agent 最强大也最危险的能力,本步的核心不是\"怎么读写文件\",而是\"怎么把读写关进笼子\"。\n\n### 原理\n**最小权限原则。** 给 Agent 文件工具,等于把系统权限的钥匙交给一个会被 prompt 诱导的组件。防御思路与本课程执行代码的 Docker 沙箱同源:不追求\"挡住所有攻击\",而是先把活动范围缩到最小——文件工具只许在专用目录 `pouch_notes/` 里活动,目录之外一概拒绝。\n\n**路径穿越(Path Traversal)与 resolve 防御。** 如果直接把用户给的文件名拼进路径,`\"../../etc/passwd\"` 就能读写系统文件——这是 Web 安全里的经典漏洞。防御手法:`Path.resolve()` 会把 `..`、`.`、符号链接全部归一化成真实绝对路径,然后再比较\"父目录是不是 NOTES_DIR\"。先归一化再判断,顺序不能反。\n\n**为什么返回 None 而不是抛异常?** `_safe_path` 是内部哨兵,返回 None 让调用方决定怎么向 Agent 报告;配合\"错误:...\"字符串约定,非法文件名对 LLM 来说只是一条可读的反馈,而不是一次崩溃。\n\n### 操作\n1. 构建 `_safe_path`:resolve 归一化 + 父目录比较,越界返回 None\n2. 构建 `write_note`:扩展名 + 路径双重把关,显式 UTF-8 写入\n3. 运行,观察正常写读、路径穿越被拦截、读取不存在笔记三种情况\n\n### 常见坑\n- 只做字符串 `startswith(\"pouch_notes\")` 判断而不 resolve:`pouch_notes/../evil.txt` 这种拼出来的路径能轻松绕过\n- `write_text` 不显式指定 `encoding=\"utf-8\"`:Windows 默认 GBK,中文笔记换个平台就乱码",
       "hints": [
         {
           "order": 1,
@@ -282,13 +282,13 @@
           "title": "resolve 如何拆穿 ../ 伪装",
           "language": "python",
           "code": "from pathlib import Path\nbase = Path(\"pouch_notes\")\nprint((base / \"../evil.txt\").resolve())        # 归一化后:已经逃出 pouch_notes\nprint((base / \"todo.txt\").resolve().parent)     # 归一化后:正好等于 base.resolve()\nprint((base / \"todo.txt\").resolve().parent == base.resolve())  # True,放行",
-          "description": "先 resolve 再比较父目录,是防路径穿越的标准手法。"
+          "description": "先 resolve 再比较父目录,是防路径穿越的精品手法。"
         }
       ],
       "terms": [
         {
           "name": "路径穿越(Path Traversal)",
-          "definition": "用 ../ 等相对路径片段逃出预期目录、读写任意文件的攻击手法;resolve 归一化后再校验是标准防御。"
+          "definition": "用 ../ 等相对路径片段逃出预期目录、读写任意文件的攻击手法;resolve 归一化后再校验是精品防御。"
         },
         {
           "name": "最小权限原则(Least Privilege)",
@@ -297,9 +297,9 @@
       ],
       "techStack": [
         {
-          "name": "pathlib(Python 标准库)",
+          "name": "pathlib(Python 精品库)",
           "role": "面向对象的路径操作",
-          "description": "Path 的 / 拼接、resolve 归一化、glob 列表、read_text/write_text 读写,是文件法宝的全部基础设施。",
+          "description": "Path 的 / 拼接、resolve 归一化、glob 列表、read_text/write_text 读写,是文件工具的全部凡品设施。",
           "officialUrl": "https://docs.python.org/zh-cn/3/library/pathlib.html",
           "category": "语言内置",
           "installHint": "无需安装"
@@ -316,7 +316,7 @@
           "type": "ast_structure",
           "astType": "function_def",
           "name": "write_note",
-          "message": "请保留并实现 write_note 工具函数。",
+          "message": "请保留并构建 write_note 工具函数。",
           "blocking": true
         },
         {
@@ -339,12 +339,12 @@
       "id": "t30-custom-tools-s5",
       "taskId": "t30-custom-tools",
       "order": 5,
-      "title": "法宝图鉴:描述、清单与统一入口",
-      "instruction": "### 目标\n把百宝囊切换到\"Agent 视角\":`build_tool_manifest()` 生成 JSON 格式的工具清单(法宝图鉴),`dispatch()` 提供统一调用入口;同时给每件法宝的描述做一轮\"面向 LLM\"的抛光。\n\n### 原理\n**描述决定 Agent 会不会用。** LLM 选择工具时唯一的依据就是你写的 description——它看不到函数体,只看清单。坏描述「计算」vs 好描述「计算数学表达式,支持 + - * / ** % 与括号,当用户要求算账时使用,如 3 * (4 + 5)」:前者 LLM 不知道该何时用、传什么;后者说清了**干什么、什么时候用、参数长什么样**三要素。对比本步 solution 与上一步的 docstring,你会发现每件法宝的描述都补齐了触发场景与示例——这不是润色,是工具开发的核心工作。\n\n**参数名是白送的,别浪费。** `inspect.signature(func).parameters` 能自动提取参数名,LLM 拼参数时全靠它对齐;所以参数起名(`expression` 而不是 `e`)也是描述的一部分。\n\n**dispatch 是信任边界。** LLM 的输出是不可信输入:可能点错名字(兜底返回图鉴提示)、可能给错参数(TypeError 翻译成中文提示)。统一入口把所有\"LLM 可能犯的错\"收拢在一处处理,主循环因此干净——下一个任务写 Agent 执行器时,你会感谢这个设计。\n\n### 操作\n1. 实现 `build_tool_manifest`:列表推导 + `json.dumps(..., ensure_ascii=False, indent=2)`\n2. 实现 `dispatch`:查表、未知工具兜底、参数错误翻译\n3. 对照 solution 抛光各法宝描述,运行观察 JSON 图鉴与四种 dispatch 结果\n\n### 常见坑\n- `json.dumps` 漏了 `ensure_ascii=False`:中文描述全部变成 `\\uXXXX` 转义,塞进 prompt 既费 token 又难读\n- dispatch 里直接 `TOOLBOX[tool_name]` 而不 `.get()` 兜底:LLM 点错一个名字,整个 Agent 循环就被 KeyError 炸掉",
+      "title": "工具清单:描述、清单与统一入口",
+      "instruction": "### 目标\n把工具助手切换到\"Agent 视角\":`build_tool_manifest()` 实现 JSON 格式的工具清单(工具清单),`dispatch()` 提供统一调用入口;同时给每件工具的描述做一轮\"面向 LLM\"的抛光。\n\n### 原理\n**描述决定 Agent 会不会用。** LLM 选择工具时唯一的依据就是你写的 description——它看不到函数体,只看清单。坏描述「计算」vs 好描述「计算数学表达式,支持 + - * / ** % 与括号,当用户要求算账时使用,如 3 * (4 + 5)」:前者 LLM 不知道该何时用、传什么;后者说清了**干什么、什么时候用、参数长什么样**三要素。对比本步 solution 与上一步的 docstring,你会发现每件工具的描述都补齐了触发场景与示例——这不是润色,是工具开发的核心工作。\n\n**参数名是白送的,别浪费。** `inspect.signature(func).parameters` 能自动提取参数名,LLM 拼参数时全靠它对齐;所以参数起名(`expression` 而不是 `e`)也是描述的一部分。\n\n**dispatch 是信任边界。** LLM 的输出是不可信输入:可能点错名字(兜底返回图鉴提示)、可能给错参数(TypeError 翻译成中文提示)。统一入口把所有\"LLM 可能犯的错\"收拢在一处淬炼,主循环因此干净——下一个任务写 Agent 执行器时,你会感谢这个设计。\n\n### 操作\n1. 构建 `build_tool_manifest`:列表推导 + `json.dumps(..., ensure_ascii=False, indent=2)`\n2. 构建 `dispatch`:查表、未知工具兜底、参数错误翻译\n3. 对照 solution 抛光各工具描述,运行观察 JSON 图鉴与四种 dispatch 结果\n\n### 常见坑\n- `json.dumps` 漏了 `ensure_ascii=False`:中文描述全部变成 `\\uXXXX` 转义,塞进 prompt 既费 token 又难读\n- dispatch 里直接 `TOOLBOX[tool_name]` 而不 `.get()` 兜底:LLM 点错一个名字,整个 Agent 循环就被 KeyError 炸掉",
       "hints": [
         {
           "order": 1,
-          "text": "方向:manifest = 遍历 TOOLBOX 生成 dict 列表再 dumps;dispatch = get 查表 + try 调用 + 异常翻译。"
+          "text": "方向:manifest = 遍历 TOOLBOX 实现 dict 列表再 dumps;dispatch = get 查表 + try 调用 + 异常翻译。"
         },
         {
           "order": 2,
@@ -379,7 +379,7 @@
       ],
       "techStack": [
         {
-          "name": "inspect / json(Python 标准库)",
+          "name": "inspect / json(Python 精品库)",
           "role": "自省与序列化",
           "description": "inspect.signature 自动提取函数参数名,json.dumps 把清单序列化成可塞进 prompt 的 JSON 文本。",
           "officialUrl": "https://docs.python.org/zh-cn/3/library/inspect.html",
@@ -398,14 +398,14 @@
           "type": "ast_structure",
           "astType": "function_def",
           "name": "build_tool_manifest",
-          "message": "请保留并实现 build_tool_manifest 函数。",
+          "message": "请保留并构建 build_tool_manifest 函数。",
           "blocking": true
         },
         {
           "type": "ast_structure",
           "astType": "function_def",
           "name": "dispatch",
-          "message": "请保留并实现 dispatch 统一入口函数。",
+          "message": "请保留并构建 dispatch 统一入口函数。",
           "blocking": true
         },
         {
@@ -428,8 +428,8 @@
       "id": "t30-custom-tools-s6",
       "taskId": "t30-custom-tools",
       "order": 6,
-      "title": "法宝质检:给工具写单元测试",
-      "instruction": "### 目标\n百宝囊出师前的最后一道工序:为四类法宝各配测试用例,并实现一个极简测试运行器 `run_all_tests`,一键质检全部工具。\n\n### 原理\n**为什么工具特别需要测试?** 工具是 Agent 的手和脚——LLM 决策错了还能重来,工具执行错了就是错误的结果直接落地。而且工具集是高频改动区:加工具、改描述、调参数,没有测试,每次改动都在裸奔。\n\n**Arrange-Act-Assert 与三类用例。** 每个测试都是\"准备输入 → 执行 → 断言输出\"三段式;覆盖要分三类:开心路径(`calculate(\"1 + 2 * 3\") == \"7\"`)、错误分支(`\"错误\" in calculate(\"1 / 0\")`)、恶意输入(`\"错误\" in calculate(\"__import__('os')\")`)。只测开心路径的测试等于没测。\n\n**run_all_tests 就是 pytest 的缩影。** 看它做了四件事:发现(收集 `test_` 前缀函数)、执行(逐个调用)、隔离失败(try/except 保证一个挂了不影响后面的)、汇报(通过计数)。pytest 干的也是这四件事,只是更强大——沙箱里已预装 pytest,右侧示例给了同套断言的 pytest 写法,工程实践中直接用它。\n\n### 操作\n1. 补全 `test_calculate` 与 `test_dispatch` 两个用例\n2. 运行,确认输出 4/4 通过\n3. 故意把一个断言改错再运行,观察 FAIL 汇报与最终提示,然后改回来\n\n### 常见坑\n- 测试之间共享状态:文件测试请用独立文件名(如 unit.txt),别和演示代码写的 todo.txt 混在一起,否则执行顺序变了结果就变\n- 断言写成 `print(calculate(...))` 用眼睛核对:测试的灵魂是 assert 自动判定,人工核对迟早漏检",
+      "title": "工具质检:给工具写单元测试",
+      "instruction": "### 目标\n工具助手出师前的最后一道工序:为四类工具各配测试用例,并构建一个极简测试运行器 `run_all_tests`,一键质检全部工具。\n\n### 原理\n**为什么工具特别需要测试?** 工具是 Agent 的手和脚——LLM 决策错了还能重来,工具执行错了就是错误的结果直接落地。而且工具集是高频改动区:加工具、改描述、调参数,没有测试,每次改动都在裸奔。\n\n**Arrange-Act-Assert 与三类用例。** 每个测试都是\"准备输入 → 执行 → 断言输出\"三段式;覆盖要分三类:开心路径(`calculate(\"1 + 2 * 3\") == \"7\"`)、错误分支(`\"错误\" in calculate(\"1 / 0\")`)、恶意输入(`\"错误\" in calculate(\"__import__('os')\")`)。只测开心路径的测试等于没测。\n\n**run_all_tests 就是 pytest 的缩影。** 看它做了四件事:发现(收集 `test_` 前缀函数)、执行(逐个调用)、隔离失败(try/except 保证一个挂了不影响后面的)、汇报(通过计数)。pytest 干的也是这四件事,只是更强大——沙箱里已预装 pytest,右侧示例给了同套断言的 pytest 写法,工程实践中直接用它。\n\n### 操作\n1. 补全 `test_calculate` 与 `test_dispatch` 两个用例\n2. 运行,确认输出 4/4 通过\n3. 故意把一个断言改错再运行,观察 FAIL 汇报与最终提示,然后改回来\n\n### 常见坑\n- 测试之间共享状态:文件测试请用独立文件名(如 unit.txt),别和演示代码写的 todo.txt 混在一起,否则执行顺序变了结果就变\n- 断言写成 `print(calculate(...))` 用眼睛核对:测试的灵魂是 assert 自动判定,人工核对迟早漏检",
       "hints": [
         {
           "order": 1,
@@ -463,7 +463,7 @@
         },
         {
           "name": "测试运行器(Test Runner)",
-          "definition": "负责发现测试、逐个执行、隔离失败、汇总报告的机制;本步手写极简版,pytest 是工业级实现。"
+          "definition": "负责发现测试、逐个执行、隔离失败、汇总报告的机制;本步手写极简版,pytest 是工业级构建。"
         }
       ],
       "techStack": [

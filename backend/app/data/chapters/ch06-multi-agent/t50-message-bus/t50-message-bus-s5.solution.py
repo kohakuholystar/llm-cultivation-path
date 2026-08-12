@@ -1,4 +1,4 @@
-"""天庭 · s5:总线驱动黑板 —— 消息流进来,黑板自己长出来。"""
+"""校园 AI 社 · s5:总线驱动黑板 —— 消息流进来,黑板自己长出来。"""
 import itertools
 import time
 from collections import Counter

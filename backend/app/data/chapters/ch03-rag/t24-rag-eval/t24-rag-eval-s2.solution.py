@@ -1,4 +1,4 @@
-"""藏经阁收官 · 第二步:接入 DeepSeek 生成端(检索 → 拼 prompt → 回答)。"""
+"""黑糖资料室收官 · 第二步:接入 DeepSeek 生成端(检索 → 拼 prompt → 回答)。"""
 import math
 import os
 import re
@@ -17,11 +17,11 @@ from openai import OpenAI
 client = None if MOCK else OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 CORPUS = [
-    {"id": "d1", "text": "吐纳心法:内功根基在于吐纳,每日卯时面东打坐,气沉丹田,调匀呼吸,百日方可筑基。"},
-    {"id": "d3", "text": "剑谱总纲:剑之道,快不如巧,巧不如拙,大巧若拙,无招胜有招。"},
-    {"id": "d4", "text": "拳经:拳法力从地起,腰马合一,劲达四梢,练拳不练功,到老一场空。"},
-    {"id": "d5", "text": "药典:金疮药以三七、血竭为主,辅以冰片研末,外敷可止血生肌。"},
-    {"id": "d6", "text": "寺规:藏经阁典籍不得带出寺外,借阅需长老手谕,违者罚面壁三月。"},
+    {"id": "d1", "text": "数据清洗方法:先统一编码与字段格式,再处理重复值和缺失值,最后写入缓存并保存质量报告。"},
+    {"id": "d3", "text": "输出模板指南:先明确字段契约,再减少无效规则,并用固定样例验证输出稳定性。"},
+    {"id": "d4", "text": "设计规范:版式需要统一间距、字号与颜色层级,并通过样例检查一致性。"},
+    {"id": "d5", "text": "应急手册:轻微外伤先清洁并止血,必要时及时联系校医或专业人员。"},
+    {"id": "d6", "text": "借阅规范:黑糖资料室的受限资料不得外传,借阅需获得管理员授权并记录用途。"},
 ]
 
 
@@ -48,12 +48,12 @@ class TfidfRetriever:
 
 
 TEST_SET = [
-    {"question": "如何修炼内功?", "relevant": ["d1"]},
-    {"question": "弟子受伤流血该用什么药?", "relevant": ["d5"]},
-    {"question": "剑法的最高境界是什么?", "relevant": ["d3"]},
-    {"question": "能把经书带回厢房研读吗?", "relevant": ["d6"]},
-    {"question": "拳法与剑法孰强孰弱?", "relevant": []},    # 观点题,库中无标准答案
-    {"question": "禅师的床底下藏着什么?", "relevant": []},  # 库外问题,留作幻觉标本
+    {"question": "如何学习基础指南?", "relevant": ["d1"]},
+    {"question": "成员轻微外伤应该如何处理?", "relevant": ["d5"]},
+    {"question": "创作方法的最高学习阶段是什么?", "relevant": ["d3"]},
+    {"question": "能把受限文档带离资料室吗?", "relevant": ["d6"]},
+    {"question": "设计方法与创作方法孰强孰弱?", "relevant": []},    # 观点题,库中无标准答案
+    {"question": "资料室今天供应什么饮品?", "relevant": []},  # 库外问题,留作幻觉标本
 ]
 
 
@@ -71,8 +71,8 @@ def generate_answer(question, hits):
     """检索+生成:把 top 文档拼进 prompt,要求资料不足时如实拒答。"""
     if MOCK:  # 检索得分 0 → 故意凭"记忆"瞎答,制造幻觉标本
         if not hits or hits[0][1] == 0:
-            return "据我所知,这与失传的易筋经有关,藏经阁每日戌时开放借阅。"
-        return f"根据藏经阁记载:{hits[0][0]['text']}"
+            return "据我所知,这与失传的文档切分指南有关,黑糖资料室每日晚间开放借阅。"
+        return f"根据黑糖资料室记载:{hits[0][0]['text']}"
     context = "\n".join(d["text"] for d, _ in hits)
     prompt = (f"基于以下资料回答问题,资料不足就说“根据现有资料无法回答”。\n"
               f"资料:\n{context}\n问题:{question}")
@@ -81,7 +81,7 @@ def generate_answer(question, hits):
 
 if __name__ == "__main__":
     retriever = TfidfRetriever(CORPUS)
-    print(f"=== 藏经阁问答(MODEL={MODEL}, MOCK={MOCK})===")
+    print(f"=== 黑糖资料室问答(MODEL={MODEL}, MOCK={MOCK})===")
     for item in TEST_SET[:3]:
         hits = retriever.search(item["question"], k=2)
         answer = generate_answer(item["question"], hits)

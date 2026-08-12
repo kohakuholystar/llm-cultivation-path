@@ -1,4 +1,4 @@
-"""乾坤圈 · s2:Step 抽象——动作也要有生命周期
+"""Agent 运行时底座 · s2:Step 抽象——动作也要有生命周期
 
 s1 的循环把「执行」揉进了一个函数,动作一多就难以扩展。
 本步引入 Step 抽象:每个动作都过 prepare → execute → finish
@@ -19,22 +19,22 @@ class AgentStatus:
 
 
 def get_time() -> str:
-    """报当前时辰(十二时辰制)。"""
+    """返回当前时间段。"""
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    """列出十二经脉名。"""
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    """列出工作流主要阶段。"""
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 TOOLS = {"get_time": get_time, "list_meridians": list_meridians}
 
 
 def run_tool(name: str) -> str:
-    """工具分发器:按名字找到法宝并执行。"""
+    """工具分发器:按名字找到组件并执行。"""
     if name not in TOOLS:
         return f"[未知工具] {name}"
     return TOOLS[name]()
@@ -69,7 +69,7 @@ class Step(ABC):
 
 
 class ToolStep(Step):
-    """调用法宝库中某个工具的步骤。"""
+    """调用工具注册表中某个工具的步骤。"""
 
     def __init__(self, name: str, tool: str):
         super().__init__(name)
@@ -78,7 +78,7 @@ class ToolStep(Step):
     def prepare(self, ctx: dict) -> None:
         """校验工具确实存在,不存在就在进入 execute 前报错。"""
         if self.tool not in TOOLS:
-            raise KeyError(f"法宝库中没有 {self.tool} 这件法宝")
+            raise KeyError(f"工具库中没有 {self.tool} 这件工具")
 
     def execute(self, ctx: dict) -> str:
         result = run_tool(self.tool)
@@ -103,7 +103,7 @@ class ReplyStep(Step):
 
 
 class Harness:
-    """乾坤圈调度器:按计划把步骤接成流水线,并记录生命周期事件。"""
+    """Agent 运行时底座调度器:按计划把步骤接成流水线,并记录生命周期事件。"""
 
     def __init__(self, plan: list):
         self.plan = plan
@@ -111,7 +111,7 @@ class Harness:
         self.ctx = {
             "actions": [],
             "messages": [],
-            "reply_text": "现在是巳时,气血正旺。",
+            "reply_text": "当前为上午时段,系统运行状态正常。",
             "last_result": "",
             "status": AgentStatus.RUNNING,
         }

@@ -1,9 +1,28 @@
-"""渡劫飞升 · s4:接口契约——OpenAPI 3.0 规格生成
+"""终期交付 · s4:接口契约——OpenAPI 3.0 规格生成
 
 把 s3 的 Pydantic 模型提升为对外 API:用 EndpointSpec 声明四个
 接口的入参出参,再由 build_openapi 组装成 OpenAPI 3.0 规格,
 落盘为 YAML,前后端按同一份文档联调。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：接口契约:OpenAPI 3.0 规格生成。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：model_json_schema；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `endpoints() -> list`：输入为签名中的参数；输出为 `list`。用途：四个核心接口:建库、入库、检索、健康检查。
+#   - `build_openapi(specs: list) -> dict`：输入为签名中的参数；输出为 `dict`。用途：把接口清单组装成 OpenAPI 3.0 根文档。
+#   - `render_yaml(doc: dict) -> str`：输入为签名中的参数；输出为 `str`。用途：导出 YAML,保留中文与字段顺序。
+#   - `verify_contract(text: str) -> None`：输入为签名中的参数；输出为 `None`。用途：读回生成的 YAML,校验路径与接口数量。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Document`：承载本节状态/数据；重点方法：见类定义。
+#   - `RetrievalQuery`：承载本节状态/数据；重点方法：见类定义。
+#   - `RetrievalHit`：承载本节状态/数据；重点方法：见类定义。
+#   - `EndpointSpec`：承载本节状态/数据；重点方法：见类定义。
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 from typing import Literal, Optional
 
@@ -12,11 +31,11 @@ from pydantic import BaseModel, Field
 
 
 class Document(BaseModel):
-    """一篇典籍原文(浓缩自 s3)。"""
+    """一篇资料原文(浓缩自 s3)。"""
 
     doc_id: str = Field(description="唯一文档 ID")
-    title: str = Field(description="典籍标题")
-    text: str = Field(description="典籍正文")
+    title: str = Field(description="资料标题")
+    text: str = Field(description="资料正文")
 
 
 class RetrievalQuery(BaseModel):
@@ -55,7 +74,7 @@ def endpoints() -> list:
 
 def build_openapi(specs: list) -> dict:
     """把接口清单组装成 OpenAPI 3.0 根文档。"""
-    info = {"title": "渡劫飞升 · 知识问答 API", "version": "0.1.0"}
+    info = {"title": "黑糖资料室 · 知识问答 API", "version": "0.1.0"}
     paths = {}
     for ep in specs:
         body = None if ep.request_schema is None else {

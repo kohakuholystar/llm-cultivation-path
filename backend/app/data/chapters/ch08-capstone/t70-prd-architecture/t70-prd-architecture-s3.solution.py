@@ -1,6 +1,6 @@
-"""渡劫飞升 · s3:数据模型——Pydantic 契约先行
+"""终期交付 · s3:数据模型——Pydantic 契约先行
 
-先定义数据契约,再写业务逻辑:文档、切块、典籍库、检索请求、
+先定义数据契约,再写业务逻辑:文档、切块、知识库、检索请求、
 检索命中五份模型,把「知识库里存什么、请求长什么样」一次说清。
 """
 import json
@@ -10,12 +10,12 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 class Document(BaseModel):
-    """一篇典籍原文:入库的最小单元。"""
+    """一篇资料原文:入库的最小单元。"""
 
     doc_id: str = Field(description="唯一文档 ID,如 kb-0001")
-    title: str = Field(description="典籍标题,如《筑基入门》")
+    title: str = Field(description="资料标题,如《基础阶段入门》")
     author: str = Field(default="佚名", description="作者或出处")
-    text: str = Field(description="典籍正文")
+    text: str = Field(description="资料正文")
     tags: list[str] = Field(default_factory=list, description="分类标签")
 
 
@@ -29,7 +29,7 @@ class Chunk(BaseModel):
 
 
 class KnowledgeBase(BaseModel):
-    """典籍库:文档与切块两棵树的根。"""
+    """知识库:文档与切块两棵树的根。"""
 
     docs: list[Document] = Field(default_factory=list)
     chunks: list[Chunk] = Field(default_factory=list)
@@ -53,10 +53,10 @@ class RetrievalHit(BaseModel):
 
 def build_sample_kb() -> KnowledgeBase:
     """造一份样例库,演示契约如何落地。"""
-    doc = Document(doc_id="kb-0001", title="《筑基入门》", text="引气入体,守心如一。")
+    doc = Document(doc_id="kb-0001", title="《基础阶段入门》", text="加载入体,守心如一。")
     return KnowledgeBase(
         docs=[doc],
-        chunks=[Chunk(chunk_id="kb-0001-0", doc_id="kb-0001", content="引气入体,守心如一。", order=0)],
+        chunks=[Chunk(chunk_id="kb-0001-0", doc_id="kb-0001", content="加载入体,守心如一。", order=0)],
     )
 
 
@@ -77,7 +77,7 @@ def demo_schemas() -> None:
 def demo_validation() -> None:
     """演示非法请求被契约拦下:top_k=0 越界。"""
     try:
-        RetrievalQuery(text="如何筑基", top_k=0)
+        RetrievalQuery(text="如何基础阶段", top_k=0)
     except ValidationError as exc:
         err = exc.errors()[0]
         print(f"拦截成功:字段 {err['loc'][0]} 违规:{err['msg']}")

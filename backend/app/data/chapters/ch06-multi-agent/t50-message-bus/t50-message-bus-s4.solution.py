@@ -1,4 +1,4 @@
-"""天庭 · s4:共享黑板 —— 成员们在同一块板上协作。"""
+"""校园 AI 社 · s4:共享黑板 —— 成员们在同一块板上协作。"""
 import itertools
 import time
 from dataclasses import dataclass, field

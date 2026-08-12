@@ -1,4 +1,4 @@
-"""天庭 · s6:迷你天庭实战 —— 四路消息汇成一张作战黑板。"""
+"""校园 AI 社 · s6:迷你校园 AI 社实战 —— 四路消息汇成一张作战黑板。"""
 import itertools
 import time
 from collections import Counter
@@ -104,7 +104,7 @@ def qa_gate(bus: MessageBus, board: Blackboard) -> None:
 
 def daily_report(bus: MessageBus, board: Blackboard) -> None:
     """收工日报:消息流水 + 主题统计 + 黑板快照。"""
-    print("===== 天庭日报 =====")
+    print("===== 校园 AI 社日报 =====")
     for m in bus.published:
         print(f"  #{m.msg_id} [{m.ts}] {m.sender} -> {m.topic} {m.payload}")
     stat = dict(Counter(m.topic for m in bus.published))

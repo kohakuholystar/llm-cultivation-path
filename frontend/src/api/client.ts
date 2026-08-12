@@ -1,4 +1,4 @@
-import type { Course, Chapter, Task, SandboxRunRequest, SandboxRunResponse } from '@shared/types'
+import type { Course, Chapter, Task, SandboxRunRequest, SandboxRunResponse, StepValidationResponse } from '@shared/types'
 
 // 开发环境走 vite proxy(/api → 后端4200, 见 vite.config.ts), 用相对路径即可。
 // 仅当显式设置了 VITE_API_BASE_URL(如部署到不同域名)时才用绝对 URL。
@@ -8,7 +8,10 @@ const BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.BASE_URL.repla
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(`${BASE}${url}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
   })
   if (!resp.ok) {
     const text = await resp.text()
@@ -37,5 +40,11 @@ export const api = {
     fetchJson<SandboxRunResponse>('/api/sandbox/run', {
       method: 'POST',
       body: JSON.stringify(req),
+    }),
+
+  validateStep: (taskId: string, stepId: string, code: string, env?: Record<string, string>) =>
+    fetchJson<StepValidationResponse>(`/api/task/${taskId}/step/${stepId}/validate`, {
+      method: 'POST',
+      body: JSON.stringify({ code, env }),
     }),
 }

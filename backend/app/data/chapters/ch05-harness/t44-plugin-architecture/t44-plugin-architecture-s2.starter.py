@@ -1,9 +1,25 @@
-"""乾坤圈 · s2:生命周期状态机
+"""Agent 运行时底座 · s2:生命周期状态机
 
 插件的一生要按规矩走:installed -> active -> inactive -> uninstalled。
 本步用显式状态机管理迁移,非法迁移直接 raise,白名单 + 模板方法,
 把「纪律」写进代码。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：生命周期状态机:让插件按规矩走完一生。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `PluginStateError`：承载本节状态/数据；重点方法：见类定义。
+#   - `Plugin`：承载本节状态/数据；重点方法：run, on_install, on_activate, on_deactivate, on_uninstall。
+#   - `EchoPlugin`：承载本节状态/数据；重点方法：run, on_install, on_activate, on_deactivate, on_uninstall。
+#   - `UpperPlugin`：承载本节状态/数据；重点方法：run。
+#   - `PluginManager`：承载本节状态/数据；重点方法：install, activate, deactivate, uninstall, active_plugins, summary。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 from abc import ABC, abstractmethod
 
 

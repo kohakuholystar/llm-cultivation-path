@@ -23,12 +23,12 @@ const features = [
 ]
 
 const chapters = [
-  { name: '初入江湖 · LLM 基础', icon: '🗡️' },
-  { name: '拜入山门 · LangChain', icon: '⛩️' },
-  { name: '藏经阁 · 本地 RAG', icon: '📜' },
-  { name: '御剑术 · Agent 控制', icon: '🗡️' },
-  { name: '炼器 · Harness 工程', icon: '⚒️' },
-  { name: '群侠论剑 · 多 Agent', icon: '🤝' },
+  { name: '项目起步 · LLM 基础', icon: '🗡️' },
+  { name: '进入项目组 · LangChain', icon: '⛩️' },
+  { name: '黑糖资料室 · 本地 RAG', icon: '📜' },
+  { name: '快速执行术 · Agent 控制', icon: '🗡️' },
+  { name: '工具开发 · Harness 工程', icon: '⚒️' },
+  { name: '协作评审 · 多 Agent', icon: '🤝' },
   { name: '铸魂 · 自做小模型', icon: '🔮' },
   { name: '出师 · 综合实战', icon: '🏆' },
 ]
@@ -209,7 +209,7 @@ const CODE_LINES: { t: string; c: string }[][] = [
     { t: ', ', c: 'text-slate-100' },
     { t: '"content"', c: 'text-sky-300' },
     { t: ': ', c: 'text-slate-100' },
-    { t: '"你好,灵讯通"', c: 'text-emerald-300' },
+    { t: '"你好,星澈助手"', c: 'text-emerald-300' },
     { t: '}],', c: 'text-slate-100' },
   ],
   [{ t: ')', c: 'text-slate-100' }],
@@ -246,7 +246,7 @@ function HeroTerminal() {
             <span className="h-3 w-3 rounded-full bg-amber-400/90" />
             <span className="h-3 w-3 rounded-full bg-emerald-400/90" />
             <span className="ml-3 rounded-md bg-slate-700/60 px-2.5 py-0.5 font-mono text-xs text-slate-300">
-              main.py · 灵讯通
+              main.py · 星澈助手
             </span>
             <span className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-brand-300">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-400" />
@@ -278,7 +278,7 @@ function HeroTerminal() {
                   {tick === TYPED && <span className="ml-2 animate-pulse text-brand-300">运行中…</span>}
                 </div>
                 {tick >= TYPED + 1 && (
-                  <div className="animate-fade-in text-sky-300">你好,修行者,我是灵讯通 ⚡</div>
+                  <div className="animate-fade-in text-sky-300">你好,学习者,我是星澈助手 ⚡</div>
                 )}
                 {tick >= TYPED + 2 && (
                   <div className="mt-2 inline-flex animate-scale-in items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
@@ -380,7 +380,7 @@ export function Landing() {
             <h1 className="mt-6 animate-slide-up text-4xl font-extrabold leading-[1.12] tracking-tight [animation-delay:0.1s] sm:text-5xl xl:text-6xl">
               <span className="text-slate-900">LLM Agent 工程师</span>
               <br />
-              <span className="text-gradient-hero animate-shimmer [background-size:200%_auto]">修炼之路</span>
+              <span className="text-gradient-hero animate-shimmer [background-size:200%_auto]">学习之路</span>
             </h1>
 
             <p className="mt-5 max-w-xl animate-slide-up text-lg leading-relaxed text-slate-600 [animation-delay:0.2s]">
@@ -391,7 +391,7 @@ export function Landing() {
             <div className="mt-8 flex animate-slide-up flex-wrap gap-4 [animation-delay:0.3s]">
               <Link to="/learn">
                 <Button size="lg" className="px-9 text-base">
-                  ⚡ 开始修炼
+                  ⚡ 开始学习
                 </Button>
               </Link>
               <Link to="/docs">
@@ -413,7 +413,7 @@ export function Landing() {
             {/* 数据条 */}
             <div className="mt-10 flex animate-slide-up items-center gap-8 [animation-delay:0.45s]">
               {[
-                { num: '8', label: '修炼章节' },
+                { num: '8', label: '学习章节' },
                 { num: '39', label: '实战任务' },
                 { num: '9', label: '验证规则' },
               ].map((s, i) => (
@@ -440,7 +440,7 @@ export function Landing() {
         <h2 className="text-center text-3xl font-bold text-slate-900 sm:text-4xl">
           平台<span className="text-gradient-brand">特色</span>
         </h2>
-        <p className="mt-2 text-center text-slate-500">为修炼者打造的完整功法体系</p>
+        <p className="mt-2 text-center text-slate-500">为学习者打造的完整方法体系</p>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {features.map((f, i) => (
             <div
@@ -464,11 +464,11 @@ export function Landing() {
         </div>
       </section>
 
-      {/* ============ 修炼路线 ============ */}
+      {/* ============ 学习路线 ============ */}
       <section className="relative border-y border-slate-200/80 bg-gradient-to-b from-white to-brand-50/40 py-16">
         <div className="mx-auto max-w-4xl px-4">
           <h2 className="text-center text-3xl font-bold text-slate-900 sm:text-4xl">
-            修炼<span className="text-gradient-brand">路线</span>
+            学习<span className="text-gradient-brand">路线</span>
           </h2>
           <p className="mt-2 text-center text-slate-500">8 章 39 任务,覆盖 LLM 全技术栈</p>
           <div className="mt-12 grid gap-3 sm:grid-cols-2">
@@ -502,7 +502,7 @@ export function Landing() {
         <div className="relative">
           <div className="animate-float text-5xl drop-shadow-xl">⚡</div>
           <h2 className="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">
-            准备好开始<span className="text-gradient-hero animate-shimmer [background-size:200%_auto]">修炼</span>了吗?
+            准备好开始<span className="text-gradient-hero animate-shimmer [background-size:200%_auto]">学习</span>了吗?
           </h2>
           <p className="mt-3 text-slate-500">第一步:配置好 API key,然后从第一次 LLM 调用开始</p>
           <Link to="/learn" className="mt-9 inline-block">

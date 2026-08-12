@@ -1,4 +1,4 @@
-"""袖里乾坤 · s2:冻结主干——LoRALayer 入炉
+"""模型研究小组 · s2:冻结主干——LoRALayer 入处理器
 
 LoRA 不直接改写预训练权重:它把 W 冻结,在旁边挂一条
 「低秩旁路」ΔW = alpha/r · A@B。微调时只动 A、B,
@@ -46,7 +46,7 @@ class LoRALayer:
 
 
 def main() -> None:
-    print("== 冻结主干:LoRALayer 入炉 ==")
+    print("== 冻结主干:LoRALayer 入处理器 ==")
     layer = LoRALayer(V, RANK, ALPHA)
     print(layer.summary())
     total = layer.trainable_params() + layer.frozen_params()

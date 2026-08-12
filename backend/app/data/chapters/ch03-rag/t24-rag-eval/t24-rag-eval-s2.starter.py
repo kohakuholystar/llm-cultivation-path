@@ -1,4 +1,10 @@
-"""藏经阁收官 · 第二步:接入 DeepSeek 生成端(检索 → 拼 prompt → 回答)。"""
+"""黑糖资料室收官 · 第二步:接入 DeepSeek 生成端(检索 → 拼 prompt → 回答)。"""
+# 学习契约
+# 目标：完成 t24-rag-eval-s2 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 4 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：tokenize(text) -> 未标注; chat(prompt) -> 未标注; generate_answer(question, hits) -> 未标注。
+# 技术栈：math, os, re, sys, collections；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import math
 import os
 import re
@@ -17,11 +23,11 @@ from openai import OpenAI
 client = None if MOCK else OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 CORPUS = [
-    {"id": "d1", "text": "吐纳心法:内功根基在于吐纳,每日卯时面东打坐,气沉丹田,调匀呼吸,百日方可筑基。"},
-    {"id": "d3", "text": "剑谱总纲:剑之道,快不如巧,巧不如拙,大巧若拙,无招胜有招。"},
-    {"id": "d4", "text": "拳经:拳法力从地起,腰马合一,劲达四梢,练拳不练功,到老一场空。"},
-    {"id": "d5", "text": "药典:金疮药以三七、血竭为主,辅以冰片研末,外敷可止血生肌。"},
-    {"id": "d6", "text": "寺规:藏经阁典籍不得带出寺外,借阅需长老手谕,违者罚面壁三月。"},
+    {"id": "d1", "text": "数据清洗方法:先统一编码与字段格式,再处理重复值和缺失值,最后写入缓存并保存质量报告。"},
+    {"id": "d3", "text": "输出模板指南:先明确字段契约,再减少无效规则,并用固定样例验证输出稳定性。"},
+    {"id": "d4", "text": "设计规范:版式需要统一间距、字号与颜色层级,并通过样例检查一致性。"},
+    {"id": "d5", "text": "应急手册:轻微外伤先清洁并止血,必要时及时联系校医或专业人员。"},
+    {"id": "d6", "text": "借阅规范:黑糖资料室的受限资料不得外传,借阅需获得管理员授权并记录用途。"},
 ]
 
 
@@ -48,12 +54,12 @@ class TfidfRetriever:
 
 
 TEST_SET = [
-    {"question": "如何修炼内功?", "relevant": ["d1"]},
-    {"question": "弟子受伤流血该用什么药?", "relevant": ["d5"]},
-    {"question": "剑法的最高境界是什么?", "relevant": ["d3"]},
-    {"question": "能把经书带回厢房研读吗?", "relevant": ["d6"]},
-    {"question": "拳法与剑法孰强孰弱?", "relevant": []},    # 观点题,库中无标准答案
-    {"question": "禅师的床底下藏着什么?", "relevant": []},  # 库外问题,留作幻觉标本
+    {"question": "如何学习基础指南?", "relevant": ["d1"]},
+    {"question": "成员轻微外伤应该如何处理?", "relevant": ["d5"]},
+    {"question": "创作方法的最高学习阶段是什么?", "relevant": ["d3"]},
+    {"question": "能把受限文档带离资料室吗?", "relevant": ["d6"]},
+    {"question": "设计方法与创作方法孰强孰弱?", "relevant": []},    # 观点题,库中无标准答案
+    {"question": "资料室今天供应什么饮品?", "relevant": []},  # 库外问题,留作幻觉标本
 ]
 
 
@@ -67,13 +73,13 @@ def chat(prompt):
 def generate_answer(question, hits):
     """检索+生成:把 top 文档拼进 prompt,要求资料不足时如实拒答。"""
     # TODO: MOCK 与真实两分支:检索失败时故意瞎答制造幻觉标本,命中时引用原文,真实分支拼 prompt 调 LLM
-    # 提示: MOCK 下 not hits 或 hits[0][1] == 0 时返回固定瞎答句,否则返回 f"根据藏经阁记载:{hits[0][0]['text']}";真实分支 context = "\n".join(d["text"] for d, _ in hits),拼"资料不足就说无法回答"的 prompt,return chat(prompt)
+    # 提示: MOCK 下 not hits 或 hits[0][1] == 0 时返回固定瞎答句,否则返回 f"根据黑糖资料室记载:{hits[0][0]['text']}";真实分支 context = "\n".join(d["text"] for d, _ in hits),拼"资料不足就说无法回答"的 prompt,return chat(prompt)
     raise NotImplementedError("t24-s2 尚未实现:请按 TODO 提示完成 generate_answer 拼资料生成")
 
 
 if __name__ == "__main__":
     retriever = TfidfRetriever(CORPUS)
-    print(f"=== 藏经阁问答(MODEL={MODEL}, MOCK={MOCK})===")
+    print(f"=== 黑糖资料室问答(MODEL={MODEL}, MOCK={MOCK})===")
     for item in TEST_SET[:3]:
         hits = retriever.search(item["question"], k=2)
         answer = generate_answer(item["question"], hits)

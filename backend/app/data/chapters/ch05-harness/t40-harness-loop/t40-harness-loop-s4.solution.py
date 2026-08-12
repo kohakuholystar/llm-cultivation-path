@@ -1,7 +1,7 @@
-"""乾坤圈 · s4:手写 vs 框架——同一剧本两种写法
+"""Agent 运行时底座 · s4:手写 vs 框架——同一剧本两种写法
 
-同样的「查时辰 → 查经络 → 答复」剧本,手写循环用一个函数把
-决策、执行、判定全部揉在一起;乾坤圈则把状态摊进 AgentState,
+同样的「查时间 → 查工作流阶段 → 答复」剧本,手写循环用一个函数把
+决策、执行、判定全部揉在一起;Agent 运行时底座则把状态摊进 AgentState,
 由 AgentLoop 统一驱动。两种写法跑出相同结果,可维护性却天差地别。
 """
 import time
@@ -37,12 +37,12 @@ class AgentState:
 
 def get_time() -> str:
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 TOOLS = {"get_time": get_time, "list_meridians": list_meridians}
@@ -87,7 +87,7 @@ class AgentLoop:
             decision = script[state.steps] if state.steps < len(script) else "get_time"
             state.steps += 1
             if decision == "reply":
-                state.reply = "巳时三刻,气血行至手阳明大肠经。"
+                state.reply = "当前为上午时段,工作流已完成工具执行。"
                 state.status = AgentStatus.DONE
             else:
                 result = run_tool(decision)
@@ -108,7 +108,7 @@ def hand_written_loop(script: list) -> dict:
         decision = script[steps]
         steps += 1
         if decision == "reply":
-            reply = "巳时三刻,气血行至手阳明大肠经。"
+            reply = "当前为上午时段,工作流已完成工具执行。"
             break
         result = run_tool(decision)
         actions.append(decision)
@@ -122,7 +122,7 @@ def compare() -> None:
     loop = AgentLoop(max_steps=10)
     loop.run(DEMO_SCRIPT)
     print(f"手写版:  动作 {len(manual['actions'])} 步,信息字段 {len(manual)} 个")
-    print(f"乾坤圈:  动作 {len(loop.state.actions)} 步,信息字段 {len(loop.state.__dict__)} 个")
+    print(f"Agent 运行时底座:  动作 {len(loop.state.actions)} 步,信息字段 {len(loop.state.__dict__)} 个")
     print(f"终止原因: {loop.stop_reason}")
 
 
@@ -131,7 +131,7 @@ def main() -> None:
     print("手写版结果:", manual)
     loop = AgentLoop(max_steps=10)
     loop.run(DEMO_SCRIPT)
-    print("乾坤圈结果:", loop.state.reply)
+    print("Agent 运行时底座结果:", loop.state.reply)
     compare()
 
 

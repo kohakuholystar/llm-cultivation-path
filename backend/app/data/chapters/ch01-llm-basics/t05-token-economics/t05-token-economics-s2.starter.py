@@ -1,9 +1,15 @@
-"""灵讯通 · 成本仪表盘 v0.2:给 token 标上价格——DeepSeek 费率表建模。"""
+"""星澈助手 · 成本仪表盘 v0.2:给 token 标上价格——DeepSeek 费率表建模。"""
+# 学习契约
+# 目标：完成 t05-token-economics-s2 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 1 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：build_encoding() -> tiktoken.Encoding; estimate_cost(model, prompt_tokens, completion_tokens, cached_tokens) -> float; main() -> None。
+# 技术栈：tiktoken, dataclasses。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import tiktoken
 from dataclasses import dataclass
 
 PAT_STR = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-FALLBACK_WORDS = ["灵讯通", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
+FALLBACK_WORDS = ["星澈助手", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
 CHAT_OVERHEAD = 4
 MODEL_NAME = "deepseek-v4-pro"
 
@@ -61,16 +67,16 @@ def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int, cached
 def main() -> None:
     meter = TokenMeter()
     messages = [
-        {"role": "system", "content": "你是灵讯通内置的成本助手。"},
+        {"role": "system", "content": "你是星澈助手内置的成本助手。"},
         {"role": "user", "content": "请帮我算一下这次会话的预算"},
     ]
     prompt_tokens = meter.count_messages(messages)
     completion_tokens = 150
-    print(f"[灵讯通] 输入 {prompt_tokens} tokens,预计输出 {completion_tokens} tokens")
+    print(f"[星澈助手] 输入 {prompt_tokens} tokens,预计输出 {completion_tokens} tokens")
     cost = estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens)
-    print(f"[灵讯通] 本次预估成本: ¥{cost:.6f}")
+    print(f"[星澈助手] 本次预估成本: ¥{cost:.6f}")
     cached_cost = estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens, cached_tokens=20)
-    print(f"[灵讯通] 若其中 20 tokens 命中缓存: ¥{cached_cost:.6f} (省 ¥{cost - cached_cost:.6f})")
+    print(f"[星澈助手] 若其中 20 tokens 命中缓存: ¥{cached_cost:.6f} (省 ¥{cost - cached_cost:.6f})")
 
 
 if __name__ == "__main__":

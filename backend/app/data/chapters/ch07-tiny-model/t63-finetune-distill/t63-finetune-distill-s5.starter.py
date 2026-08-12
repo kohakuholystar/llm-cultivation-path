@@ -1,13 +1,33 @@
-"""袖里乾坤 · s5:师徒传承——知识蒸馏与软标签
+"""模型研究小组 · s5:师徒传承——知识蒸馏与软标签
 
 教师全参微调,学生 LoRA 学旁路:甲看硬标签,乙偷师教师的
 软分布 softmax(logits/T),软标签藏着同义字、近邻字的暗知识。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：师徒传承:知识蒸馏与软标签。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `build_bigram_data(ids) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：构造 bigram 数据:输入前一字,预测后一字。
+#   - `to_onehot(xs, vocab: int) -> np.ndarray`：输入为签名中的参数；输出为 `np.ndarray`。用途：编号 → one-hot 矩阵(每行一个样本)。
+#   - `softmax(z) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按行 softmax,先减行最大值防止溢出。
+#   - `cross_entropy_with_grad(logits, ys) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：交叉熵损失与其对 logits 的梯度。
+#   - `soft_kl(pa, pt, eps: float=1e-12) -> float`：输入为签名中的参数；输出为 `float`。用途：KL(pa || pt),对样本求平均。
+#   - `distill_grad(student_logits, teacher_logits, t: float) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：软标签目标下的损失与梯度。
+#   - `train_teacher(w, x, ys, epochs: int, lr: float) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：教师:全参数 SGD,更新全部权重。
+#   - `train_student(model, x, ys, teacher_logits, epochs: int, lr: float, t: float) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：学生:只更新旁路。teacher_logits 为 None 时用硬标签,否则用软标签。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `LoRALayer`：承载本节状态/数据；重点方法：delta, forward, trainable_params。
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import numpy as np
 
-CORPUS = ("乾坤炉中炼真火,火候三分见丹青。"
-          "丹青入册藏经阁,阁中坐忘修心性。"
-          "心性圆融通大道,大道无形育众生。")
+CORPUS = ("社团展台调灯光,参数三轮见成效。"
+          "丹青入册黑糖资料室,阁中坐忘修心性。"
+          "心性圆融通完整路线,完整路线无形育众生。")
 chars = sorted(set(CORPUS))
 VOCAB = len(chars)
 CHAR_IDS = {c: i for i, c in enumerate(chars)}

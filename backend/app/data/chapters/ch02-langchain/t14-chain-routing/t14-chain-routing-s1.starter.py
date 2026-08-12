@@ -1,9 +1,12 @@
-"""铸剑台 · s1:问明来意 —— 意图分类链
+"""黑糖资料室 · 项目咨询路由 · s1：用 LangChain 完成可验证的学习任务。"""
 
-铸剑台开张,客人进门说什么的都有:铸剑的、题字的、鉴宝的、纯聊天的。
-接待第一步是"问明来意":用一条分类链把自然语言请求归到固定意图,
-后续步骤才能按意图分流。这是章项目收官任务的第一块件。
-"""
+# 学习契约
+# - 目标：将自然语言咨询归一化为有限的意图标签。
+# - 补写：补写分类链和意图规范化函数。
+# - 关键函数/类（入参 → 出参）：`build_classifier_chain()` 返回分类链；`normalize_intent(raw: str) -> str` 返回 `INTENT_OPTIONS` 中的安全标签。
+# - 技术栈：LangChain LCEL、`StrOutputParser`、意图分类。
+# - 前置条件：真实调用需右上角 DeepSeek API Key；未知输出必须落入安全默认值。
+# - 可观察结果：任意咨询被归入固定意图之一。
 import os
 import sys
 
@@ -17,11 +20,11 @@ MOCK_LLM = os.environ.get("MOCK_LLM") == "1"
 
 # 无 Key 且未开 MOCK 时给出引导并优雅退出,不让学习者面对 traceback
 if not MOCK_LLM and not os.environ.get("OPENAI_API_KEY"):
-    print("[铸剑台] 未检测到 OPENAI_API_KEY。")
+    print("[提示词工作台] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
-# 铸剑台的四种来意:铸剑 / 题铭文 / 鉴剑 / 闲聊
+# 黑糖资料室的四种来意:制作 / 撰写文案 / 质量评审 / 闲聊
 INTENT_OPTIONS = ("forge", "inscribe", "appraise", "chat")
 
 
@@ -41,8 +44,8 @@ def build_classifier_chain():
     """意图分类链:提示词 → 模型 → 字符串解析,出口类型就是 str。"""
     # TODO: 用 | 把 prompt、build_llm(["forge", "inscribe", "chat"])、StrOutputParser() 串成链并 return
     # 提示: prompt = ChatPromptTemplate.from_messages([
-    #           ("system", "你是铸剑台的接待。判断客人来意,只回答一个词:"
-    #                      "forge(铸剑)、inscribe(题铭文)、appraise(鉴剑)、chat(闲聊)。"),
+    #           ("system", "你是黑糖资料室的接待。判断咨询者来意,只回答一个词:"
+    #                      "forge(制作)、inscribe(撰写文案)、appraise(质量评审)、chat(闲聊)。"),
     #           ("human", "{request}"),
     #       ])
     #       三段式:模板限定候选词 → 模型判定 → 解析器把 AIMessage 剥成纯字符串;
@@ -59,14 +62,14 @@ def normalize_intent(raw: str) -> str:
 
 
 def main() -> None:
-    """拿三位客人的开场白试链。"""
+    """拿三位咨询者的开场白试链。"""
     chain = build_classifier_chain()
     requests = [
-        "我想铸一柄削铁如泥的宝剑",
-        "给我的佩剑题一句铭文",
+        "我想做一份重点突出的内容方案",
+        "给我的活动主视觉题一句文案",
         "今天天气怎么样",
     ]
-    print("== 铸剑台 · 问明来意 ==")
+    print("== 提示词工作台 · 问明来意 ==")
     for req in requests:
         intent = normalize_intent(chain.invoke({"request": req}))
         print(f"  客人:「{req}」→ 来意:{intent}")

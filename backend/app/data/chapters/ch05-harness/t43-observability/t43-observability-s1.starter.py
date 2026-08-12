@@ -1,54 +1,62 @@
-"""乾坤观测台 · s1:结构化日志,JSON Lines 记心法
+"""运行时观测台 · s1:使用 logging 输出结构化日志。
 
-可观测性的第一块基石是日志。本步打造观测者 QiankunObserver 的雏形:
-事件不再是随手 print 的散沙,而是一条条 JSON Lines——机器可读、可检索、可回放。
+不要把业务日志藏进自定义“观测者”类。本步直接使用 Python 标准库
+logging：事件字段以 JSON Lines 写到标准输出，日志级别仍由 logging 管理。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：结构化日志:用 logging 输出 JSON Lines。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `configure_logger(stream) -> logging.Logger`：输入为签名中的参数；输出为 `logging.Logger`。用途：创建本练习独立 logger，避免污染根 logger。
+#   - `log_event(logger: logging.Logger, level: int, event: str, **fields) -> None`：输入为签名中的参数；输出为 `None`。用途：以固定事件名和结构化字段写一条日志。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `JsonLineFormatter`：承载本节状态/数据；重点方法：format。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
+import logging
 import sys
 
 
-class QiankunObserver:
-    """观测者:把散乱的事件整理成结构化日志(JSON Lines)。"""
+class JsonLineFormatter(logging.Formatter):
+    """将 LogRecord 中的 event_fields 编码为一行 JSON。"""
 
-    def __init__(self, stream=None) -> None:
-        self.records = []
-        self.stream = stream
+    def format(self, record: logging.LogRecord) -> str:
+        # TODO: 取出 record.event_fields，补入 level、event，并 json.dumps 返回。
+        # 提示: fields = getattr(record, "event_fields", {});
+        #       payload = {"level": record.levelname.lower(), "event": record.msg, **fields}
+        #       return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        raise NotImplementedError("请实现 JsonLineFormatter.format")
 
-    def log(self, level: str, event: str, **fields) -> None:
-        # TODO: 把事件整理成一行 JSON Lines,追加进 records 并写入 stream
-        # 提示: record = {"level": level, "event": event},record.update(fields);
-        #       self.records.append(record),再 self.stream.write(json.dumps(record, ensure_ascii=False) + "\n")
-        raise NotImplementedError("t43-observability-s1 尚未实现:请按 TODO 提示实现 log")
 
-    def info(self, event: str, **fields) -> None:
-        self.log("info", event, **fields)
+def configure_logger(stream) -> logging.Logger:
+    """创建本练习独立 logger，避免污染根 logger。"""
+    logger = logging.getLogger("harness.lesson")
+    logger.handlers.clear()
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(JsonLineFormatter())
+    logger.addHandler(handler)
+    return logger
 
-    def warn(self, event: str, **fields) -> None:
-        self.log("warn", event, **fields)
 
-    def error(self, event: str, **fields) -> None:
-        self.log("error", event, **fields)
-
-    def seen_events(self) -> list[str]:
-        # TODO: 返回出现过的事件名列表(去重,顺序不限)
-        # 提示: 遍历 self.records 收集 r["event"],用 set 去重后转 list
-        raise NotImplementedError("t43-observability-s1 尚未实现:请按 TODO 提示实现 seen_events")
-
-    def level_distribution(self) -> dict:
-        # TODO: 统计各 level 的出现次数并返回 {"info": 1, "error": 1, ...}
-        # 提示: 遍历 self.records,dist[r["level"]] = dist.get(r["level"], 0) + 1
-        raise NotImplementedError("t43-observability-s1 尚未实现:请按 TODO 提示实现 level_distribution")
+def log_event(logger: logging.Logger, level: int, event: str, **fields) -> None:
+    """以固定事件名和结构化字段写一条日志。"""
+    # TODO: 调用 logger.log，并通过 extra 传入 event_fields。
+    # 提示: logger.log(level, event, extra={"event_fields": fields})
+    raise NotImplementedError("请实现 log_event")
 
 
 def main() -> None:
-    ob = QiankunObserver(stream=sys.stdout)
-    # TODO: 记录启动/缓慢/错误三条事件,再回放并统计
-    # 提示: ob.info("agent.start", model="deepseek-v4-pro", rounds=1);
-    #       ob.warn("llm.slow", model="deepseek-v4-pro", latency_ms=3452);
-    #       ob.error("llm.error", model="deepseek-v4-pro", kind="RateLimit", retryable=True);
-    #       依次打印原始日志(逐条 json.dumps 回放 records)、事件回放(level+event)、
-    #       事件种类(seen_events)、级别分布(level_distribution),最后 print("结构化日志就绪")
-    raise NotImplementedError("t43-observability-s1 尚未实现:请按 TODO 提示完成 main 演示")
+    logger = configure_logger(sys.stdout)
+    # TODO: 依次记录 agent.start、llm.slow、llm.error 三条事件。
+    # 提示: 使用 logging.INFO/WARNING/ERROR；字段不要包含 API Key 或完整提示词。
+    raise NotImplementedError("请完成 main 演示")
 
 
 if __name__ == "__main__":

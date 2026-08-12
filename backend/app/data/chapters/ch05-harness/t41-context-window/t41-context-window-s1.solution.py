@@ -1,7 +1,7 @@
-"""乾坤圈 · s1:预算先行——给每条消息称重
+"""Agent 运行时底座 · s1:预算先行——给每条消息称重
 
 Agent 的上下文窗口不是无限的,消息装多了就会溢出、截断甚至报错。
-本步为「乾坤圈」打地基:用启发式算法估算每条消息的 token 占用,
+本步为「Agent 运行时底座」打地基:用启发式算法估算每条消息的 token 占用,
 再把预算、输出预留与可用窗口之间的账目算清楚。"""
 import math
 import re
@@ -62,11 +62,11 @@ def print_ledger(budget: TokenBudget, messages) -> None:
 def main() -> None:
     budget = TokenBudget(total=8000, reserve_output=2000)
     history = [
-        Message("system", "你是乾坤圈的守门人,负责守护一座仙山的运转。"),
-        Message("user", "请汇报仙山今日的灵气收支情况,并给出三条建议。"),
-        Message("assistant", "遵命。今日灵气收入 5200,支出 3100,结余 2100。"),
+        Message("system", "你是Agent 运行时底座的守门人,负责守护一座校园项目的运转。"),
+        Message("user", "请汇报校园项目今日的运行资源收支情况,并给出三条建议。"),
+        Message("assistant", "遵命。今日运行资源收入 5200,支出 3100,结余 2100。"),
         Message("user", "结余部分建议怎么处理?请说得详细一些。"),
-        Message("assistant", "建议:一扩充炼丹房,二修缮护山大阵,三储备过冬灵石。"),
+        Message("assistant", "建议:一扩充内容制作环境,二修缮监控系统,三储备过冬预算点。"),
     ]
     print_ledger(budget, history)
 

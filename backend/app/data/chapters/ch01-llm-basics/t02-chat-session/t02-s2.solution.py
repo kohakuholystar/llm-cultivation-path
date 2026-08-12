@@ -1,4 +1,4 @@
-"""灵讯通 · t02-s2:人设注入
+"""星澈助手 · t02-s2:人设注入
 system prompt 与历史分离存放,发送时现场拼装;支持 change_persona 中途换人格。
 """
 import os
@@ -10,12 +10,12 @@ USE_MOCK = os.environ.get("MOCK_LLM") == "1"  # MOCK_LLM=1 时用本地假回复
 
 # 联网前置检查:没有 Key(且未开模拟)就给出引导并优雅退出
 if not USE_MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
 # 默认人设:对语气、格式、边界的软约束
-DEFAULT_PERSONA = "你是灵讯通,一个简洁可靠的命令行智能助手,回答不超过三句话。"
+DEFAULT_PERSONA = "你是星澈助手,一个简洁可靠的命令行智能助手,回答不超过三句话。"
 
 
 @dataclass
@@ -89,11 +89,11 @@ def main() -> None:
     session = ChatSession(create_client(config), config)
 
     print("--- 默认人设 ---")
-    print(f"灵讯通: {session.say('你好,介绍一下你自己。')}")
+    print(f"星澈助手: {session.say('你好,介绍一下你自己。')}")
 
     session.change_persona("你是一位严谨的代码评审员,先指出风险再给建议。")
     print("\n--- 换人设为代码评审员(历史不清空) ---")
-    print(f"灵讯通: {session.say('int(input()) 直接用安全吗?')}")
+    print(f"星澈助手: {session.say('int(input()) 直接用安全吗?')}")
 
     print(f"\n历史共 {len(session.history)} 条(注意:system 不在其中)")
 

@@ -1,4 +1,4 @@
-"""乾坤圈 · s2:生命周期状态机
+"""Agent 运行时底座 · s2:生命周期状态机
 
 插件的一生要按规矩走:installed -> active -> inactive -> uninstalled。
 本步用显式状态机管理迁移,非法迁移直接 raise,白名单 + 模板方法,

@@ -1,4 +1,4 @@
-"""渡劫飞升 · s4:检索增强生成——接入 DeepSeek 合龙问答链路
+"""终期交付 · s4:检索增强生成——接入 DeepSeek 合龙问答链路
 
 把 s3 的检索器接到大模型上:先本地召回 top-k 片段,拼进提示词,
 再调用 deepseek-v4-pro 生成带引用的回答。无 API Key 时优雅退出;
@@ -15,22 +15,22 @@ from langchain_openai import ChatOpenAI
 MOCK = os.environ.get("MOCK_LLM") == "1"  # 离线演示模式
 
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[渡劫飞升] 未检测到 OPENAI_API_KEY。")
+    print("[黑糖资料室] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地离线演示可设 MOCK_LLM=1,用剧本模拟模型回答)")
     sys.exit(0)
 
 RAW_DOCS = [
     ("需求分析.md",
-     "渡劫飞升是一款面向修仙者的 AI 助手应用。\n"
-     "核心功能:修炼咨询、丹药百科、宗门问答、渡劫指引。\n"
+     "黑糖资料室是一款面向学习者的 AI 助手应用。\n"
+     "核心功能:学习咨询、活动方案百科、项目组问答、上线验收指引。\n"
      "要求回答准确、引用出处、支持多轮追问。"),
     ("架构设计.md",
-     "渡劫飞升采用分层架构,共五层。\n"
+     "黑糖资料室采用分层架构,共五层。\n"
      "接入层用 FastAPI 提供 HTTP 接口;ingest 层负责加载切分入库。\n"
      "检索层把问题向量化后召回片段;生成层拼装提示词调用大模型。"),
     ("部署手册.md",
-     "渡劫飞升支持 Docker Compose 一键部署,服务暴露 8000 端口。\n"
+     "黑糖资料室支持 Docker Compose 一键部署,服务暴露 8000 端口。\n"
      "健康检查路径 /healthz 返回 ok 即部署成功。\n"
      "环境变量 LLM_API_KEY 指定大模型密钥,DATABASE_URL 指定向量库。"),
 ]
@@ -121,7 +121,7 @@ def build_llm() -> ChatOpenAI:
     )
 
 
-SYSTEM_PROMPT = "你是「渡劫飞升」知识库助手。只依据提供的资料回答,并标注引用来源;资料没有的就直说不知道。"
+SYSTEM_PROMPT = "你是「黑糖资料室」知识库助手。只依据提供的资料回答,并标注引用来源;资料没有的就直说不知道。"
 
 
 def build_prompt(question: str, hits: list[tuple[Chunk, int]]) -> str:
@@ -140,7 +140,7 @@ def rag_ask(retriever: Retriever, question: str) -> str:
     if MOCK:
         print("[MOCK] 使用剧本模拟模型回答")
         titles = sorted({chunk.title for chunk, _ in hits})
-        return f"根据《{'》、《'.join(titles)}》,渡劫飞升的架构分为五层:接入层、ingest 层、检索层、生成层与存储层。[1]"
+        return f"根据《{'》、《'.join(titles)}》,黑糖资料室的架构分为五层:接入层、ingest 层、检索层、生成层与存储层。[1]"
     llm = build_llm()
     resp = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)])
     return resp.content
@@ -148,7 +148,7 @@ def rag_ask(retriever: Retriever, question: str) -> str:
 
 def main() -> None:
     retriever = build_retriever()
-    question = "渡劫飞升的架构分为哪几层?"
+    question = "黑糖资料室的架构分为哪几层?"
     answer = rag_ask(retriever, question)
     print(f"\n[回答] {answer}")
 

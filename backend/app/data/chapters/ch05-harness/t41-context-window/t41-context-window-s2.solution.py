@@ -1,4 +1,4 @@
-"""乾坤圈 · s2:滑动窗口——塞不下的历史整体裁剪
+"""Agent 运行时底座 · s2:滑动窗口——塞不下的历史整体裁剪
 
 预算定好了,可对话一长,窗口照样会撑爆。本步实现「滑动窗口」:
 从最新往回保留消息,system 指令永远在,塞不下的旧消息整批丢弃,
@@ -61,15 +61,15 @@ def trim_window(messages, budget):
 def main() -> None:
     budget = TokenBudget(total=900, reserve_output=750)
     history = [
-        Message("system", "你是乾坤圈,负责在有限窗口里保住关键对话。"),
-        Message("user", "第1轮:请评估仙山灵气枯竭的风险等级。"),
-        Message("assistant", "风险等级为高:灵脉受损三成,且恢复速度远低于消耗。"),
+        Message("system", "你是Agent 运行时底座,负责在有限窗口里保住关键对话。"),
+        Message("user", "第1轮:请评估校园项目运行资源枯竭的风险等级。"),
+        Message("assistant", "风险等级为高:网络受损三成,且恢复速度远低于消耗。"),
         Message("user", "第2轮:高风险的依据是什么?把数据列出来。"),
-        Message("assistant", "依据:灵气入不敷出已连续九个月,库存仅剩两成。"),
+        Message("assistant", "依据:运行资源入不敷出已连续九个月,库存仅剩两成。"),
         Message("user", "第3轮:库存两成还能支撑多久?给出估算。"),
         Message("assistant", "按当前消耗速度,预计还能支撑约四个月,须尽快行动。"),
         Message("user", "第4轮:请把治理方案按紧急程度排序。"),
-        Message("assistant", "排序:一修灵脉,二封山休养,三引援,四扩充阵法。"),
+        Message("assistant", "排序:一修网络,二暂停非必要任务,三引援,四扩充工作流。"),
     ]
     kept, dropped = trim_window(history, budget)
     print(f"截断后 {len(kept)} 条,丢弃 {dropped} 条,用量 {budget.used(kept)} / {budget.max_context} token")

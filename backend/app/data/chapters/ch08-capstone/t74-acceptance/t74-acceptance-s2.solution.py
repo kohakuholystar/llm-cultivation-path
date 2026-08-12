@@ -22,16 +22,16 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    kb = ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"]
-    hits = retrieve("渡劫 飞升", kb, top_k=3)
+    kb = ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"]
+    hits = retrieve("上线验收 完成交付", kb, top_k=3)
     assert len(hits) == 2
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    assert hits[0][0] == "黑糖资料室需要故障演练"
     assert hits[0][1] == 2
 
 
 def test_format_answer_joins_hits():
-    hits = [("渡劫飞升需要雷劫淬体", 2, 0)]
-    assert format_answer(hits) == "[1] 渡劫飞升需要雷劫淬体(来源片段 0)"
+    hits = [("黑糖资料室需要故障演练", 2, 0)]
+    assert format_answer(hits) == "[1] 黑糖资料室需要故障演练(来源片段 0)"
 
 
 def test_memory_trims_when_full():
@@ -63,11 +63,11 @@ def test_unknown_tool():
 
 
 def test_qa_flow():
-    kb = ["渡劫需渡雷劫", "飞升需法器"]
+    kb = ["上线验收需要覆盖故障", "完成交付需工具"]
     m = ChatMemory()
-    m.add("什么是渡劫", format_answer(retrieve("渡劫", kb)))
-    assert m.history[-1][0] == "什么是渡劫"
-    assert "渡劫需渡雷劫" in m.history[-1][1]
+    m.add("什么是上线验收", format_answer(retrieve("上线验收", kb)))
+    assert m.history[-1][0] == "什么是上线验收"
+    assert "上线验收需要覆盖故障" in m.history[-1][1]
 """
 
 
@@ -142,12 +142,12 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 集成测试 s2 ==")
+    print("== 黑糖资料室 · 集成测试 s2 ==")
     m = ChatMemory()
-    m.add("渡劫有几关", format_answer(retrieve("渡劫", load_kb("渡劫需渡雷劫\n\n---\n\n飞升需法器"))))
+    m.add("上线验收有几关", format_answer(retrieve("上线验收", load_kb("上线验收需要覆盖故障\n\n---\n\n完成交付需工具"))))
     print(dispatch_tool("calc", (3, 4, "mul")))
-    print(dispatch_tool("echo", "护体法器"))
-    print(dispatch_tool("quote", "仙路漫漫"))
+    print(dispatch_tool("echo", "护体工具"))
+    print(dispatch_tool("quote", "项目路途漫长"))
     with tempfile.TemporaryDirectory() as d:
         run_tests(d)
     print("pytest 全部通过:10 个用例")

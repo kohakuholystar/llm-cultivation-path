@@ -1,4 +1,4 @@
-"""天庭辩论 · s5:完整辩论流水线总装
+"""校园 AI 社辩论 · s5:完整辩论流水线总装
 
 前四步分别实现了立场、交锋、裁决与共识,本步把它们组装成一条
 完整流水线,并用 @dataclass 把整场辩论打包成一份报告。真实 LLM
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from langchain_openai import ChatOpenAI
 
-DEBATE_TOPIC = "天庭的灵讯服务该由 Agent 全自动上线,还是保留人工复核?"
+DEBATE_TOPIC = "校园 AI 社的校园助手服务该由 Agent 全自动上线,还是保留人工复核?"
 
 MOCK = os.environ.get("MOCK_LLM") == "1"
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
@@ -30,12 +30,12 @@ class Debater:
 def mock_transcript() -> list[str]:
     """剧本模式下的完整辩论记录:两条立论 + 两轮交锋。"""
     return [
-        "正方·司命星君 立论:灵讯服务流程已全面自动化,Agent 上线又快又稳,人工复核纯属拖后腿。",
-        "反方·纠察灵官 立论:灵讯服务关系天庭民生,一旦 Agent 决策失误影响面巨大,必须保留人工复核。",
-        "[第1轮] 正方·司命星君:自动化能把错误率压到接近零,人工复核反而引入主观偏差。",
-        "[第1轮] 反方·纠察灵官:灵讯一旦误判,影响的是成千上万仙民,快不等于对。",
-        "[第2轮] 正方·司命星君:先全自动上线再灰度观测,比事事等人拍板更快暴露问题。",
-        "[第2轮] 反方·纠察灵官:人工复核不是拖慢上线,而是给 Agent 的决策兜底。",
+        "正方·产品负责人 立论:校园助手服务流程已全面自动化,Agent 上线又快又稳,人工复核纯属拖后腿。",
+        "反方·风险审查员 立论:校园助手服务关系校园 AI 社民生,一旦 Agent 决策失误影响面巨大,必须保留人工复核。",
+        "[第1轮] 正方·产品负责人:自动化能把错误率压到接近零,人工复核反而引入主观偏差。",
+        "[第1轮] 反方·风险审查员:校园助手一旦误判,影响的是成千上万使用者,快不等于对。",
+        "[第2轮] 正方·产品负责人:先全自动上线再灰度观测,比事事等人拍板更快暴露问题。",
+        "[第2轮] 反方·风险审查员:人工复核不是拖慢上线,而是给 Agent 的决策兜底。",
     ]
 
 
@@ -50,20 +50,20 @@ def build_llm() -> ChatOpenAI:
 
 
 JUDGE_PROMPT_TEMPLATE = (
-    "你是天庭判官玉帝,主持这场关于「{topic}」的正式辩论。\n"
+    "你是校园 AI 社评审员社长,主持这场关于「{topic}」的正式辩论。\n"
     "以下是完整辩论记录:\n{transcript}\n"
-    "请只回复三行,不要多余内容:\n胜方:<正方·司命星君 / 反方·纠察灵官>\n"
+    "请只回复三行,不要多余内容:\n胜方:<正方·产品负责人 / 反方·风险审查员>\n"
     "理由:<一句话>\n"
     "置信度:<0 到 1 之间的小数>"
 )
 
 
 def mock_verdict_text() -> str:
-    return "胜方:反方·纠察灵官\n理由:灵讯服务关系民生,人工复核的兜底价值更高。\n置信度:0.8"
+    return "胜方:反方·风险审查员\n理由:校园助手服务关系民生,人工复核的兜底价值更高。\n置信度:0.8"
 
 
 class Judge:
-    """中立判官:读完整场辩论,给出结构化裁决。"""
+    """中立评审员:读完整场辩论,给出结构化裁决。"""
 
     def __init__(self) -> None:
         self.llm = None if MOCK else build_llm()
@@ -73,7 +73,7 @@ class Judge:
             topic=DEBATE_TOPIC, transcript="\n".join(transcript),
         )
         if MOCK:
-            print("[MOCK] 判官使用剧本裁决")
+            print("[MOCK] 评审员使用剧本裁决")
             raw = mock_verdict_text()
         else:
             raw = self.llm.invoke(prompt).content
@@ -89,14 +89,14 @@ class Judge:
 
 
 FINAL_STANCE_PROMPT_TEMPLATE = (
-    "你是天庭辩手「{role}·{name}」,立场「{stance}」。听完对方全部发言后,"
+    "你是校园 AI 社辩手「{role}·{name}」,立场「{stance}」。听完对方全部发言后,"
     "请只回复一个词给出你的最终立场:支持或反对。\n"
     "完整辩论记录:\n{transcript}"
 )
 
 
 def mock_final_stance(name: str, stance: str) -> str:
-    return "反对" if name == "司命星君" else stance
+    return "反对" if name == "产品负责人" else stance
 
 
 class Consensus:
@@ -136,13 +136,13 @@ class DebateReport:
 
 def run_debate(rounds: int = 2) -> DebateReport:
     """跑完整场辩论并返回报告;LLM 不可用时自动降级。"""
-    debaters = [Debater("司命星君", "正方", "支持"), Debater("纠察灵官", "反方", "反对")]
+    debaters = [Debater("产品负责人", "正方", "支持"), Debater("风险审查员", "反方", "反对")]
     transcript = mock_transcript()
     judge = Judge()
     try:
         verdict = judge.verdict(transcript)
     except Exception as exc:
-        verdict = {"winner": "天庭驳回", "reason": f"裁决服务暂不可用: {exc}", "confidence": 0.0}
+        verdict = {"winner": "校园 AI 社驳回", "reason": f"裁决服务暂不可用: {exc}", "confidence": 0.0}
     consensus = Consensus()
     final_stances: dict[str, str] = {}
     for d in debaters:
@@ -156,7 +156,7 @@ def print_report(report: DebateReport) -> None:
     print(f"[辩题] {report.topic}")
     print(f"[对阵] " + " vs ".join(f"{d.role}·{d.name}({d.stance})" for d in report.debaters))
     print(f"[交锋] 共 {len(report.transcript)} 条发言")
-    print(f"[玉帝裁决] {report.verdict}")
+    print(f"[社长裁决] {report.verdict}")
     print(f"[最终立场] {report.final_stances}")
     print(f"[收敛判定] {'已收敛' if report.converged else '未收敛'} —— {report.note}")
 

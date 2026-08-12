@@ -1,36 +1,36 @@
-"""渡劫飞升 · s1:工具注册表与分发器
+"""终期交付 · s1:工具注册表与分发器
 
-「渡劫飞升」是毕业设计要交付的完整 Agent 应用,它的决策层叫
-「渡劫台」:模型只负责决策,执行永远由我们的代码完成。
+「终期交付」是毕业设计要交付的完整 Agent 应用,它的决策层叫
+「验收台」:模型只负责决策,执行永远由我们的代码完成。
 本步搭建工具层——注册表 + 分发器 + 错误信封:
 任何失败都收敛成统一 JSON 信封回传,绝不向调用方抛异常。
 """
 import json
 import re
 
-# ---- 模拟修炼典籍库:真实工程里对接 t71 RAG 管道 ----
+# ---- 模拟构建知识库:真实工程里对接 t71 RAG 管道 ----
 CORPUS = [
-    {"title": "筑基丹配方", "content": "百年灵芝三两、灵泉水五升,文火炼制七日,丹成有异香。"},
-    {"title": "飞剑淬火", "content": "辰时淬火,炉温三千度,仙品飞剑还需加注灵泉。"},
-    {"title": "雷劫征兆", "content": "渡劫前三日紫气东来;雷劫共九道,第八道须以法宝抵挡。"},
+    {"title": "基础阶段丹配方", "content": "百年灵芝三两、补充素材水五升,文火实现七日,丹成有异香。"},
+    {"title": "展示素材优化细节", "content": "展示前优化细节,渲染参数设为高质量,高质量展示素材还需补充光影说明。"},
+    {"title": "故障征兆", "content": "上线验收前三日原始数据东来;故障共九道,第八道须以工具抵挡。"},
 ]
 
-# 品质加成:仙品法器耗费的炉火更旺
-RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "仙品": 3.0}
+# 品质加成:高质量工具耗费的模型服务更旺
+RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "高质量": 3.0}
 
 
 def search_knowledge(query: str) -> str:
-    """检索修炼典籍:整句子串匹配,取第一条命中(模拟 RAG 检索)。"""
+    """检索构建资料:整句子串匹配,取第一条命中(模拟 RAG 检索)。"""
     for entry in CORPUS:
         if query in entry["title"] + entry["content"]:
-            return f"【典籍】{entry['title']}:{entry['content']}"
-    return "【典籍】没有检索到相关条目,请换个说法再试。"
+            return f"【资料】{entry['title']}:{entry['content']}"
+    return "【资料】没有检索到相关条目,请换个说法再试。"
 
 
 def calc_forge_cost(item_name: str, quantity: int, unit_cost: float, rarity: str = "凡品") -> str:
-    """计算炼制成本:数量 × 单价 × 品质加成。"""
+    """计算实现成本:数量 × 单价 × 品质加成。"""
     total = quantity * unit_cost * RARITY_BONUS.get(rarity, 1.0)
-    return f"【炼器】{rarity}·{item_name} x{quantity}:共需 {total:.1f} 灵石"
+    return f"【工具开发】{rarity}·{item_name} x{quantity}:共需 {total:.1f} 预算点"
 
 
 def write_note(name: str, content: str) -> str:
@@ -50,16 +50,16 @@ def read_note(name: str) -> str:
 
 
 def build_registry() -> dict:
-    """锻造工具注册表:名字 → {desc, params, fn},desc 写给模型看。"""
+    """处理工具注册表:名字 → {desc, params, fn},desc 写给模型看。"""
     return {
         "search_knowledge": {
-            "desc": "检索修炼典籍,回答修行、丹方、雷劫等知识问题",
+            "desc": "检索学习资料,回答学习、制作方案、故障等知识问题",
             "params": {"query": "检索关键词"},
             "fn": search_knowledge,
         },
         "calc_forge_cost": {
-            "desc": "计算炼制法器的灵石成本(数量/单价/品质)",
-            "params": {"item_name": "法器名", "quantity": "数量", "unit_cost": "单价", "rarity": "品质"},
+            "desc": "计算实现工具的预算点成本(数量/单价/品质)",
+            "params": {"item_name": "工具名", "quantity": "数量", "unit_cost": "单价", "rarity": "品质"},
             "fn": calc_forge_cost,
         },
         "write_note": {
@@ -102,15 +102,15 @@ def dispatch(name: str, args: dict) -> str:
 
 def main() -> None:
     print("== 正常检索 ==")
-    print(dispatch("search_knowledge", {"query": "雷劫"}))
+    print(dispatch("search_knowledge", {"query": "故障"}))
     print("\n== 正常计算 ==")
-    print(dispatch("calc_forge_cost", {"item_name": "飞剑", "quantity": 3, "unit_cost": 120.0, "rarity": "精品"}))
+    print(dispatch("calc_forge_cost", {"item_name": "展示素材", "quantity": 3, "unit_cost": 120.0, "rarity": "精品"}))
     print("\n== 笔记读写 ==")
-    print(dispatch("write_note", {"name": "丹方", "content": "筑基丹:灵芝三两"}))
-    print(dispatch("read_note", {"name": "丹方"}))
+    print(dispatch("write_note", {"name": "制作方案", "content": "基础阶段丹:灵芝三两"}))
+    print(dispatch("read_note", {"name": "制作方案"}))
     print("\n== 失败路径:未知工具 / 缺参数 ==")
     print(dispatch("fly_to_moon", {}))
-    print(dispatch("calc_forge_cost", {"item_name": "飞剑"}))
+    print(dispatch("calc_forge_cost", {"item_name": "展示素材"}))
 
 
 if __name__ == "__main__":

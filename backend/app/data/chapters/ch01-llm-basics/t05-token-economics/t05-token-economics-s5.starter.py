@@ -1,10 +1,16 @@
-"""灵讯通 · 成本仪表盘 v1.0:多会话用量统计报表——章项目收官。"""
+"""星澈助手 · 成本仪表盘 v1.0:多会话用量统计报表——章项目收官。"""
+# 学习契约
+# 目标：完成 t05-token-economics-s5 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 1 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：build_encoding() -> tiktoken.Encoding; estimate_cost(model, prompt_tokens, completion_tokens, cached_tokens) -> float; budget_guard(max_budget, meter, ledger, model) -> 未标注; mock_chat(messages, max_tokens) -> dict。
+# 技术栈：functools, tiktoken, dataclasses。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import functools
 import tiktoken
 from dataclasses import dataclass
 
 PAT_STR = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-FALLBACK_WORDS = ["灵讯通", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
+FALLBACK_WORDS = ["星澈助手", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
 CHAT_OVERHEAD = 4  # 每条 chat 消息的包装开销(教学近似值)
 MODEL_NAME = "deepseek-v4-pro"
 
@@ -108,14 +114,14 @@ def budget_guard(max_budget: float, meter: TokenMeter, ledger: UsageLedger = Non
 
 def mock_chat(messages: list[dict], max_tokens: int = 200) -> dict:
     prompt_tokens, completion_tokens = TokenMeter().count_messages(messages), min(32, max_tokens)  # 离线假 LLM
-    return {"reply": "收到,灵讯通成本助手已记录你的请求。", "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "cost": estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens)}
+    return {"reply": "收到,星澈助手成本助手已记录你的请求。", "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "cost": estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens)}
 
 
 def render_report(ledger: UsageLedger, budget: float, rejected: int) -> str:
-    """把账本渲染成灵讯通成本仪表盘:返回字符串,与打印解耦。"""
+    """把账本渲染成星澈助手成本仪表盘:返回字符串,与打印解耦。"""
     sessions = ledger.by_session()
     if not sessions:
-        return "灵讯通 · 成本仪表盘\n暂无用量记录。"
+        return "星澈助手 · 成本仪表盘\n暂无用量记录。"
     # TODO: 组装报表行并返回 "\n".join(rows)。至少包含:
     #   1) 标题行与表头(会话/调用/tokens/成本(元)),逐会话一行
     #   2) 汇总行: 总成本 vs 预算、调用总数、平均每次调用成本(total / calls)、守卫拒绝次数
@@ -125,7 +131,7 @@ def render_report(ledger: UsageLedger, budget: float, rejected: int) -> str:
 def main() -> None:
     meter, ledger, budget = TokenMeter(), UsageLedger(), 0.0025
     guarded_chat = budget_guard(max_budget=budget, meter=meter, ledger=ledger)(mock_chat)
-    plan = [("客服会话", "帮我写一句灵讯通的欢迎语"), ("客服会话", "再写一句口号"), ("售后会话", "写一条退款安抚回复"), ("售后会话", "再写一条更诚恳的"), ("售后会话", "继续写第三条")]
+    plan = [("客服会话", "帮我写一句星澈助手的欢迎语"), ("客服会话", "再写一句口号"), ("售后会话", "写一条退款安抚回复"), ("售后会话", "再写一条更诚恳的"), ("售后会话", "继续写第三条")]
     for session_id, prompt in plan:
         try:
             guarded_chat([{"role": "user", "content": prompt}], max_tokens=200, session_id=session_id)

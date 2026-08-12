@@ -1,4 +1,4 @@
-"""灵讯通 · s2:客户端封装
+"""星澈助手 · s2:客户端封装
 在 s1 配置的基础上,把"创建 OpenAI 兼容客户端"封装成可复用函数。
 """
 import os
@@ -8,7 +8,7 @@ from openai import OpenAI
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -49,7 +49,7 @@ def create_client() -> OpenAI:
 def main() -> None:
     """创建客户端、打印就绪信息。"""
     client = create_client()
-    print("灵讯通客户端就绪:")
+    print("星澈助手客户端就绪:")
     print(f"  base_url : {BASE_URL}")
     print(f"  model    : {MODEL}")
     print(f"  api_key  : {masked_key(API_KEY)}")

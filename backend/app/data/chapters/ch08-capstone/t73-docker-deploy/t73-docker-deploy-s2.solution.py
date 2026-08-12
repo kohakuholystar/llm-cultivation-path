@@ -1,15 +1,15 @@
-"""渡劫飞升 · s2:Dockerfile 编写
+"""终期交付 · s2:Dockerfile 编写
 把 s1 的服务源码装进标准 Docker 镜像:写出 Dockerfile 文本,再逐行审计
 必备指令,确保这份「镜像说明书」在 docker build 时不会缺胳膊少腿。
 """
 # 目标服务源码(s1 产物,原样复用)
-SERVICE_PY = """# 渡劫飞升 · Agent 应用 HTTP 服务(由构建脚本生成)。
+SERVICE_PY = """# 黑糖资料室 · Agent 应用 HTTP 服务(由构建脚本生成)。
 import os
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="渡劫飞升", version="0.1.0")
+app = FastAPI(title="黑糖资料室", version="0.1.0")
 
 @app.get("/health")
 def health() -> dict:
@@ -42,7 +42,7 @@ def write_service(path: str) -> str:
 
 
 # 镜像说明书 Dockerfile(由 s2 生成)。指令顺序决定镜像层缓存命中率。
-DOCKERFILE = """# 渡劫飞升 · 服务镜像(由 s2 生成)。
+DOCKERFILE = """# 黑糖资料室 · 服务镜像(由 s2 生成)。
 FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .

@@ -4,22 +4,24 @@ import { useEffect, type ReactNode } from 'react'
 interface ModalProps {
   open: boolean
   onClose: () => void
+  /** 首次系统配置等场景不允许用 ESC 或点击遮罩绕过。 */
+  dismissible?: boolean
   title?: ReactNode
   children: ReactNode
   footer?: ReactNode
   className?: string
 }
 
-export function Modal({ open, onClose, title, children, footer, className }: ModalProps) {
+export function Modal({ open, onClose, dismissible = true, title, children, footer, className }: ModalProps) {
   // ESC 关闭
   useEffect(() => {
-    if (!open) return
+    if (!open || !dismissible) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  }, [open, onClose, dismissible])
 
   if (!open) return null
   return (
@@ -28,7 +30,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
       onMouseDown={(e) => {
         // 只在按下点确实是遮罩本身时才关闭:
         // 若从弹窗内容区拖拽选中文本、松手时落在遮罩上, 不会误触发关闭
-        if (e.target === e.currentTarget) onClose()
+        if (dismissible && e.target === e.currentTarget) onClose()
       }}
     >
       <div

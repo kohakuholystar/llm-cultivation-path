@@ -1,10 +1,11 @@
-"""百宝囊 · t31-s4:闭环 —— Thought-Action-Observation 主循环。"""
+"""社团工具箱 · t31-s4:闭环 —— Thought-Action-Observation 主循环。"""
 
+# ?????????? Thought-Action-Observation ????????format_scratchpad ? run_react??????????????????????????????????????????t31-s3?????????????????????????
 import ast, collections, json, operator, os, re, sys
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-REACT_INSTRUCTION = """你是「百宝囊」Agent,借助工具完成任务。每轮严格按格式输出,不要输出其他内容:
+REACT_INSTRUCTION = """你是「社团工具箱」Agent,借助工具完成任务。每轮严格按格式输出,不要输出其他内容:
 Thought: 思考 / Action: 工具名 / Action Input: JSON 参数(无参数写 {})
 掌握足够信息后改输出: Thought: 总结 + Final Answer: 最终答案"""
 
@@ -34,9 +35,9 @@ def calculate(expression: str) -> str:
     except (ValueError, SyntaxError, ZeroDivisionError): return f"错误:无法计算表达式 {expression!r}"
 
 
-TOOL_MANUAL = "法宝图鉴:\n" + "\n".join(f"- {n}: {f.tool_description}" for n, f in TOOLBOX.items())  # 注册表自动生成说明书
+TOOL_MANUAL = "工具清单:\n" + "\n".join(f"- {n}: {f.tool_description}" for n, f in TOOLBOX.items())  # 注册表自动生成说明书
 
-def build_prompt(question: str, scratchpad: str = "") -> str:  # 法宝图鉴 + 问题 + 历史轨迹(scratchpad)
+def build_prompt(question: str, scratchpad: str = "") -> str:  # 工具清单 + 问题 + 历史轨迹(scratchpad)
     return f"{TOOL_MANUAL}\n\n问题: {question}\n\n已完成的步骤:\n{scratchpad}\n请输出下一轮(以 Thought 开头):"
 
 # 剧本假模型:按调用次序弹出回复,模拟一个会多步推理的模型(离线演示用)

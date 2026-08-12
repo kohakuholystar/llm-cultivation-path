@@ -91,10 +91,9 @@
           "blocking": true
         },
         {
-          "type": "ast_structure",
+          "type": "api_call_exists",
           "message": "需要通过 ast.parse 解析服务源码。",
-          "astType": "call",
-          "name": "ast.parse",
+          "api": "ast.parse",
           "minCount": 1,
           "blocking": true
         },
@@ -317,10 +316,9 @@
           "blocking": true
         },
         {
-          "type": "ast_structure",
+          "type": "api_call_exists",
           "message": "需要通过 yaml.safe_load 解析 compose 文本。",
-          "astType": "call",
-          "name": "yaml.safe_load",
+          "api": "yaml.safe_load",
           "minCount": 1,
           "blocking": true
         },
@@ -455,6 +453,7 @@
     {
       "id": "t73-docker-deploy-s5",
       "taskId": "t73-docker-deploy",
+      "needsNetwork": true,
       "order": 5,
       "title": "配置注入与密钥守卫",
       "instruction": "### 目标\n\n给部署上最后一道保险:配置注入与密钥守卫。把所有可变项(监听地址、端口、模型名、密钥)收进环境变量,让配置彻底离开代码与镜像;并为密钥加一道守卫——缺 key 时给出引导文案优雅退出,而不是甩给学员一段堆栈 traceback。\n\n### 原理\n\n十二要素方法论的一条铁律是「配置不进镜像」:同一份镜像,靠环境变量在不同环境(开发/预发/生产)注入不同配置,才能做到「一次构建,多处运行」。compose 的 environment 里用 \"${VAR:?...}\" 声明变量来源,部署时由 .env 文件填充;代码侧则统一从 os.environ 读取并给默认值兜底。密钥守卫遵循同样的分级策略:演示模式(MOCK_LLM=1)不强制密钥,真实模式缺 key 就打印引导文案并 sys.exit(0) 优雅退出——把「环境未就绪」与「代码有 bug」两类问题干净地分开,学习者看到的永远是下一步该做什么。\n\n### 操作\n\n1. 通读模块顶部的密钥守卫:理解 MOCK 开关与优雅退出的分工;\n2. 复用 s3 的 COMPOSE 与 audit_compose,确认密钥注入声明;\n3. 补全 Config.from_env:从环境变量构造配置,全部带默认值;\n4. 留意 api_key 的读取顺序:先 OPENAI_API_KEY,为空再回退 DEEPSEEK_API_KEY;\n5. 运行 main():应看到配置注入检查、compose 环境注入审计与「密钥只走环境变量」的铁律提示。\n\n### 常见坑\n\n- PORT 这类数值型配置要用 int() 显式转换,否则字符串拼接出的监听地址会在运行时悄悄出错;\n- 密钥默认值必须是空字符串而非「占位假 key」,假 key 会让鉴权失败变得难以排查;\n- 真实模式的守卫放模块顶部、import 之后——任何代码都不该在密钥缺失时带着假配置往下跑。\n",
@@ -568,6 +567,7 @@
     {
       "id": "t73-docker-deploy-s6",
       "taskId": "t73-docker-deploy",
+      "needsNetwork": true,
       "order": 6,
       "title": "收官部署:一键上线报告",
       "instruction": "### 目标\n\n收官之战:一键部署。把前五步的产物收拢成一个部署包——main.py、Dockerfile、docker-compose.yml、.env.example 四份文件一次写齐,再做体检(代码/镜像/编排)与探针(存活/就绪),全部通过才输出「满足上线条件」的毕业报告。\n\n### 原理\n\n「上线」不是把文件堆在一起,而是一条可重复的验收流水线:写文件、静态体检、动态探针、裁决报告。体检是文本级的(路由在不在、指令齐不齐、服务声明全不全),探针是语义级的(依赖就绪没有),两者互补:体检防「结构缺漏」,探针防「功能不到位」。把验收写成代码,意味着每次部署都执行同一套标准,人眼漏看的状态由脚本兜住——这正是项目制课程最该内化的工程习惯:上线不是赌运气,是把检查清单跑一遍。\n\n### 操作\n\n1. 复用 s5 的 Config 与密钥守卫,读取部署配置;\n2. 把四份文件文本组装进 files 字典并全部写出;\n3. 补全 check_artifacts:依次体检服务路由、Dockerfile 指令、compose 服务与健康检查、env 模板;\n4. 通读 probe_health:对毕业状态快照做存活与就绪探针;\n5. 运行 main():应输出完整的「上线报告」,结论为满足上线条件、圆满收官。\n\n### 常见坑\n\n- 体检与探针要分开:文本检查过不了是「缺东西」,探针过不了是「没准备好」,混在一起会误导排查方向;\n- files 字典的键名必须与部署文件名完全一致,写盘循环与体检清单共用同一份键;\n- 报告的分支判定用 problems or failed,两个来源的问题都要在报告里暴露,别只打印其中一个。\n",
@@ -664,10 +664,9 @@
           "blocking": true
         },
         {
-          "type": "ast_structure",
+          "type": "api_call_exists",
           "message": "需要通过 yaml.safe_load 解析编排文件。",
-          "astType": "call",
-          "name": "yaml.safe_load",
+          "api": "yaml.safe_load",
           "minCount": 1,
           "blocking": true
         },

@@ -1,4 +1,4 @@
-"""天庭 · s1:消息协议 —— Agent 之间说什么语言。"""
+"""校园 AI 社 · s1:消息协议 —— Agent 之间说什么语言。"""
 import itertools
 import time
 from dataclasses import dataclass, field
@@ -42,7 +42,7 @@ class Message:
 
 
 def make_messages() -> list[Message]:
-    """模拟天庭一天里的三条消息:任务分派、进度汇报、系统告警。"""
+    """模拟校园 AI 社一天里的三条消息:任务分派、进度汇报、系统告警。"""
     return [
         Message(sender="product_manager", topic="task.assign",
                 payload={"task": "实现登录页", "assignee": "dev_1"}),

@@ -1,4 +1,4 @@
-"""百宝囊 v0.5 —— 生成法宝图鉴(JSON 工具清单)+ dispatch 统一调用入口。"""
+"""社团工具箱 v0.5 —— 生成工具清单(JSON 工具清单)+ dispatch 统一调用入口。"""
 import ast, inspect, json, operator, random
 from datetime import datetime
 from pathlib import Path
@@ -76,7 +76,7 @@ def _safe_path(filename: str):
 def write_note(filename: str, content: str) -> str:
     """把文字保存为 .txt 笔记,如 write_note("todo.txt", "买牛奶")。用户要求记录、保存、备忘某段内容时使用;已存在同名笔记会覆盖。"""
     path = _safe_path(filename) if filename.endswith(".txt") else None
-    if path is None: return "错误:文件名非法,只支持百宝囊目录下的 .txt 文件"
+    if path is None: return "错误:文件名非法,只支持社团工具箱目录下的 .txt 文件"
     path.write_text(content, encoding="utf-8")
     return f"已保存 {filename}(共 {len(content)} 字符)"
 
@@ -90,12 +90,12 @@ def read_note(filename: str) -> str:
 
 @tool
 def list_notes() -> str:
-    """列出百宝囊中所有 .txt 笔记的文件名。用户问「我保存了哪些笔记」时使用,返回顿号分隔的文件名列表。"""
+    """列出社团工具箱中所有 .txt 笔记的文件名。用户问「我保存了哪些笔记」时使用,返回顿号分隔的文件名列表。"""
     return "、".join(sorted(p.name for p in NOTES_DIR.glob("*.txt"))) or "还没有任何笔记"
 
 
 def build_tool_manifest() -> str:
-    """生成 JSON 法宝图鉴:名称 + 描述 + 参数名,即将来放进 system prompt 的工具清单。"""
+    """生成 JSON 工具清单:名称 + 描述 + 参数名,即将来放进 system prompt 的工具清单。"""
     manifest = [{"name": name, "description": func.tool_description,
                  "parameters": list(inspect.signature(func).parameters)}  # inspect 自动提取参数名
                 for name, func in TOOLBOX.items()]
@@ -105,18 +105,18 @@ def build_tool_manifest() -> str:
 def dispatch(tool_name: str, **kwargs) -> str:
     """统一调用入口:按名字取工具并执行,Agent 主循环只跟它打交道。"""
     func = TOOLBOX.get(tool_name)
-    if func is None: return f"错误:没有工具 {tool_name!r},请先查看法宝图鉴"  # LLM 点错名字时的兜底
+    if func is None: return f"错误:没有工具 {tool_name!r},请先查看工具清单"  # LLM 点错名字时的兜底
     try:
         return str(func(**kwargs))
     except TypeError as exc: return f"错误:参数不对——{exc}"  # 把异常翻译成 LLM 能读懂的提示
 
 
 def main() -> None:
-    # 法宝图鉴:这段 JSON 将来放进 system prompt,LLM 据此决定用哪件法宝
+    # 工具清单:这段 JSON 将来放进 system prompt,LLM 据此决定用哪件工具
     print(build_tool_manifest())
     # Agent 主循环统一走 dispatch:LLM 给出工具名与参数,dispatch 负责执行与兜底
     print("dispatch 计算:", dispatch("calculate", expression="1024 / 8"))
-    print("dispatch 统计:", dispatch("count_text", text="百宝囊真好玩"))
+    print("dispatch 统计:", dispatch("count_text", text="社团工具箱真好玩"))
     print("dispatch 未知工具:", dispatch("fly_to_moon"))
     print("dispatch 缺参数:", dispatch("convert_case"))
 

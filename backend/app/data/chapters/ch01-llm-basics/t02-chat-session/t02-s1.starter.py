@@ -1,6 +1,12 @@
-"""灵讯通 · t02-s1:消息历史
+"""星澈助手 · t02-s1:消息历史
 把 t01 的一次性问答升级为 ChatSession:每轮自动累积历史,模型第一次拥有"记忆"。
 """
+# 学习契约
+# 目标：完成 t02-s1 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 2 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client(config) -> OpenAI; main() -> None。
+# 技术栈：os, sys, dataclasses, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 from dataclasses import dataclass
@@ -10,7 +16,7 @@ USE_MOCK = os.environ.get("MOCK_LLM") == "1"  # MOCK_LLM=1 时用本地假回复
 
 # 联网前置检查:没有 Key(且未开模拟)就给出引导并优雅退出
 if not USE_MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -83,7 +89,7 @@ def main() -> None:
 
     for q in ["你好,我叫阿灵。", "我们来学多轮对话。", "考考你:我叫什么名字?"]:
         print(f"你: {q}")
-        print(f"灵讯通: {session.say(q)}\n")
+        print(f"星澈助手: {session.say(q)}\n")
 
     print(f"会话历史共 {len(session.history)} 条消息:")
     for m in session.history:

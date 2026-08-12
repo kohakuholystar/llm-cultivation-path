@@ -1,6 +1,12 @@
-"""灵讯通 · s6:用量与延迟观测
-对话的同时采集延迟与 token 用量,给灵讯通装上第一块仪表盘。
+"""星澈助手 · s6:用量与延迟观测
+对话的同时采集延迟与 token 用量,给星澈助手装上第一块仪表盘。
 """
+# 学习契约
+# 目标：完成 t01-s6 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 3 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client() -> OpenAI; friendly_error(exc) -> str; chat_with_metrics(client, question) -> 未标注; main() -> None。
+# 技术栈：os, sys, time, dataclasses, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 import time
@@ -11,7 +17,7 @@ from openai import (OpenAI, AuthenticationError, RateLimitError,
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -78,7 +84,7 @@ def main() -> None:
         sys.exit(1)
     reply, m = result
 
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
     print("--- 调用报告 ---")
     print(f"延迟      : {m.latency_ms:.0f} ms")
     print(f"输入 token: {m.prompt_tokens}")

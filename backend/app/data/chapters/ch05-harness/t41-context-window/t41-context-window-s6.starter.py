@@ -1,8 +1,28 @@
-"""乾坤圈 · s6:总装——黑盒上下文管理器
+"""Agent 运行时底座 · s6:总装——黑盒上下文管理器
 
 前五步的散件(称重、滚动摘要、重要性评分、淘汰、溢出恢复)
 在本步拧成一根完整的轴:外部只调用 add / snapshot / stats
 三个动作,内部自动称重、自动折叠、自动淘汰,窗口永不溢出。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：总装:Agent 运行时底座上下文管理器。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `heuristic_tokens(text: str) -> int`：输入为签名中的参数；输出为 `int`。用途：按本节调用链完成对应处理
+#   - `make_summary(messages: list, max_chars: int=100) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `importance_score(m: Message, index: int, total: int) -> float`：输入为签名中的参数；输出为 `float`。用途：按本节调用链完成对应处理
+#   - `evict_lowest(messages: list, budget: TokenBudget, actions: list) -> int`：输入为签名中的参数；输出为 `int`。用途：按本节调用链完成对应处理
+#   - `recover_overflow(current: list, budget: TokenBudget, summary: SummaryBuffer) -> tuple`：输入为签名中的参数；输出为 `tuple`。用途：按本节调用链完成对应处理
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `Message`：承载本节状态/数据；重点方法：见类定义。
+#   - `TokenBudget`：承载本节状态/数据；重点方法：max_context, used, fits。
+#   - `SummaryBuffer`：承载本节状态/数据；重点方法：fold。
+#   - `ContextManager`：承载本节状态/数据；重点方法：snapshot, add, stats。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 
 from dataclasses import dataclass
 import math
@@ -111,7 +131,7 @@ def recover_overflow(current: list, budget: TokenBudget, summary: SummaryBuffer)
 
 
 class ContextManager:
-    """乾坤圈总装:对外只暴露 add / snapshot / stats 三个动作。"""
+    """Agent 运行时底座总装:对外只暴露 add / snapshot / stats 三个动作。"""
 
     def __init__(self, budget=None, summary_max_chars: int = 200):
         self.budget = budget or TokenBudget(total=900, reserve_output=760)
@@ -144,13 +164,13 @@ class ContextManager:
 def main():
     cm = ContextManager()
     msgs = [
-        Message("system", "你是乾坤圈,负责管理对话窗口。"),
-        Message("user", "第1轮:请汇报今日灵气收支情况。附上月对比与结余明细。"),
+        Message("system", "你是Agent 运行时底座,负责管理对话窗口。"),
+        Message("user", "第1轮:请汇报今日运行资源收支情况。附上月对比与结余明细。"),
         Message("assistant", "收入五千二,支出三千一,结余两千一。对比上月整体健康,无异常波动。"),
-        Message("tool", "tool_result: 灵脉图已生成,存于藏经阁第三层。附各坊产量明细。"),
+        Message("tool", "tool_result: 网络图已生成,存于黑糖资料室第三层。附各模块产量明细。"),
         Message("user", "第2轮:结余如何处置?"),
-        Message("assistant", "建议三条:一扩丹房,二修大阵,三储备灵石。"),
-        Message("user", "第3轮:扩丹房需多少灵石?请估算回本周期,并对比现有丹房产量与矿石品质,给出灵矿储备明细。"),
+        Message("assistant", "建议三条:一扩丹房,二修大阵,三储备预算点。"),
+        Message("user", "第3轮:扩丹房需多少预算点?请估算回本周期,并对比现有丹房产量与矿石品质,给出灵矿储备明细。"),
     ]
     for m in msgs:
         cm.add(m)

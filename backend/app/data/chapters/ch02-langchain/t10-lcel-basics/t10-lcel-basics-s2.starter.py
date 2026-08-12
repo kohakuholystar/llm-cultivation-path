@@ -1,4 +1,12 @@
-"""铸剑台 · 第二步:配方成链 —— 用 LCEL 管道 prompt | llm | parser 组装第一条锻造链。"""
+"""黑糖资料室 · LCEL 处理管道 · s2：用 LangChain 完成可验证的学习任务。"""
+
+# 学习契约
+# - 目标：把 prompt、模型和解析器组装为第一条 LCEL 管道。
+# - 补写：补写 `build_prompt`、`build_chain` 与 `forge`。
+# - 关键函数/类（入参 → 出参）：`build_prompt() -> ChatPromptTemplate` 创建模板；`build_chain(llm)` 连接 `prompt | llm | parser`；`forge(chain, material: str, trait: str) -> str` 返回文本。
+# - 技术栈：LangChain Core、LCEL、`StrOutputParser`。
+# - 前置条件：真实调用需右上角 DeepSeek API Key；可用 `MOCK_LLM` 离线检查。
+# - 可观察结果：同一条链接收素材与特性，输出可直接显示的文本。
 import os
 import sys
 
@@ -29,16 +37,16 @@ def build_llm():
     """模型组件:mock 与真实两种实现,接口一致。"""
     if use_mock():
         return FakeListChatModel(responses=[
-            "剑名「断岳」,点评:重剑无锋,大巧不工。",
-            "剑名「流萤」,点评:轻灵似水,剑走偏锋。",
+            "方案名称「断岳」,点评:长篇方案无锋,大巧不工。",
+            "方案名称「流萤」,点评:轻灵似水,方案走偏锋。",
         ])
     return ChatOpenAI(model=MODEL_NAME, base_url=BASE_URL, temperature=0.7, timeout=30)
 
 
 def build_prompt() -> ChatPromptTemplate:
-    """锻造配方:system 定人设与格式,human 里的 {material}/{trait} 是待填变量。"""
+    """制作配方:system 定人设与格式,human 里的 {material}/{trait} 是待填变量。"""
     # TODO: 用 ChatPromptTemplate.from_messages() 声明 system + human 两条消息
-    # 提示:入参是 [(消息角色, 内容), ...];system 给铸剑师人设与字数约束,
+    # 提示:入参是 [(消息角色, 内容), ...];system 给内容设计师人设与字数约束,
     #       human 文案里要留出 {material} 与 {trait} 两个占位变量,并要求「命名 + 一句点评」
     raise NotImplementedError("build_prompt 尚未实现:请按 TODO 提示用 from_messages 声明模板")
 
@@ -59,17 +67,17 @@ def forge(chain, material: str, trait: str) -> str:
     try:
         return chain.invoke({"material": material, "trait": trait}).strip()
     except Exception as exc:
-        return f"铸造失败:{type(exc).__name__}"
+        return f"生成失败:{type(exc).__name__}"
 
 
 def main() -> None:
     check_api_key()
-    chain = build_chain(build_llm())   # 一条链 = 配方 + 炉火 + 出料口
-    print(f"锻造链已成型:prompt | llm | parser [{MODEL_NAME}]")
-    orders = [("天外陨铁", "沉重坚硬"), ("千年寒玉", "至寒至脆")]
+    chain = build_chain(build_llm())   # 一条链 = 配方 + 流程火 + 出料口
+    print(f"内容生成链已成型:prompt | llm | parser [{MODEL_NAME}]")
+    orders = [("活动素材", "沉重坚硬"), ("校园照片", "色调清冷")]
     for material, trait in orders:
         print(f"【{material}/{trait}】{forge(chain, material, trait)}")
-    print("配方成链,出炉两剑。")
+    print("配方成链,输出运行两方案。")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,28 @@
-"""乾坤圈 · s5:溢出恢复——三级处置逐级收紧
+"""Agent 运行时底座 · s5:溢出恢复——三级处置逐级收紧
 
 窗口再精打细算也有装不下的时候:要么新消息进不来,要么旧消息被硬挤掉。
 本步实现 recover_overflow:先折叠旧对话为摘要,再淘汰低价值消息,
 最后整窗截断兜底,逐级收紧直到装进窗口。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：溢出恢复:三级处置逐级收紧。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `heuristic_tokens(text: str) -> int`：输入为签名中的参数；输出为 `int`。用途：启发式估算 token 数:CJK 每字 1 token,ASCII 每 4 字符 1 token。
+#   - `trim_window(messages, budget) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `make_summary(messages, max_chars: int=120) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `importance_score(m, index: int, total: int) -> float`：输入为签名中的参数；输出为 `float`。用途：按本节调用链完成对应处理
+#   - `evict_low_importance(messages, budget) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：淘汰低价值消息:反复弹出重要性最低且非 system 的一条。
+#   - `recover_overflow(history, budget) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Message`：承载本节状态/数据；重点方法：tokens。
+#   - `TokenBudget`：承载本节状态/数据；重点方法：max_context, fits, used。
+#   - `SummaryBuffer`：承载本节状态/数据；重点方法：fold, as_message。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import math
 import re
 from dataclasses import dataclass
@@ -128,17 +148,17 @@ def recover_overflow(history, budget):
 def main() -> None:
     budget = TokenBudget(total=900, reserve_output=760)
     history = [
-        Message("system", "你是乾坤圈,负责在窗口溢出时逐级恢复。"),
-        Message("user", "第1轮:报告外门弟子分布。"),
-        Message("assistant", "外门弟子聚于东西两谷。"),
+        Message("system", "你是Agent 运行时底座,负责在窗口溢出时逐级恢复。"),
+        Message("user", "第1轮:报告普通成员分布。"),
+        Message("assistant", "普通成员聚于东西两谷。"),
         Message("user", "第2轮:灵田收成如何?"),
         Message("assistant", "灵田收成尚可,未有欠收。"),
-        Message("user", "第3轮:丹炉火候如何?"),
-        Message("assistant", "丹炉火候稳定,可炼上品丹。"),
-        Message("user", "第4轮:请报告护山大阵的耗材与更换周期,并给出上月消耗明细。"),
-        Message("assistant", "护山大阵每月耗灵石三百枚,上月更换阵眼核心两块。"),
-        Message("user", "第5轮:请报告藏书阁的规模与新增藏书量。"),
-        Message("assistant", "藏书阁现有藏书十二万卷,上月新增三百卷。"),
+        Message("user", "第3轮:模型服务状态如何?"),
+        Message("assistant", "丹模型服务候稳定,可炼上品丹。"),
+        Message("user", "第4轮:请报告监控系统的耗材与更换周期,并给出上月消耗明细。"),
+        Message("assistant", "监控系统每月耗预算点三百枚,上月更换监控探针两块。"),
+        Message("user", "第5轮:请报告资料室的规模与新增藏书量。"),
+        Message("assistant", "资料室现有藏书十二万卷,上月新增三百卷。"),
     ]
     current, actions, folded = recover_overflow(history, budget)
     print("[处置]")

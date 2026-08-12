@@ -73,7 +73,7 @@
       "taskId": "t34-agent-control",
       "order": 2,
       "title": "启用提前停止与中间步骤",
-      "instruction": "## 目标\n学会使用 `early_stopping` 和 `return_intermediate_steps` 控制 Agent 行为。\n\n## 概念\n- `early_stopping`: 当 Agent 达到 `max_iterations` 时，决定如何停止。可选值：`\"force\"`（立即停止）或 `\"generate\"`（生成一个最终回答后停止）。\n- `return_intermediate_steps`: 如果为 `True`，Agent 会返回每一步的思考、行动和观察，便于调试。\n\n## 操作指引\n1. 基于上一步的代码，修改 AgentExecutor 参数。\n2. 设置 `early_stopping_method=\"generate\"` 和 `return_intermediate_steps=True`。\n3. 运行 Agent 并打印中间步骤。\n\n```python\n# 请补全 TODO 部分\n```",
+      "instruction": "## 目标\n学会使用 `early_stopping` 和 `return_intermediate_steps` 控制 Agent 行为。\n\n## 概念\n- `early_stopping`: 当 Agent 达到 `max_iterations` 时，决定如何停止。可选值：`\"force\"`（立即停止）或 `\"generate\"`（实现一个最终回答后停止）。\n- `return_intermediate_steps`: 如果为 `True`，Agent 会返回每一步的思考、行动和观察，便于调试。\n\n## 操作指引\n1. 基于上一步的代码，修改 AgentExecutor 参数。\n2. 设置 `early_stopping_method=\"generate\"` 和 `return_intermediate_steps=True`。\n3. 运行 Agent 并打印中间步骤。\n\n```python\n# 请补全 TODO 部分\n```",
       "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import AgentExecutor, create_tool_calling_agent\nfrom langchain.tools import tool\nfrom langchain.prompts import ChatPromptTemplate, MessagesPlaceholder\n\nos.environ[\"OPENAI_API_KEY\"] = \"your-api-key\"\n\n@tool\ndef get_current_time() -> str:\n    \"\"\"返回当前时间\"\"\"\n    from datetime import datetime\n    return datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")\n\ntools = [get_current_time]\n\nllm = ChatOpenAI(model=\"deepseek-v4-pro\", temperature=0)\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个助手，可以获取当前时间。\"),\n    (\"human\", \"{input}\"),\n    MessagesPlaceholder(variable_name=\"agent_scratchpad\"),\n])\n\nagent = create_tool_calling_agent(llm, tools, prompt)\n\n# 设置 early_stopping_method 和 return_intermediate_steps\nagent_executor = AgentExecutor(\n    agent=agent,\n    tools=tools,\n    max_iterations=3\n)\n\nresult = agent_executor.invoke({\"input\": \"现在几点了？\"})\nprint(\"输出:\", result[\"output\"])\n# 打印中间步骤\nprint(\"中间步骤:\", result[\"intermediate_steps\"])\n",
       "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import AgentExecutor, create_tool_calling_agent\nfrom langchain.tools import tool\nfrom langchain.prompts import ChatPromptTemplate, MessagesPlaceholder\n\nos.environ[\"OPENAI_API_KEY\"] = \"your-api-key\"\n\n@tool\ndef get_current_time() -> str:\n    \"\"\"返回当前时间\"\"\"\n    from datetime import datetime\n    return datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")\n\ntools = [get_current_time]\n\nllm = ChatOpenAI(model=\"deepseek-v4-pro\", temperature=0)\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个助手，可以获取当前时间。\"),\n    (\"human\", \"{input}\"),\n    MessagesPlaceholder(variable_name=\"agent_scratchpad\"),\n])\n\nagent = create_tool_calling_agent(llm, tools, prompt)\n\nagent_executor = AgentExecutor(\n    agent=agent,\n    tools=tools,\n    max_iterations=3,\n    early_stopping_method=\"generate\",\n    return_intermediate_steps=True\n)\n\nresult = agent_executor.invoke({\"input\": \"现在几点了？\"})\nprint(\"输出:\", result[\"output\"])\nprint(\"中间步骤:\", result[\"intermediate_steps\"])\n",
       "hints": [
@@ -141,14 +141,14 @@
       "id": "t34-agent-control-s3",
       "taskId": "t34-agent-control",
       "order": 3,
-      "title": "处理工具调用错误",
-      "instruction": "## 目标\n学会使用 `handle_tool_error` 参数让 Agent 优雅处理工具异常。\n\n## 概念\n当工具抛出异常时，Agent 默认会崩溃。设置 `handle_tool_error=True` 后，Agent 会捕获异常并继续执行，将错误信息作为观察传递给 LLM，让其决定下一步。\n\n## 操作指引\n1. 创建一个可能抛出异常的工具（如除以零）。\n2. 在创建工具时设置 `handle_tool_error=True`。\n3. 运行 Agent 并观察它如何处理错误。\n\n```python\n# 请补全 TODO 部分\n```",
+      "title": "淬炼工具调用错误",
+      "instruction": "## 目标\n学会使用 `handle_tool_error` 参数让 Agent 优雅淬炼工具异常。\n\n## 概念\n当工具抛出异常时，Agent 默认会崩溃。设置 `handle_tool_error=True` 后，Agent 会捕获异常并继续执行，将错误信息作为观察传递给 LLM，让其决定下一步。\n\n## 操作指引\n1. 创建一个可能抛出异常的工具（如除以零）。\n2. 在创建工具时设置 `handle_tool_error=True`。\n3. 运行 Agent 并观察它如何淬炼错误。\n\n```python\n# 请补全 TODO 部分\n```",
       "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import AgentExecutor, create_tool_calling_agent\nfrom langchain.tools import tool\nfrom langchain.prompts import ChatPromptTemplate, MessagesPlaceholder\n\nos.environ[\"OPENAI_API_KEY\"] = \"your-api-key\"\n\n# 创建一个工具，当输入为0时抛出异常，并设置 handle_tool_error=True\n@tool\ndef divide(a: float, b: float) -> float:\n    \"\"\"返回 a 除以 b 的结果\"\"\"\n    return a / b\n\ntools = [divide]\n\nllm = ChatOpenAI(model=\"deepseek-v4-pro\", temperature=0)\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个助手，可以执行除法。\"),\n    (\"human\", \"{input}\"),\n    MessagesPlaceholder(variable_name=\"agent_scratchpad\"),\n])\n\nagent = create_tool_calling_agent(llm, tools, prompt)\n\nagent_executor = AgentExecutor(agent=agent, tools=tools, max_iterations=3)\n\nresult = agent_executor.invoke({\"input\": \"计算 10 除以 0\"})\nprint(result[\"output\"])\n",
       "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain.agents import AgentExecutor, create_tool_calling_agent\nfrom langchain.tools import tool\nfrom langchain.prompts import ChatPromptTemplate, MessagesPlaceholder\n\nos.environ[\"OPENAI_API_KEY\"] = \"your-api-key\"\n\n@tool(handle_tool_error=True)\ndef divide(a: float, b: float) -> float:\n    \"\"\"返回 a 除以 b 的结果\"\"\"\n    return a / b\n\ntools = [divide]\n\nllm = ChatOpenAI(model=\"deepseek-v4-pro\", temperature=0)\n\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是一个助手，可以执行除法。\"),\n    (\"human\", \"{input}\"),\n    MessagesPlaceholder(variable_name=\"agent_scratchpad\"),\n])\n\nagent = create_tool_calling_agent(llm, tools, prompt)\n\nagent_executor = AgentExecutor(agent=agent, tools=tools, max_iterations=3)\n\nresult = agent_executor.invoke({\"input\": \"计算 10 除以 0\"})\nprint(result[\"output\"])\n",
       "hints": [
         {
           "order": 1,
-          "text": "工具装饰器 @tool 可以接受参数，查看文档找到错误处理参数。"
+          "text": "工具装饰器 @tool 可以接受参数，查看文档找到错误淬炼参数。"
         },
         {
           "order": 2,
@@ -161,7 +161,7 @@
       ],
       "codeSamples": [
         {
-          "title": "工具错误处理示例",
+          "title": "工具错误淬炼示例",
           "language": "python",
           "code": "@tool(handle_tool_error=True)\ndef safe_divide(a: float, b: float) -> float:\n    \"\"\"除法\"\"\"\n    return a / b",
           "description": "工具抛出异常时会被捕获。"
@@ -177,7 +177,7 @@
         {
           "name": "langchain",
           "role": "Agent 框架",
-          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 tool 装饰器和错误处理。",
+          "description": "LangChain 是构建 LLM 应用的主流框架,提供链式调用(Chain)、记忆(Memory)、工具(Tool)、Agent 编排等核心抽象,把 LLM 与外部数据/工具组合成复杂应用。提供 tool 装饰器和错误淬炼。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain"

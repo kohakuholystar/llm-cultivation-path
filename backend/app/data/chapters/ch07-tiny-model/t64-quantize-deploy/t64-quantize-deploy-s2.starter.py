@@ -1,9 +1,27 @@
-"""袖里乾坤 · s2:量化推理引擎
+"""模型研究小组 · s2:量化推理引擎
 
 在 s1 量化权重之上实现 INT8 整数推理链路:动态量化激活、
 整数矩阵乘、一次反量化,并与 FP32 全精度前向对比 logits,
 让量化误差变得可见、可控。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：量化推理引擎:整数矩阵乘入处理器。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `make_weights() -> dict`：输入为签名中的参数；输出为 `dict`。用途：蒸馏产物权重:嵌入/隐藏/输出三矩阵,演示用随机权重。
+#   - `quantize_tensor(w: np.ndarray) -> tuple`：输入为签名中的参数；输出为 `tuple`。用途：对称 int8 量化:返回 (int8 权重, scale)。
+#   - `quantize_model(weights: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：逐张量量化,键名加上 _q / _scale 后缀。
+#   - `tokens_of(text: str) -> list[int]`：输入为签名中的参数；输出为 `list[int]`。用途：字符串 → 词表下标列表,未知字符一律映射为空格(0 号)。
+#   - `dyn_quant(x: np.ndarray) -> tuple`：输入为签名中的参数；输出为 `tuple`。用途：动态量化激活:返回 (int8 向量, scale)。
+#   - `forward_fp32(weights: dict, tokens: list[int]) -> np.ndarray`：输入为签名中的参数；输出为 `np.ndarray`。用途：全精度前向:平均嵌入 → tanh 隐藏层 → 输出 logits。
+#   - `forward_int8(qw: dict, tokens: list[int]) -> np.ndarray`：输入为签名中的参数；输出为 `np.ndarray`。用途：整数推理:激活与权重都落到 int8,矩阵乘在 int32 累加器完成。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import numpy as np
 
 np.random.seed(42)

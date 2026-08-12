@@ -1,4 +1,4 @@
-"""藏经阁收官 · 第三步:召回率评估——给检索器一把量化的尺子。
+"""黑糖资料室收官 · 第三步:召回率评估——给检索器一把量化的尺子。
 
 用第二步之前的纯检索代码(不带 LLM),对标注测试集逐题打分:
 能答的题算 Recall@k,库外的题算"正确拒绝",两类指标分开统计。
@@ -8,11 +8,11 @@ import re
 from collections import Counter
 
 CORPUS = [
-    {"id": "d1", "text": "吐纳心法:内功根基在于吐纳,每日卯时面东打坐,气沉丹田,调匀呼吸,百日方可筑基。"},
-    {"id": "d3", "text": "剑谱总纲:剑之道,快不如巧,巧不如拙,大巧若拙,无招胜有招。"},
-    {"id": "d4", "text": "拳经:拳法力从地起,腰马合一,劲达四梢,练拳不练功,到老一场空。"},
-    {"id": "d5", "text": "药典:金疮药以三七、血竭为主,辅以冰片研末,外敷可止血生肌。"},
-    {"id": "d6", "text": "寺规:藏经阁典籍不得带出寺外,借阅需长老手谕,违者罚面壁三月。"},
+    {"id": "d1", "text": "数据清洗方法:先统一编码与字段格式,再处理重复值和缺失值,最后写入缓存并保存质量报告。"},
+    {"id": "d3", "text": "输出模板指南:先明确字段契约,再减少无效规则,并用固定样例验证输出稳定性。"},
+    {"id": "d4", "text": "设计规范:版式需要统一间距、字号与颜色层级,并通过样例检查一致性。"},
+    {"id": "d5", "text": "应急手册:轻微外伤先清洁并止血,必要时及时联系校医或专业人员。"},
+    {"id": "d6", "text": "借阅规范:黑糖资料室的受限资料不得外传,借阅需获得管理员授权并记录用途。"},
 ]
 
 
@@ -39,12 +39,12 @@ class TfidfRetriever:
 
 
 TEST_SET = [
-    {"question": "如何修炼内功?", "relevant": ["d1"]},
-    {"question": "弟子受伤流血该用什么药?", "relevant": ["d5"]},
-    {"question": "剑法的最高境界是什么?", "relevant": ["d3"]},
-    {"question": "能把经书带回厢房研读吗?", "relevant": ["d6"]},
-    {"question": "拳法与剑法孰强孰弱?", "relevant": []},    # 观点题,库中无标准答案
-    {"question": "禅师的床底下藏着什么?", "relevant": []},  # 库外问题,留作幻觉标本
+    {"question": "如何学习基础指南?", "relevant": ["d1"]},
+    {"question": "成员轻微外伤应该如何处理?", "relevant": ["d5"]},
+    {"question": "创作方法的最高学习阶段是什么?", "relevant": ["d3"]},
+    {"question": "能把受限文档带离资料室吗?", "relevant": ["d6"]},
+    {"question": "设计方法与创作方法孰强孰弱?", "relevant": []},    # 观点题,库中无标准答案
+    {"question": "资料室今天供应什么饮品?", "relevant": []},  # 库外问题,留作幻觉标本
 ]
 
 
@@ -83,7 +83,7 @@ def evaluate_retriever(retriever, test_set, k=2):
 
 if __name__ == "__main__":
     retriever = TfidfRetriever(CORPUS)
-    print("=== 藏经阁检索评估报告(Recall@2)===")
+    print("=== 黑糖资料室检索评估报告(Recall@2)===")
     rows, summary = evaluate_retriever(retriever, TEST_SET, k=2)
     for question, ids, verdict in rows:
         print(f"{question} | 命中 {ids} | {verdict}")

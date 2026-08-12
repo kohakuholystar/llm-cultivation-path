@@ -5,7 +5,7 @@
       "taskId": "t14-chain-routing",
       "order": 1,
       "title": "问明来意:意图分类链",
-      "instruction": "### 目标\n打造铸剑台的\"接待台\":一条意图分类链 `prompt | llm | StrOutputParser`,把客人的自然语言请求判定为四种来意之一(forge 铸剑 / inscribe 题铭文 / appraise 鉴剑 / chat 闲聊),并写出清洗模型输出的 `normalize_intent`,为下一步的路由分流备好\"判定件\"。\n\n### 原理\n**路由的前提是\"先把开放问题变成可枚举的标签\"。** LLM 的输出是开放文本,而程序分支需要闭合集合。分类链的本质是用提示词把开放问题映射到封闭标签集:system 消息里列死候选词、要求\"只回答一个词\",再配合 `temperature=0` 压低随机性——分类任务要的是稳定,不是文采。标签集设计也有讲究:必须留一个 chat 兜底类,否则\"今天天气怎么样\"会被硬塞进某个业务类,下游越走越歪。\n\n**为什么分类也要走 LCEL 链,而不是裸调模型?** 因为分类结果马上要被下游消费。`StrOutputParser` 把 `AIMessage` 剥成纯字符串,链的出口类型就是 `str`,下一步的 `RunnablePassthrough.assign` 可以直接把它塞进字典当新字段。链式组装的回报要到组合时才兑现——每一步都守住 Runnable 协议,后面的 `RunnableBranch`、`with_fallbacks` 才能即插即用。\n\n**永远清洗模型的输出。** 即便提示词要求\"只回答一个词\",真实模型也可能回 \"forge。\"、\"来意是 forge\" 甚至解释一大段。`normalize_intent` 采用\"包含即命中、不中归 chat\"的策略兜底——**永远不要让未经校验的模型输出直接驱动程序分支**,这是 LLM 工程的基本纪律,和 Web 开发里\"不信任用户输入\"同理。\n\n### 操作\n1. 补全 `build_classifier_chain()`:用 `|` 串联 `prompt | build_llm(...) | StrOutputParser()`\n2. 补全 `normalize_intent(raw)`:转小写后按 `INTENT_OPTIONS` 顺序做子串匹配,全不中返回 `\"chat\"`\n3. 运行 main,观察三位客人分别被判定成什么来意\n4. 本地无 Key 可先 `MOCK_LLM=1` 离线运行,假模型按剧本依次返回三个意图\n\n### 常见坑\n- 分类链忘了接 `StrOutputParser()`:拿到的是 `AIMessage` 对象,`\"forge\" in msg` 判断行为诡异,打印还带着 `content=` 包装——链末端一定要剥壳\n- `temperature` 沿用默认高温:同一句话两次判出不同意图,路由抖动;分类/抽取类任务必须显式 `temperature=0`",
+      "instruction": "### 目标\n打造提示词工作台的\"接待台\":一条意图分类链 `prompt | llm | StrOutputParser`,把客人的自然语言请求判定为四种来意之一(forge 内容制作 / inscribe 文案撰写 / appraise 质量评审 / chat 闲聊),并写出清洗模型输出的 `normalize_intent`,为下一步的路由分流备好\"判定件\"。\n\n### 原理\n**路由的前提是\"先把开放问题变成可枚举的标签\"。** LLM 的输出是开放文本,而程序分支需要闭合集合。分类链的本质是用提示词把开放问题映射到封闭标签集:system 消息里列死候选词、要求\"只回答一个词\",再配合 `temperature=0` 压低随机性——分类任务要的是稳定,不是文采。标签集设计也有讲究:必须留一个 chat 兜底类,否则\"今天天气怎么样\"会被硬塞进某个业务类,下游越走越歪。\n\n**为什么分类也要走 LCEL 链,而不是裸调模型?** 因为分类结果马上要被下游消费。`StrOutputParser` 把 `AIMessage` 剥成纯字符串,链的出口类型就是 `str`,下一步的 `RunnablePassthrough.assign` 可以直接把它塞进字典当新字段。链式组装的回报要到组合时才兑现——每一步都守住 Runnable 协议,后面的 `RunnableBranch`、`with_fallbacks` 才能即插即用。\n\n**永远清洗模型的输出。** 即便提示词要求\"只回答一个词\",真实模型也可能回 \"forge。\"、\"来意是 forge\" 甚至解释一大段。`normalize_intent` 采用\"包含即命中、不中归 chat\"的策略兜底——**永远不要让未经校验的模型输出直接驱动程序分支**,这是 LLM 工程的基本纪律,和 Web 开发里\"不信任用户输入\"同理。\n\n### 操作\n1. 补全 `build_classifier_chain()`:用 `|` 串联 `prompt | build_llm(...) | StrOutputParser()`\n2. 补全 `normalize_intent(raw)`:转小写后按 `INTENT_OPTIONS` 顺序做子串匹配,全不中返回 `\"chat\"`\n3. 运行 main,观察三位客人分别被判定成什么来意\n4. 本地无 Key 可先 `MOCK_LLM=1` 离线运行,假模型按剧本依次返回三个意图\n\n### 常见坑\n- 分类链忘了接 `StrOutputParser()`:拿到的是 `AIMessage` 对象,`\"forge\" in msg` 判断行为诡异,打印还带着 `content=` 包装——链末端一定要剥壳\n- `temperature` 沿用默认高温:同一句话两次判出不同意图,路由抖动;分类/抽取类任务必须显式 `temperature=0`",
       "todoItems": [
         {
           "title": "补全 build_classifier_chain():用 | 串联 prompt | build_llm([\"forge\", \"inscribe\", \"chat\"]) | StrOutputParser()",
@@ -65,7 +65,7 @@
         {
           "name": "LangChain Core",
           "role": "LCEL 编排内核",
-          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是铸剑台所有链件的统一接口层。",
+          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是提示词工作台所有链件的统一接口层。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain-core"
@@ -110,7 +110,7 @@
       "taskId": "t14-chain-routing",
       "order": 2,
       "title": "三路分流:RunnableBranch 路由器",
-      "instruction": "### 目标\n给铸剑台修两条\"作坊流水线\"(锻房 forge / 铭文坊 inscribe)加一间\"茶室\"(chat 兜底),并用 `RunnablePassthrough.assign` + `RunnableBranch` 把 s1 的分类链焊成自动分流的路由器:客人一句话进来,正确的作坊接住。\n\n### 原理\n**RunnableBranch 就是链世界的 if/elif/else。** 它接收若干 `(条件, 链)` 对加一个默认链:输入依次过条件,第一个为真的分支接管后续处理,全不中则走默认。条件是普通可调用对象——输入字典进、`bool` 出。与手写 if 的区别在于:分支条件和分支链被声明式地组装成一个**新的 Runnable**,依然拥有 `invoke/batch/stream`,能继续参与组合——这正是 LCEL\"一切皆链\"的复利。\n\n**RunnablePassthrough.assign 是\"给字典加字段\"的旁路工序。** 路由器要分流,先得知道意图:`assign(intent=classify)` 把输入字典原样透传,再追加一个 `intent` 键,值是分类链的执行结果。于是下游每个分支既能看到 `{request}` 原始请求,也能读到 `intent` 判定。这是 LCEL 里\"扇出中间结果\"的标准手法,代价是一次额外的模型调用——生产系统里常用缓存或更小模型来摊薄这笔开销。\n\n**设计要点:分支即插件。** 每条作坊链都是独立的 `prompt | llm | parser`,互不感知;新增业务 = 新写一条链 + 往 RunnableBranch 里插一对条件,路由器主体纹丝不动。条件按优先级排列,更具体的规则放前面,默认分支永远放在最后兜底——没有默认分支的 RunnableBranch 在全不中时会直接抛错。\n\n### 操作\n1. 把 s1 的分类链和 `normalize_intent` 用 `|` 焊成一道 `classify` 工序\n2. `RunnablePassthrough.assign(intent=classify)` 先算出意图字段\n3. 按优先级把 `(lambda x: x[\"intent\"] == \"...\", 链)` 对交给 `RunnableBranch`,默认分支放 chat 链\n4. 让四位客人轮番上门,打印各自被分到哪、得到什么答复\n\n### 常见坑\n- 默认分支漏写:所有条件都不中时 RunnableBranch 抛 `ValueError` 而不是兜底;真实系统必须留 default,哪怕只是\"请说人话\"\n- 条件里读 `x[\"intent\"]` 却忘了 assign 在前:直接 `KeyError`。assign 必须位于 RunnableBranch 上游,顺序反了神仙难救",
+      "instruction": "### 目标\n给提示词工作台修两条\"内容处理流水线\"(内容制作组 forge / 文案组 inscribe)加一间\"咨询台\"(chat 兜底),并用 `RunnablePassthrough.assign` + `RunnableBranch` 把 s1 的分类链焊成自动分流的路由器:客人一句话进来,正确的制作组接住。\n\n### 原理\n**RunnableBranch 就是链世界的 if/elif/else。** 它接收若干 `(条件, 链)` 对加一个默认链:输入依次过条件,第一个为真的分支接管后续处理,全不中则走默认。条件是普通可调用对象——输入字典进、`bool` 出。与手写 if 的区别在于:分支条件和分支链被声明式地组装成一个**新的 Runnable**,依然拥有 `invoke/batch/stream`,能继续参与组合——这正是 LCEL\"一切皆链\"的复利。\n\n**RunnablePassthrough.assign 是\"给字典加字段\"的旁路工序。** 路由器要分流,先得知道意图:`assign(intent=classify)` 把输入字典原样透传,再追加一个 `intent` 键,值是分类链的执行结果。于是下游每个分支既能看到 `{request}` 原始请求,也能读到 `intent` 判定。这是 LCEL 里\"扇出中间结果\"的标准手法,代价是一次额外的模型调用——生产系统里常用缓存或更小模型来摊薄这笔开销。\n\n**设计要点:分支即插件。** 每条制作组链都是独立的 `prompt | llm | parser`,互不感知;新增业务 = 新写一条链 + 往 RunnableBranch 里插一对条件,路由器主体纹丝不动。条件按优先级排列,更具体的规则放前面,默认分支永远放在最后兜底——没有默认分支的 RunnableBranch 在全不中时会直接抛错。\n\n### 操作\n1. 把 s1 的分类链和 `normalize_intent` 用 `|` 焊成一道 `classify` 工序\n2. `RunnablePassthrough.assign(intent=classify)` 先算出意图字段\n3. 按优先级把 `(lambda x: x[\"intent\"] == \"...\", 链)` 对交给 `RunnableBranch`,默认分支放 chat 链\n4. 让四位客人轮番上门,打印各自被分到哪、得到什么答复\n\n### 常见坑\n- 默认分支漏写:所有条件都不中时 RunnableBranch 抛 `ValueError` 而不是兜底;真实系统必须留 default,哪怕只是\"请说人话\"\n- 条件里读 `x[\"intent\"]` 却忘了 assign 在前:直接 `KeyError`。assign 必须位于 RunnableBranch 上游,顺序反了也很难修复",
       "todoItems": [
         {
           "title": "把分类链与 normalize_intent 用 | 焊成一道 classify 工序",
@@ -176,7 +176,7 @@
         {
           "name": "LangChain Core",
           "role": "LCEL 编排内核",
-          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是铸剑台所有链件的统一接口层。",
+          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是提示词工作台所有链件的统一接口层。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain-core"
@@ -184,7 +184,7 @@
         {
           "name": "langchain-openai",
           "role": "OpenAI 兼容模型接入",
-          "description": "ChatOpenAI 以 OpenAI 兼容协议接入 DeepSeek(api.deepseek.com),铸剑台的炉火来源。",
+          "description": "ChatOpenAI 以 OpenAI 兼容协议接入 DeepSeek(api.deepseek.com),提示词工作台的模型服务来源。",
           "officialUrl": "https://python.langchain.com/docs/integrations/chat/openai/",
           "category": "SDK",
           "installHint": "pip install langchain-openai"
@@ -225,8 +225,8 @@
       "id": "t14-chain-routing-s3",
       "taskId": "t14-chain-routing",
       "order": 3,
-      "title": "锻房升级:结构化分支并入路由",
-      "instruction": "### 目标\n把 t12 打造的 `SwordOrder` 数据契约请进锻房:forge 分支从\"散文答复\"升级为 `prompt | llm | PydanticOutputParser` 结构化链,一次 invoke 直接产出校验过的铸剑单对象。体会多链编排的关键事实——同一路由器下,不同分支的出口类型可以不同。\n\n### 原理\n**路由器的每个分支是独立的世界,出口类型不必统一。** `RunnableBranch` 只要求分支是 Runnable,不约束输出类型:铭文坊吐 `str`,锻房吐 `SwordOrder`,完全合法。调用方用 `isinstance` 分派渲染即可。这就是\"多链编排\"的真实含义:每条链按业务需要选择自己的出口契约,而不是全系统削足适履地统一成字符串。本次升级只动了 `build_forge_chain()` 一个函数,路由器一行未改——分支即插件的回报在此兑现。\n\n**`.partial()` 预填契约,invoke 只传活变量。** `format_instructions` 内含 JSON Schema 的花括号,若当普通模板变量传入会被二次格式化炸成 `KeyError`;用 `.partial(format_instructions=...)` 在组装期固化它,invoke 时就只剩 `{request}` 一个真正的变量。这条经验从 t12 原样继承:不变的属于链的**结构**,变化的才是链的**输入**。\n\n**结构化是按需购买的奢侈品。** 铭文、鉴剑的产出给人看,散文即可;铸剑单要入库、要按锋芒值排序比较,必须是受校验的对象。分流架构的好处正在于此:结构化的成本(契约设计、解析失败风险)只花在真正需要结构的分支上,其余分支保持轻量。\n\n### 操作\n1. 从 t12 搬来 `SwordOrder` 模型,创建 `parser = PydanticOutputParser(pydantic_object=SwordOrder)`\n2. 重写 `build_forge_chain()`:模板含 `{format_instructions}` 槽位,`.partial()` 预填,末端接 `parser`\n3. main 里按 `isinstance(result, SwordOrder)` 分派渲染:对象逐字段打印,字符串原样输出\n4. MOCK 模式下锻房假模型返回固定铸剑单 JSON,可离线演练全流程\n\n### 常见坑\n- 旧散文锻房链的 `StrOutputParser()` 忘了摘:parser 叠 parser,PydanticOutputParser 拿到已剥壳的 str 再解析会直接 `OutputParserException`——升级链要换的是整个末端,不是往里塞\n- 模板里写了 `{format_instructions}` 却只 `.partial()` 了一半变量名(比如拼成 `format_instruction`):invoke 时报缺变量;`.partial()` 的键必须与模板槽位逐字一致",
+      "title": "内容制作组升级:结构化分支并入路由",
+      "instruction": "### 目标\n把 t12 打造的 `SwordOrder` 数据契约请进内容制作组:forge 分支从\"散文答复\"升级为 `prompt | llm | PydanticOutputParser` 结构化链,一次 invoke 直接产出校验过的内容方案单对象。体会多链编排的关键事实——同一路由器下,不同分支的出口类型可以不同。\n\n### 原理\n**路由器的每个分支是独立的世界,出口类型不必统一。** `RunnableBranch` 只要求分支是 Runnable,不约束输出类型:文案组吐 `str`,内容制作组吐 `SwordOrder`,完全合法。调用方用 `isinstance` 分派渲染即可。这就是\"多链编排\"的真实含义:每条链按业务需要选择自己的出口契约,而不是全系统削足适履地统一成字符串。本次升级只动了 `build_forge_chain()` 一个函数,路由器一行未改——分支即插件的回报在此兑现。\n\n**`.partial()` 预填契约,invoke 只传活变量。** `format_instructions` 内含 JSON Schema 的花括号,若当普通模板变量传入会被二次格式化炸成 `KeyError`;用 `.partial(format_instructions=...)` 在组装期固化它,invoke 时就只剩 `{request}` 一个真正的变量。这条经验从 t12 原样继承:不变的属于链的**结构**,变化的才是链的**输入**。\n\n**结构化是按需购买的奢侈品。** 文案、质量评审的产出给人看,散文即可;内容方案单要入库、要按质量评分排序比较,必须是受校验的对象。分流架构的好处正在于此:结构化的成本(契约设计、解析失败风险)只花在真正需要结构的分支上,其余分支保持轻量。\n\n### 操作\n1. 从 t12 搬来 `SwordOrder` 模型,创建 `parser = PydanticOutputParser(pydantic_object=SwordOrder)`\n2. 重写 `build_forge_chain()`:模板含 `{format_instructions}` 槽位,`.partial()` 预填,末端接 `parser`\n3. main 里按 `isinstance(result, SwordOrder)` 分派渲染:对象逐字段打印,字符串原样输出\n4. MOCK 模式下内容制作组假模型返回固定内容方案单 JSON,可离线演练全流程\n\n### 常见坑\n- 旧散文内容制作组链的 `StrOutputParser()` 忘了摘:parser 叠 parser,PydanticOutputParser 拿到已剥壳的 str 再解析会直接 `OutputParserException`——升级链要换的是整个末端,不是往里塞\n- 模板里写了 `{format_instructions}` 却只 `.partial()` 了一半变量名(比如拼成 `format_instruction`):invoke 时报缺变量;`.partial()` 的键必须与模板槽位逐字一致",
       "todoItems": [
         {
           "title": "从 t12 搬来 SwordOrder 模型,创建 parser = PydanticOutputParser(pydantic_object=SwordOrder)",
@@ -238,7 +238,7 @@
           "title": "重写 build_forge_chain():模板含 {format_instructions} 槽位 .partial() 预填,末端接 parser",
           "target": "build_forge_chain() 函数",
           "code": "prompt.partial(format_instructions=parser.get_format_instructions())",
-          "expect": "锻房分支返回 SwordOrder 对象"
+          "expect": "内容制作组分支返回 SwordOrder 对象"
         },
         {
           "title": "main 按 isinstance(result, SwordOrder) 分派渲染:对象逐字段打印,字符串原样输出",
@@ -250,7 +250,7 @@
       "hints": [
         {
           "order": 1,
-          "text": "方向:锻房链的出口从 str 换成 SwordOrder,只换提示词契约与末端 parser,路由器一行不用改。"
+          "text": "方向:内容制作组链的出口从 str 换成 SwordOrder,只换提示词契约与末端 parser,路由器一行不用改。"
         },
         {
           "order": 2,
@@ -258,7 +258,7 @@
         },
         {
           "order": 3,
-          "text": "接近答案:锻房 `return prompt | build_llm([MOCK_SWORD_JSON]) | parser`;main 里 `isinstance(result, SwordOrder)` 分派渲染。"
+          "text": "接近答案:内容制作组 `return prompt | build_llm([MOCK_SWORD_JSON]) | parser`;main 里 `isinstance(result, SwordOrder)` 分派渲染。"
         }
       ],
       "codeSamples": [
@@ -287,7 +287,7 @@
         {
           "name": "Pydantic",
           "role": "数据契约与校验",
-          "description": "用模型类声明字段、类型与取值范围,SwordOrder 铸剑单的契约基础,解析失败即抛出校验异常。",
+          "description": "用模型类声明字段、类型与取值范围,SwordOrder 内容方案单的契约基础,解析失败即抛出校验异常。",
           "officialUrl": "https://docs.pydantic.dev/",
           "category": "库",
           "installHint": "pip install pydantic"
@@ -295,7 +295,7 @@
         {
           "name": "LangChain Core",
           "role": "LCEL 编排内核",
-          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是铸剑台所有链件的统一接口层。",
+          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是提示词工作台所有链件的统一接口层。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain-core"
@@ -304,7 +304,7 @@
       "validation": [
         {
           "type": "placeholder_filled",
-          "message": "请补全 # TODO 标记的解析器与锻房链",
+          "message": "请补全 # TODO 标记的解析器与内容制作组链",
           "placeholder": "# TODO",
           "blocking": true
         },
@@ -337,11 +337,11 @@
       "taskId": "t14-chain-routing",
       "order": 4,
       "title": "备好退路:with_fallbacks 降级链",
-      "instruction": "### 目标\n给锻房挂上\"备用炉\":用 `with_fallbacks` 把结构化主链和散文副链绑成降级链——主链 JSON 解析失败(或模型抽风、接口超时)时自动切换副链,客人绝不空手而归;并在 MOCK 剧本里实机观察\"第一炉失败→降级、第二炉成功→恢复\"的完整过程。\n\n### 原理\n**LLM 链路是天然的不可靠部件。** 网络抖动、限流、输出不合契约,都是常态而非意外。`with_fallbacks([fallback_chain])` 把这些不确定性封装进链本身:主链 invoke 抛异常时按顺序尝试备用链,全部失败才把最后的异常抛给调用方。默认捕获所有 `Exception`,也可以用 `exceptions_to_handle=(OutputParserException,)` 收窄范围——只为你预期内的失败兜底,预期外的 bug 仍应该炸出来。\n\n**降级 ≠ 失败,而是服务等级的主动让步。** 锻房主链的承诺是\"结构化铸剑单\",副链的承诺只是\"给个像样答复\"。降级发生时系统仍在服务,只是 SLA 降了一档:调用方拿到 `str` 而非 `SwordOrder`。由于 s3 的渲染层本就按 `isinstance` 分派,降级的产物无需任何特殊处理就能被正确展示——好的架构让降级\"看起来也像正常输出\"。这就是优雅降级(graceful degradation)的工程形态。\n\n**fallback 链本身必须更可靠。** 副链摘掉了 parser 这个最脆弱的环节,只要求模型说人话——可靠性来自\"降低对输出的要求\",而不是更复杂的重试逻辑。设计 fallback 的第一原则:**备用路径的故障面必须小于主路径**;如果副链和主链一样容易挂,那不是兜底,是陪葬。生产中还常见\"主模型挂备用模型\"的双供应商降级,道理相同。\n\n### 操作\n1. 锻房拆成 `build_structured_forge_chain()`(主)与 `build_fallback_forge_chain()`(副,纯文本)\n2. `build_forge_chain()` 返回 `primary.with_fallbacks([fallback])`\n3. MOCK 剧本让主链假模型第一次返回残缺 JSON、第二次返回合格 JSON,观察降级与恢复\n4. 打印时区分\"主链出货\"与\"[降级] 副链散文\",确认两次铸剑走了不同路径\n\n### 常见坑\n- 把 `with_fallbacks([fallback])` 写成 `with_fallbacks(fallback)`:参数是 Runnable 的**列表**,漏掉方括号行为未按预期——多备用链时 `[plan_b, plan_c]` 按序尝试\n- 副链输入变量与主链不一致:主链吃 `{request}`,副链模板却用 `{query}`——降级触发时再炸一次 `KeyError`,两条链的输入契约必须逐字对齐",
+      "instruction": "### 目标\n给内容制作组挂上\"备用链\":用 `with_fallbacks` 把结构化主链和散文副链绑成降级链——主链 JSON 解析失败(或模型抽风、接口超时)时自动切换副链,客人绝不空手而归;并在 MOCK 剧本里实机观察\"第一次处理失败→降级、第二次处理成功→恢复\"的完整过程。\n\n### 原理\n**LLM 链路是天然的不可靠部件。** 网络抖动、限流、输出不合契约,都是常态而非意外。`with_fallbacks([fallback_chain])` 把这些不确定性封装进链本身:主链 invoke 抛异常时按顺序尝试备用链,全部失败才把最后的异常抛给调用方。默认捕获所有 `Exception`,也可以用 `exceptions_to_handle=(OutputParserException,)` 收窄范围——只为你预期内的失败兜底,预期外的 bug 仍应该炸出来。\n\n**降级 ≠ 失败,而是服务等级的主动让步。** 内容制作组主链的承诺是\"结构化内容方案单\",副链的承诺只是\"给个像样答复\"。降级发生时系统仍在服务,只是 SLA 降了一档:调用方拿到 `str` 而非 `SwordOrder`。由于 s3 的渲染层本就按 `isinstance` 分派,降级的产物无需任何特殊处理就能被正确展示——好的架构让降级\"看起来也像正常输出\"。这就是优雅降级(graceful degradation)的工程形态。\n\n**fallback 链本身必须更可靠。** 副链摘掉了 parser 这个最脆弱的环节,只要求模型说人话——可靠性来自\"降低对输出的要求\",而不是更复杂的重试逻辑。设计 fallback 的第一原则:**备用路径的故障面必须小于主路径**;如果副链和主链一样容易挂,那不是兜底,是陪葬。生产中还常见\"主模型挂备用模型\"的双供应商降级,道理相同。\n\n### 操作\n1. 内容制作组拆成 `build_structured_forge_chain()`(主)与 `build_fallback_forge_chain()`(副,纯文本)\n2. `build_forge_chain()` 返回 `primary.with_fallbacks([fallback])`\n3. MOCK 剧本让主链假模型第一次返回残缺 JSON、第二次返回合格 JSON,观察降级与恢复\n4. 打印时区分\"主链出货\"与\"[降级] 副链散文\",确认两次内容制作走了不同路径\n\n### 常见坑\n- 把 `with_fallbacks([fallback])` 写成 `with_fallbacks(fallback)`:参数是 Runnable 的**列表**,漏掉方括号行为未按预期——多备用链时 `[plan_b, plan_c]` 按序尝试\n- 副链输入变量与主链不一致:主链吃 `{request}`,副链模板却用 `{query}`——降级触发时再炸一次 `KeyError`,两条链的输入契约必须逐字对齐",
       "todoItems": [
         {
-          "title": "锻房拆成 build_structured_forge_chain()(主)与 build_fallback_forge_chain()(副,纯文本散文)",
-          "target": "两个锻房工厂函数",
+          "title": "内容制作组拆成 build_structured_forge_chain()(主)与 build_fallback_forge_chain()(副,纯文本散文)",
+          "target": "两个内容制作组工厂函数",
           "code": "def build_fallback_forge_chain():",
           "expect": "不再报 TODO 错误"
         },
@@ -352,7 +352,7 @@
           "expect": "主链异常时自动走副链降级"
         },
         {
-          "title": "打印时区分「主链出货」与「[降级] 副链散文」,确认两次铸剑走了不同路径",
+          "title": "打印时区分「主链出货」与「[降级] 副链散文」,确认两次内容制作走了不同路径",
           "target": "main() 运行输出",
           "expect": "第一次降级、第二次主链出货"
         }
@@ -397,7 +397,7 @@
         {
           "name": "LangChain Core",
           "role": "LCEL 编排内核",
-          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是铸剑台所有链件的统一接口层。",
+          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是提示词工作台所有链件的统一接口层。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain-core"
@@ -405,7 +405,7 @@
         {
           "name": "langchain-openai",
           "role": "OpenAI 兼容模型接入",
-          "description": "ChatOpenAI 以 OpenAI 兼容协议接入 DeepSeek(api.deepseek.com),铸剑台的炉火来源。",
+          "description": "ChatOpenAI 以 OpenAI 兼容协议接入 DeepSeek(api.deepseek.com),提示词工作台的模型服务来源。",
           "officialUrl": "https://python.langchain.com/docs/integrations/chat/openai/",
           "category": "SDK",
           "installHint": "pip install langchain-openai"
@@ -441,11 +441,11 @@
       "id": "t14-chain-routing-s5",
       "taskId": "t14-chain-routing",
       "order": 5,
-      "title": "开张大吉:铸剑台工作台总装",
-      "instruction": "### 目标\n铸剑台收官总装:在 s4 路由器之上补最后两块——茶室闲聊链接入 `MessagesPlaceholder` 对话记忆(t13 的件),各分支出口接 `RunnableLambda` 打上意图标签;最终由 `workbench()` 统一接待:分流、渲染、闲聊记入问答录。main 里六位客人轮番上门完成开张演练,打烊时盘点问答录。\n\n### 原理\n**工作台 = 路由 + 记忆 + 统一出入口。** 前四步的件各管一段:分类链判来意、RunnableBranch 分流、结构化链立契约、fallbacks 保底线。总装要解决的是\"件与件之间的接缝\"。接缝一:分支出口类型不一(`str` / `SwordOrder`),就用 `tag()` 把每个出口包成 `(intent, reply)` 元组,全台契约统一,workbench 解包后按类型渲染。接缝二:闲聊需要上下文,把 `history` 放进输入字典随路由透传——`ChatPromptTemplate` 只取自己声明的变量,多余键自动忽略,锻房链收到 history 也无妨,这正是 LCEL 字典透传的便利。\n\n**MessagesPlaceholder 是\"可变长对话历史\"的槽位。** 普通 `{var}` 槽位渲染成一段文本,`MessagesPlaceholder(\"history\")` 则把一整个 `BaseMessage` 列表平铺进消息序列——HumanMessage、AIMessage 各就各位,模型看到的是真实多轮对话,而不是拼贴成一段的伪历史。问答录用普通 list 维护即可:接待完闲聊客人,追加一问一答两条消息;传给 invoke 时用 `list(history)` 拷贝快照,保证\"模型看不到正在进行的这一问之后的登记\"。\n\n**编排的终点是\"一个函数\"。** `workbench(router, request, history)` 对外只有一个入口,内部完成分流、渲染、记忆登记。章项目的最终形态不是一堆链的陈列,而是一台有统一操作台面的机器——这正是 t10 到 t14 一路攒件的用意:每个小件都守 Runnable 协议,总装时才能像乐高一样咬合。\n\n### 操作\n1. 茶室链模板在 system 与 human 之间插入 `MessagesPlaceholder(\"history\")`\n2. 给每条分支链末尾接 `| tag(\"意图名\")`,打成 `(意图, 答复)` 元组\n3. `workbench()` 解包元组:SwordOrder 渲染成铸剑单行,str 原样输出;intent 为 chat 时把问答追加进 history\n4. 六客轮番上门(含一次锻房降级、两轮闲聊),打烊时打印问答录盘点\n\n### 常见坑\n- 把 history 列表本体传进 invoke 又在接待前 append:模型看到的快照混入未发生的问答,时序错乱;传 `list(history)` 拷贝,接待完再登记\n- `tag` 写进 RunnableBranch 的条件位:`(tag(\"forge\"), forge_chain)` 是把标签函数当条件用,恒为真且语义全错;标签要接在分支链**之后**(`chain | tag(\"forge\")`)",
+      "title": "开张大吉:提示词工作台工作台总装",
+      "instruction": "### 目标\n提示词工作台收官总装:在 s4 路由器之上补最后两块——咨询台闲聊链接入 `MessagesPlaceholder` 对话记忆(t13 的件),各分支出口接 `RunnableLambda` 打上意图标签;最终由 `workbench()` 统一接待:分流、渲染、闲聊记入问答录。main 里六位客人轮番上门完成开张演练,打烊时盘点问答录。\n\n### 原理\n**工作台 = 路由 + 记忆 + 统一出入口。** 前四步的件各管一段:分类链判来意、RunnableBranch 分流、结构化链立契约、fallbacks 保底线。总装要解决的是\"件与件之间的接缝\"。接缝一:分支出口类型不一(`str` / `SwordOrder`),就用 `tag()` 把每个出口包成 `(intent, reply)` 元组,全台契约统一,workbench 解包后按类型渲染。接缝二:闲聊需要上下文,把 `history` 放进输入字典随路由透传——`ChatPromptTemplate` 只取自己声明的变量,多余键自动忽略,内容制作组链收到 history 也无妨,这正是 LCEL 字典透传的便利。\n\n**MessagesPlaceholder 是\"可变长对话历史\"的槽位。** 普通 `{var}` 槽位渲染成一段文本,`MessagesPlaceholder(\"history\")` 则把一整个 `BaseMessage` 列表平铺进消息序列——HumanMessage、AIMessage 各就各位,模型看到的是真实多轮对话,而不是拼贴成一段的伪历史。问答录用普通 list 维护即可:接待完闲聊客人,追加一问一答两条消息;传给 invoke 时用 `list(history)` 拷贝快照,保证\"模型看不到正在进行的这一问之后的登记\"。\n\n**编排的终点是\"一个函数\"。** `workbench(router, request, history)` 对外只有一个入口,内部完成分流、渲染、记忆登记。章项目的最终形态不是一堆链的陈列,而是一台有统一操作台面的机器——这正是 t10 到 t14 一路攒件的用意:每个小件都守 Runnable 协议,总装时才能像乐高一样咬合。\n\n### 操作\n1. 咨询台链模板在 system 与 human 之间插入 `MessagesPlaceholder(\"history\")`\n2. 给每条分支链末尾接 `| tag(\"意图名\")`,打成 `(意图, 答复)` 元组\n3. `workbench()` 解包元组:SwordOrder 渲染成内容方案单行,str 原样输出;intent 为 chat 时把问答追加进 history\n4. 六客轮番上门(含一次内容制作组降级、两轮闲聊),打烊时打印问答录盘点\n\n### 常见坑\n- 把 history 列表本体传进 invoke 又在接待前 append:模型看到的快照混入未发生的问答,时序错乱;传 `list(history)` 拷贝,接待完再登记\n- `tag` 写进 RunnableBranch 的条件位:`(tag(\"forge\"), forge_chain)` 是把标签函数当条件用,恒为真且语义全错;标签要接在分支链**之后**(`chain | tag(\"forge\")`)",
       "todoItems": [
         {
-          "title": "茶室链模板在 system 与 human 之间插入 MessagesPlaceholder(\"history\")",
+          "title": "咨询台链模板在 system 与 human 之间插入 MessagesPlaceholder(\"history\")",
           "target": "build_chat_chain() 模板",
           "code": "MessagesPlaceholder(\"history\")",
           "expect": "不再报 TODO 错误"
@@ -457,13 +457,13 @@
           "expect": "invoke 返回 (意图, 答复) 元组"
         },
         {
-          "title": "workbench() 解包元组:SwordOrder 渲染成铸剑单行,str 原样输出;intent 为 chat 时把问答追加进 history",
+          "title": "workbench() 解包元组:SwordOrder 渲染成内容方案单行,str 原样输出;intent 为 chat 时把问答追加进 history",
           "target": "workbench() 函数",
           "code": "history.append(HumanMessage(...))",
           "expect": "不再报 TODO 错误"
         },
         {
-          "title": "六客轮番上门(含一次锻房降级、两轮闲聊),打烊时打印问答录盘点",
+          "title": "六客轮番上门(含一次内容制作组降级、两轮闲聊),打烊时打印问答录盘点",
           "target": "main() 演练",
           "expect": "打印六客问答录,闲聊上下文连贯"
         }
@@ -508,7 +508,7 @@
         {
           "name": "LangChain Core",
           "role": "LCEL 编排内核",
-          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是铸剑台所有链件的统一接口层。",
+          "description": "提供 Runnable 协议与 RunnableBranch、RunnablePassthrough、RunnableLambda、with_fallbacks 等组合原语,是提示词工作台所有链件的统一接口层。",
           "officialUrl": "https://python.langchain.com/",
           "category": "框架",
           "installHint": "pip install langchain-core"
@@ -525,7 +525,7 @@
       "validation": [
         {
           "type": "placeholder_filled",
-          "message": "请补全 # TODO 标记的茶室链、路由器与 workbench",
+          "message": "请补全 # TODO 标记的咨询台链、路由器与 workbench",
           "placeholder": "# TODO",
           "blocking": true
         },
@@ -537,7 +537,7 @@
         },
         {
           "type": "regex_in_code",
-          "message": "茶室链需要 MessagesPlaceholder 接入对话记忆",
+          "message": "咨询台链需要 MessagesPlaceholder 接入对话记忆",
           "pattern": "MessagesPlaceholder"
         },
         {

@@ -1,8 +1,23 @@
-"""渡劫飞升 · s2:系统架构——mermaid 架构图分层
+"""终期交付 · s2:系统架构——mermaid 架构图分层
 
 把系统按展示、接入、业务、能力、存储五层切分,
 组件间的连线即数据流,自上而下、不可反向。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：系统架构:mermaid 架构图分层。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `md_table(headers: list, rows: list) -> str`：输入为签名中的参数；输出为 `str`。用途：把二维数组渲染成 Markdown 表格。
+#   - `arch_edges() -> list`：输入为签名中的参数；输出为 `list`。用途：返回架构图连线:每条形如 'a --> b'。
+#   - `render_mermaid() -> str`：输入为签名中的参数；输出为 `str`。用途：用 subgraph 分层渲染 flowchart,组件放在对应层内。
+#   - `check_diagram(text: str) -> None`：输入为签名中的参数；输出为 `None`。用途：体检生成的 mermaid:连线、分组、闭合数量全部对上。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 
 TAGLINE = "毕业设计 · 整合七章所学交付完整知识问答 Agent"
@@ -27,14 +42,14 @@ LAYER_ORDER = [
 
 # ---- 组件清单:名字 -> 职责说明 ----
 ARCH_COMPONENTS = {
-    "web": "Web 界面:修行者提问与阅读回答的入口",
+    "web": "Web 界面:学习者提问与阅读回答的入口",
     "api": "FastAPI 网关:统一接收请求、做鉴权与限流",
     "svc": "服务编排:串联检索、Agent 决策与回答组装",
     "agent": "问答 Agent:规划、调用工具、管理多轮上下文",
-    "rag": "检索增强:典籍切块、向量化、相关性召回",
+    "rag": "检索增强:资料切块、向量化、相关性召回",
     "harness": "工具执行:在安全沙箱里运行外部工具",
     "vec": "向量服务:相似度检索与重排",
-    "kb": "典籍库:功法原文与切块(文档+向量)",
+    "kb": "知识库:方法原文与切块(文档+向量)",
     "mem": "记忆库:多轮会话上下文与用户画像",
 }
 
@@ -85,7 +100,7 @@ def main() -> None:
     os.makedirs("docs", exist_ok=True)
     diagram = render_mermaid()
     check_diagram(diagram)
-    doc = ["# 渡劫飞升 · 系统架构", "", "> " + TAGLINE]
+    doc = ["# 黑糖资料室 · 系统架构", "", "> " + TAGLINE]
     doc.append("```mermaid")
     doc.append(diagram)
     doc.append("```")

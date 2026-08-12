@@ -4,6 +4,24 @@
 写进 CHECKLIST_YAML,由 run_checks 逐项翻译成布尔判断,一次
 运行得出通过项数,让「检查」变成可重复、可回归的流程。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：上线清单可执行化:YAML 配置驱动检查。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `load_kb(text) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按 --- 分隔符把整份素材切成知识块列表。
+#   - `retrieve(query, kb, top_k=3) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按词频打分,返回最相关的 top_k 个知识块。
+#   - `build_big_kb(n=200) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：构造 n 段同构知识块,模拟上规模的知识库。
+#   - `bench_retrieve(kb, query, rounds=30) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：对同一查询重复检索 rounds 轮,返回每轮耗时(秒)列表。
+#   - `p95(times) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：取耗时列表的 P95 分位,空列表返回 0.0。
+#   - `run_checks(kb, backup_path) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：逐项执行上线清单,返回 [{name, ok, desc}] 结果列表。
+#   - `run_tests(work_dir) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：把 TEST_CODE 写成 test_qa.py,再用 pytest 实跑验收。
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import re
 import tempfile
@@ -26,10 +44,10 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    kb = ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"]
-    hits = retrieve("渡劫 飞升", kb, top_k=3)
+    kb = ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"]
+    hits = retrieve("上线验收 完成交付", kb, top_k=3)
     assert len(hits) == 2
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    assert hits[0][0] == "黑糖资料室需要故障演练"
     assert hits[0][1] == 2
 
 
@@ -39,7 +57,7 @@ def test_p95_fixed():
 
 def test_perf_p95_within_budget():
     kb = build_big_kb(200)
-    times = bench_retrieve(kb, "渡劫 雷劫", rounds=10)
+    times = bench_retrieve(kb, "上线验收 故障", rounds=10)
     assert p95(times) * 1000 <= PERF_BUDGET_MS
 
 
@@ -97,7 +115,7 @@ def retrieve(query, kb, top_k=3):
 
 def build_big_kb(n=200):
     """构造 n 段同构知识块,模拟上规模的知识库。"""
-    return [f"第{i}段:渡劫之道,雷劫在前心劫在后,飞升者需护体法器。" for i in range(1, n + 1)]
+    return [f"第{i}段:上线验收之道,先验证故障恢复,再检查完成交付所需工具。" for i in range(1, n + 1)]
 
 
 def bench_retrieve(kb, query, rounds=30):
@@ -125,8 +143,8 @@ def run_checks(kb, backup_path):
     """逐项执行上线清单,返回 [{name, ok, desc}] 结果列表。"""
     # TODO: 按 CHECKLIST_YAML 逐项分派六项检查,返回 [{name, ok, desc}] 结果列表
     # 提示: for item in yaml.safe_load(CHECKLIST_YAML): name = item["name"]
-    # 提示: 知识库可加载 -> ok = len(kb) > 0;检索可用 -> ok = len(retrieve("渡劫", kb)) > 0
-    # 提示: 性能达标/延迟达标 -> ok = p95(bench_retrieve(kb, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+    # 提示: 知识库可加载 -> ok = len(kb) > 0;检索可用 -> ok = len(retrieve("验收", kb)) > 0
+    # 提示: 性能达标/延迟达标 -> ok = p95(bench_retrieve(kb, "验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
     # 提示: 工具就绪 -> ok = "calc" in TOOL_TABLE and "echo" in TOOL_TABLE;备份存在 -> ok = Path(backup_path).exists()
     # 提示: results.append({"name": name, "ok": ok, "desc": item["desc"]});return results
     raise NotImplementedError("t74-acceptance-s4 尚未实现:请按 TODO 提示完成上线清单逐项执行")
@@ -143,10 +161,10 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 上线清单 s4 ==")
+    print("== 黑糖资料室 · 上线清单 s4 ==")
     backup = os.path.join(tempfile.gettempdir(), "kb_backup.json")
     with open(backup, "w", encoding="utf-8") as f:
-        f.write('{"kb": "渡劫飞升知识库备份"}')
+        f.write('{"kb": "黑糖资料室知识库备份"}')
     results = run_checks(build_big_kb(200), backup)
     passed = sum(1 for r in results if r["ok"])
     print(f"上线清单:{len(results)} 项,通过 {passed} 项")

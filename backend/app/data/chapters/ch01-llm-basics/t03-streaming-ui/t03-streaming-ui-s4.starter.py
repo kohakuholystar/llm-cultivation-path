@@ -1,4 +1,10 @@
-"""灵讯通 · s4:健壮流式封装 —— 空 chunk 与断流都兜得住。"""
+"""星澈助手 · s4:健壮流式封装 —— 空 chunk 与断流都兜得住。"""
+# 学习契约
+# 目标：完成 t03-streaming-ui-s4 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 1 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client(c) -> OpenAI; safe_stream(client, config, question, report) -> 未标注; main() -> None。
+# 技术栈：os, sys, dataclasses, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 from dataclasses import dataclass
@@ -59,7 +65,7 @@ def main() -> None:
     client = create_client(config)
     question = "用一句话介绍你自己。"
     print(f"你: {question}")
-    print("灵讯通: ", end="", flush=True)
+    print("星澈助手: ", end="", flush=True)
     report = StreamReport()
     parts = list(safe_stream(client, config, question, report))
     print("".join(parts))

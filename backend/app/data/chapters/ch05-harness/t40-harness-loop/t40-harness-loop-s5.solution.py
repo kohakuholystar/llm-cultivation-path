@@ -1,7 +1,7 @@
-"""乾坤圈 · s5:多轮会话——让运行时常住下来
+"""Agent 运行时底座 · s5:多轮会话——让运行时常住下来
 
 s4 的循环跑完一轮就散场。真实 Agent 要陪用户聊很多轮,
-本步给乾坤圈加上会话层:每轮输入都完整走一遍循环,
+本步给Agent 运行时底座加上会话层:每轮输入都完整走一遍循环,
 但消息历史跨轮保留——Agent 记得上一轮说过什么。
 """
 import time
@@ -38,12 +38,12 @@ class AgentState:
 
 def get_time() -> str:
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 TOOLS = {"get_time": get_time, "list_meridians": list_meridians}
@@ -131,8 +131,8 @@ class AgentSession:
 def main() -> None:
     loop = AgentLoop(max_steps=10)
     session = AgentSession(loop)
-    session.run("现在是什么时辰?", ["get_time", "reply"])
-    session.run("十二经脉有哪些?", ["get_time", "reply"])
+    session.run("当前是什么时间段?", ["get_time", "reply"])
+    session.run("工作流有哪些主要阶段?", ["get_time", "reply"])
     session.run("我们改天再聊", ["reply"])
     session.report()
 

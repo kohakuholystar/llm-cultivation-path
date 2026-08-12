@@ -1,9 +1,21 @@
-"""袖里乾坤 · s2:冻结主干——LoRALayer 入炉
+"""模型研究小组 · s2:冻结主干——LoRALayer 入处理器
 
 LoRA 不直接改写预训练权重:它把 W 冻结,在旁边挂一条
 「低秩旁路」ΔW = alpha/r · A@B。微调时只动 A、B,
 主干一行不改——参数高效微调的秘密就在这。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：冻结主干:LoRALayer 入处理器。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：delta；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `LoRALayer`：承载本节状态/数据；重点方法：delta, forward, trainable_params, frozen_params, summary。
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import numpy as np
 
 V = 35
@@ -48,7 +60,7 @@ class LoRALayer:
 
 
 def main() -> None:
-    print("== 冻结主干:LoRALayer 入炉 ==")
+    print("== 冻结主干:LoRALayer 入处理器 ==")
     layer = LoRALayer(V, RANK, ALPHA)
     print(layer.summary())
     total = layer.trainable_params() + layer.frozen_params()

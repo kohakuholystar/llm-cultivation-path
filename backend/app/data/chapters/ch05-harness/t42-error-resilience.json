@@ -5,7 +5,7 @@
       "taskId": "t42-error-resilience",
       "order": 1,
       "title": "指数退避:让重试学会等待",
-      "instruction": "### 目标\n\n本步给「乾坤圈」运行时装上第一层护甲:指数退避重试。完成 `compute_backoff` 与 `retry_call` 两个函数,让调用失败后按 0.1s、0.2s、0.4s 的节奏自动重试,并把不可重试的异常直接抛出。\n\n### 原理\n\n重试之所以要「退避」,是因为连续失败往往意味着上游正处于过载或抖动状态:此时用固定间隔高频重试,只会把流量在同一个坏时刻再次砸向上游,形成恶性循环。指数退避让每次重试的等待时间翻倍,给上游留出恢复窗口;再叠加 jitter 抖动,让集群里成千上万个实例的重试时刻随机散开,避免在同一瞬间「惊群」。另外,并非所有异常都值得重试:参数不合法、校验失败这类确定性错误,重试一万次结果都一样,应当在第一次失败后就果断抛出,而不是空耗时间。\n\n### 操作\n\n1. 在 `compute_backoff` 内计算 `delay = min(base_delay * (2 ** attempt), max_delay)`,实现指数增长与封顶:attempt 每加 1,等待时间翻倍,但不超过 max_delay。\n2. 若 jitter 非 0,用 `delay *= 1 - jitter + 2 * jitter * random.random()` 把等待时间伸缩到 [1-jitter, 1+jitter] 区间,并用 `round(delay, 3)` 返回。\n3. 在 `retry_call` 的 except 分支里补齐重试节奏:次数用尽则 break,should_retry 判定不值得重试也 break,否则计算延迟、打印失败信息并 sleep。\n4. 运行 `main()`,确认「第 1 次调用失败」与「不可重试异常直接抛出」都按预期打印。\n\n### 常见坑\n\n- 忘记封顶:base_delay 大或重试次数多时,等待时间会爆炸式增长,必须 min 到 max_delay。\n- 把最后一次失败吞掉:循环结束处必须 `raise last_exc`,否则调用方永远不知道失败。\n- jitter 取极端值:0 表示完全不抖动,1 表示最高可以减到 0,两者都应避免。\n- 在 except 里 return:会让重试函数悄悄返回 None,与「调用成功」语义混淆。",
+      "instruction": "### 目标\n\n本步给「Agent 运行时底座」运行时装上第一层护甲:指数退避重试。完成 `compute_backoff` 与 `retry_call` 两个函数,让调用失败后按 0.1s、0.2s、0.4s 的节奏自动重试,并把不可重试的异常直接抛出。\n\n### 原理\n\n重试之所以要「退避」,是因为连续失败往往意味着上游正处于过载或抖动状态:此时用固定间隔高频重试,只会把流量在同一个坏时刻再次砸向上游,形成恶性循环。指数退避让每次重试的等待时间翻倍,给上游留出恢复窗口;再叠加 jitter 抖动,让集群里成千上万个实例的重试时刻随机散开,避免在同一瞬间「惊群」。另外,并非所有异常都值得重试:参数不合法、校验失败这类确定性错误,重试一万次结果都一样,应当在第一次失败后就果断抛出,而不是空耗时间。\n\n### 操作\n\n1. 在 `compute_backoff` 内计算 `delay = min(base_delay * (2 ** attempt), max_delay)`,实现指数增长与封顶:attempt 每加 1,等待时间翻倍,但不超过 max_delay。\n2. 若 jitter 非 0,用 `delay *= 1 - jitter + 2 * jitter * random.random()` 把等待时间伸缩到 [1-jitter, 1+jitter] 区间,并用 `round(delay, 3)` 返回。\n3. 在 `retry_call` 的 except 分支里补齐重试节奏:次数用尽则 break,should_retry 判定不值得重试也 break,否则计算延迟、打印失败信息并 sleep。\n4. 运行 `main()`,确认「第 1 次调用失败」与「不可重试异常直接抛出」都按预期打印。\n\n### 常见坑\n\n- 忘记封顶:base_delay 大或重试次数多时,等待时间会爆炸式增长,必须 min 到 max_delay。\n- 把最后一次失败吞掉:循环结束处必须 `raise last_exc`,否则调用方永远不知道失败。\n- jitter 取极端值:0 表示完全不抖动,1 表示最高可以减到 0,两者都应避免。\n- 在 except 里 return:会让重试函数悄悄返回 None,与「调用成功」语义混淆。",
       "hints": [
         {
           "order": 1,
@@ -90,7 +90,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应展示重试成功与不可重试异常直接抛出两类结果。",
-          "expectedStdout": "== 乾坤圈 · s1:指数退避重试 ==[\\s\\S]*第 1 次调用失败:TimeoutError[\\s\\S]*最终结果:ok\\(第 3 次成功\\)[\\s\\S]*不可重试异常直接抛出[\\s\\S]*退避曲线",
+          "expectedStdout": "== Agent 运行时底座 · s1:指数退避重试 ==[\\s\\S]*第 1 次调用失败:TimeoutError[\\s\\S]*最终结果:ok\\(第 3 次成功\\)[\\s\\S]*不可重试异常直接抛出[\\s\\S]*退避曲线",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -102,7 +102,7 @@
       "taskId": "t42-error-resilience",
       "order": 2,
       "title": "降级链:主路不通走备路",
-      "instruction": "### 目标\n\n本步给「乾坤圈」装上第二层护甲:降级链。完成 `FallbackChain.run` 的遍历逻辑与 `with_retry` 包装器,让主路失败后自动切换备路,备路也失败时落到链尾的兜底策略,保证 Agent 永远拿得到答复。\n\n### 原理\n\n降级链的本质是一条「主路 -> 备路 -> 兜底」的优先级链:每一环是一个可调用对象,按顺序逐个尝试,第一个成功的结果即为最终输出。它有三条铁律:其一,每一环必须单独用 try/except 包裹,一环的异常绝不能中断整条链;其二,成功即停,成功之后不再尝试后面的环节;其三,链尾必须放兜底策略,它应保证不抛异常,否则降级链本身就成了新的故障点。为了让链路里的每个环节都自带重试,`with_retry` 会把 `retry_call` 藏进包装器:链只关心「这一环最终成没成」,重试细节由内层负责。\n\n### 操作\n\n1. 在 `FallbackChain.run` 里用 try/except 包住 `strategy(*args, **kwargs)`,成功时打印成功信息并返回 `{\"ok\": True, \"source\": name, \"data\": data}` 信封。\n2. 失败时打印失败原因后继续循环,让异常留在 try 块内部,绝不让它跳出整个 for 循环。\n3. 在 `with_retry` 的 wrapper 内调用 `retry_call(fn, args, retries=1, base_delay=0.01, max_delay=0.02, sleep=lambda _: None)` 并返回结果。\n4. 补上 `wrapper.__name__ = fn.__name__`,否则降级链打印的环节名会变成 wrapper 而不是 primary_llm。\n5. 运行 `main()`,确认主路、备路依次失败后,兜底策略接管并打印成功来源。\n\n### 常见坑\n\n- 把 try 放到 for 循环外:一环异常会中断整条链,后面的备路永远轮不到。\n- 兜底策略还抛异常:链尾必须保证不抛,否则降级等于没有。\n- 忘了 source:信封里不带来源,线上排查时看不出答案到底来自哪条路。\n- 链内重试过多:每环内置 1-2 次重试足够,重试过多会拖慢整条链的响应。",
+      "instruction": "### 目标\n\n本步给「Agent 运行时底座」装上第二层护甲:降级链。完成 `FallbackChain.run` 的遍历逻辑与 `with_retry` 包装器,让主路失败后自动切换备路,备路也失败时落到链尾的兜底策略,保证 Agent 永远拿得到答复。\n\n### 原理\n\n降级链的本质是一条「主路 -> 备路 -> 兜底」的优先级链:每一环是一个可调用对象,按顺序逐个尝试,第一个成功的结果即为最终输出。它有三条铁律:其一,每一环必须单独用 try/except 包裹,一环的异常绝不能中断整条链;其二,成功即停,成功之后不再尝试后面的环节;其三,链尾必须放兜底策略,它应保证不抛异常,否则降级链本身就成了新的故障点。为了让链路里的每个环节都自带重试,`with_retry` 会把 `retry_call` 藏进包装器:链只关心「这一环最终成没成」,重试细节由内层负责。\n\n### 操作\n\n1. 在 `FallbackChain.run` 里用 try/except 包住 `strategy(*args, **kwargs)`,成功时打印成功信息并返回 `{\"ok\": True, \"source\": name, \"data\": data}` 信封。\n2. 失败时打印失败原因后继续循环,让异常留在 try 块内部,绝不让它跳出整个 for 循环。\n3. 在 `with_retry` 的 wrapper 内调用 `retry_call(fn, args, retries=1, base_delay=0.01, max_delay=0.02, sleep=lambda _: None)` 并返回结果。\n4. 补上 `wrapper.__name__ = fn.__name__`,否则降级链打印的环节名会变成 wrapper 而不是 primary_llm。\n5. 运行 `main()`,确认主路、备路依次失败后,兜底策略接管并打印成功来源。\n\n### 常见坑\n\n- 把 try 放到 for 循环外:一环异常会中断整条链,后面的备路永远轮不到。\n- 兜底策略还抛异常:链尾必须保证不抛,否则降级等于没有。\n- 忘了 source:信封里不带来源,线上排查时看不出答案到底来自哪条路。\n- 链内重试过多:每环内置 1-2 次重试足够,重试过多会拖慢整条链的响应。",
       "hints": [
         {
           "order": 1,
@@ -187,7 +187,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应展示主路、备路失败后兜底接管。",
-          "expectedStdout": "== 乾坤圈 · s2:降级链 FallbackChain ==[\\s\\S]*环节 0\\(primary_llm\\) 失败:TimeoutError[\\s\\S]*环节 1\\(backup_llm\\) 失败[\\s\\S]*环节 2\\(rule_fallback\\) 成功,停止降级[\\s\\S]*成功来源:rule_fallback[\\s\\S]*【兜底】",
+          "expectedStdout": "== Agent 运行时底座 · s2:降级链 FallbackChain ==[\\s\\S]*环节 0\\(primary_llm\\) 失败:TimeoutError[\\s\\S]*环节 1\\(backup_llm\\) 失败[\\s\\S]*环节 2\\(rule_fallback\\) 成功,停止降级[\\s\\S]*成功来源:rule_fallback[\\s\\S]*【兜底】",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -199,7 +199,7 @@
       "taskId": "t42-error-resilience",
       "order": 3,
       "title": "熔断器:给故障装上闸门",
-      "instruction": "### 目标\n\n本步给「乾坤圈」装上第三层护甲:熔断器。完成 `CircuitBreaker.state` 的三态判定与 `call` 里的状态迁移,让依赖连续失败时闸门跳闸(open),冷却期内的调用直接快速失败,不再继续打必坏的依赖。\n\n### 原理\n\n重试解决瞬态抖动,但救不了持续故障:上游数据库挂掉时,每次重试都在火上浇油。熔断器像电路里的保险丝,连续失败达到阈值就跳闸:closed 态下失败计数,达到 failure_threshold 后进入 open;open 态下所有调用直接抛 `CircuitOpenError` 快速失败;冷却期结束后进入 half_open,放行一次试探请求;试探成功则恢复 closed,失败则重新熔断。跳闸的意义不只是保护上游,更是让下游请求「快」:与其在必坏的依赖上干等超时,不如立刻失败,把时间留给降级链上的备路。\n\n### 操作\n\n1. 在 `state` 属性里按时间判定三态:opened_at 为 None 是 closed;距 opened_at 不足 cooldown 是 open;否则是 half_open。\n2. 在 `call` 开头检查 `self.state is self.OPEN`,命中就直接抛 `CircuitOpenError`。\n3. 在 except 分支做失败迁移:closed 态失败计数,达到阈值置 opened_at 并打印跳闸;half_open 试探失败则重置 opened_at 重新冷却;最后把异常原样抛出。\n4. 在 else 分支做成功恢复:half_open 试探成功累计到 success_threshold,达到就复位三个计数并打印恢复;closed 态成功则清零 failures。\n5. 运行 `main()`,用 FakeClock 手动推进时间,观察 熔断 -> 快速失败 -> 冷却 -> 恢复 的完整迁移。\n\n### 常见坑\n\n- 用失败次数而不是时间判断 open:冷却期的意义就是「过一段时间再试」,只数次数等于永远不恢复。\n- 跨态混用计数:half_open 的失败走「重置冷却」,closed 的失败走「计数累计」,两套逻辑不能互相覆盖。\n- 忘复位:成功恢复后不把 opened_at 置回 None,熔断器会一直卡在 half_open。\n- open 态还去调依赖:open 的意义就是一刀切,任何调用都要在进入依赖之前被拦下。",
+      "instruction": "### 目标\n\n本步给「Agent 运行时底座」装上第三层护甲:熔断器。完成 `CircuitBreaker.state` 的三态判定与 `call` 里的状态迁移,让依赖连续失败时闸门跳闸(open),冷却期内的调用直接快速失败,不再继续打必坏的依赖。\n\n### 原理\n\n重试解决瞬态抖动,但救不了持续故障:上游数据库挂掉时,每次重试都在火上浇油。熔断器像电路里的保险丝,连续失败达到阈值就跳闸:closed 态下失败计数,达到 failure_threshold 后进入 open;open 态下所有调用直接抛 `CircuitOpenError` 快速失败;冷却期结束后进入 half_open,放行一次试探请求;试探成功则恢复 closed,失败则重新熔断。跳闸的意义不只是保护上游,更是让下游请求「快」:与其在必坏的依赖上干等超时,不如立刻失败,把时间留给降级链上的备路。\n\n### 操作\n\n1. 在 `state` 属性里按时间判定三态:opened_at 为 None 是 closed;距 opened_at 不足 cooldown 是 open;否则是 half_open。\n2. 在 `call` 开头检查 `self.state is self.OPEN`,命中就直接抛 `CircuitOpenError`。\n3. 在 except 分支做失败迁移:closed 态失败计数,达到阈值置 opened_at 并打印跳闸;half_open 试探失败则重置 opened_at 重新冷却;最后把异常原样抛出。\n4. 在 else 分支做成功恢复:half_open 试探成功累计到 success_threshold,达到就复位三个计数并打印恢复;closed 态成功则清零 failures。\n5. 运行 `main()`,用 FakeClock 手动推进时间,观察 熔断 -> 快速失败 -> 冷却 -> 恢复 的完整迁移。\n\n### 常见坑\n\n- 用失败次数而不是时间判断 open:冷却期的意义就是「过一段时间再试」,只数次数等于永远不恢复。\n- 跨态混用计数:half_open 的失败走「重置冷却」,closed 的失败走「计数累计」,两套逻辑不能互相覆盖。\n- 忘复位:成功恢复后不把 opened_at 置回 None,熔断器会一直卡在 half_open。\n- open 态还去调依赖:open 的意义就是一刀切,任何调用都要在进入依赖之前被拦下。",
       "hints": [
         {
           "order": 1,
@@ -290,7 +290,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应展示 熔断 -> 快速失败 -> 冷却 -> 恢复 的完整迁移。",
-          "expectedStdout": "== 乾坤圈 · s3:熔断器 CircuitBreaker ==[\\s\\S]*连续失败 2 次,状态 -> open[\\s\\S]*当前状态:open[\\s\\S]*熔断期间的回答:【兜底】[\\s\\S]*试探成功,状态 -> closed[\\s\\S]*最终状态:closed",
+          "expectedStdout": "== Agent 运行时底座 · s3:熔断器 CircuitBreaker ==[\\s\\S]*连续失败 2 次,状态 -> open[\\s\\S]*当前状态:open[\\s\\S]*熔断期间的回答:【兜底】[\\s\\S]*试探成功,状态 -> closed[\\s\\S]*最终状态:closed",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -302,7 +302,7 @@
       "taskId": "t42-error-resilience",
       "order": 4,
       "title": "幂等执行:重复请求不再重复伤害",
-      "instruction": "### 目标\n\n本步给「乾坤圈」装上第四层护甲:幂等执行。完成 `IdempotentExecutor.execute` 的「查重-执行-存档」流程与 `charge` 的扣款逻辑,让同一个 request_id 的重复请求只真正执行一次,失败也不留脏数据。\n\n### 原理\n\n幂等解决的是「重试的副作用」:客户端超时后重发同一请求,网络层保证的是送达,不保证只执行一次。没有幂等,一次网络抖动就可能造成两笔扣款、两封订单。幂等的关键是 request_id 唯一标识:首次到达时执行并把结果存入 registry,之后相同 request_id 直接重放存档结果,绝不再次执行。两条铁律:其一,查重、执行、存档必须在同一把锁内完成,否则两个并发请求会同时越过检查;其二,执行失败绝不存档,否则一次失败会被永久缓存成成功,重试也救不回来。\n\n### 操作\n\n1. 用 `with self.lock` 把 execute 的整个函数体包成原子操作。\n2. 先查 registry:命中就打印「命中历史记录,直接重放」并 return 存档结果。\n3. 未命中则打印「首次到达,开始执行」,执行 `func(*args, **kwargs)`。\n4. 执行成功后再写入 registry 并打印「执行成功,结果已存档」;异常会直接冒出锁,不会落库。\n5. 补全 `charge`:余额不足抛 ValueError,否则扣减余额并返回扣款成功文案;运行 `main()` 验证 pay-1001 重复提交只扣款一次。\n\n### 常见坑\n\n- 失败也存档:一旦异常被捕获并写入 registry,重试永远不会真正执行。\n- 不加锁查存:两个相同请求并发时双双命中「未命中」,幂等就失效了。\n- 用参数而不是 request_id 去重:相同业务参数不同请求会被误伤,不同参数相同请求又会漏网。\n- 存档无上限:生产环境应给 registry 加 TTL 或 LRU,防止历史结果无限堆积。",
+      "instruction": "### 目标\n\n本步给「Agent 运行时底座」装上第四层护甲:幂等执行。完成 `IdempotentExecutor.execute` 的「查重-执行-存档」流程与 `charge` 的扣款逻辑,让同一个 request_id 的重复请求只真正执行一次,失败也不留脏数据。\n\n### 原理\n\n幂等解决的是「重试的副作用」:客户端超时后重发同一请求,网络层保证的是送达,不保证只执行一次。没有幂等,一次网络抖动就可能造成两笔扣款、两封订单。幂等的关键是 request_id 唯一标识:首次到达时执行并把结果存入 registry,之后相同 request_id 直接重放存档结果,绝不再次执行。两条铁律:其一,查重、执行、存档必须在同一把锁内完成,否则两个并发请求会同时越过检查;其二,执行失败绝不存档,否则一次失败会被永久缓存成成功,重试也救不回来。\n\n### 操作\n\n1. 用 `with self.lock` 把 execute 的整个函数体包成原子操作。\n2. 先查 registry:命中就打印「命中历史记录,直接重放」并 return 存档结果。\n3. 未命中则打印「首次到达,开始执行」,执行 `func(*args, **kwargs)`。\n4. 执行成功后再写入 registry 并打印「执行成功,结果已存档」;异常会直接冒出锁,不会落库。\n5. 补全 `charge`:余额不足抛 ValueError,否则扣减余额并返回扣款成功文案;运行 `main()` 验证 pay-1001 重复提交只扣款一次。\n\n### 常见坑\n\n- 失败也存档:一旦异常被捕获并写入 registry,重试永远不会真正执行。\n- 不加锁查存:两个相同请求并发时双双命中「未命中」,幂等就失效了。\n- 用参数而不是 request_id 去重:相同业务参数不同请求会被误伤,不同参数相同请求又会漏网。\n- 存档无上限:生产环境应给 registry 加 TTL 或 LRU,防止历史结果无限堆积。",
       "hints": [
         {
           "order": 1,
@@ -387,7 +387,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应展示重复请求重放与失败不存档后重试成功。",
-          "expectedStdout": "== 乾坤圈 · s4:幂等执行 IdempotentExecutor ==[\\s\\S]*pay-1001 首次到达,开始执行[\\s\\S]*扣款成功,余额 70 元[\\s\\S]*命中历史记录,直接重放[\\s\\S]*余额:40 元[\\s\\S]*余额不足\\(未存档,可重试\\)[\\s\\S]*重试 -> 扣款成功,余额 30 元",
+          "expectedStdout": "== Agent 运行时底座 · s4:幂等执行 IdempotentExecutor ==[\\s\\S]*pay-1001 首次到达,开始执行[\\s\\S]*扣款成功,余额 70 元[\\s\\S]*命中历史记录,直接重放[\\s\\S]*余额:40 元[\\s\\S]*余额不足\\(未存档,可重试\\)[\\s\\S]*重试 -> 扣款成功,余额 30 元",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -484,7 +484,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应展示幂等重放、降级兜底与主路恢复三类结果。",
-          "expectedStdout": "== 乾坤圈 · s5:韧性运行时 ResilientRunner ==[\\s\\S]*环节 0\\(llm_gateway\\) 失败:TimeoutError[\\s\\S]*结果:【兜底】规则回答:写一首诗[\\s\\S]*命中历史记录,直接重放[\\s\\S]*结果:模型回答:查天气[\\s\\S]*LLM 实际调用 3 次",
+          "expectedStdout": "== Agent 运行时底座 · s5:韧性运行时 ResilientRunner ==[\\s\\S]*环节 0\\(llm_gateway\\) 失败:TimeoutError[\\s\\S]*结果:【兜底】规则回答:写一首诗[\\s\\S]*命中历史记录,直接重放[\\s\\S]*结果:模型回答:查天气[\\s\\S]*LLM 实际调用 3 次",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true

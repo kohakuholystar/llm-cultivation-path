@@ -5,8 +5,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 修仙主题 · 浅色基调
-        // 灵蓝(主色 brand): 功法/灵气 → sky(天蓝/水蓝)
+        // AI 工程学习主题 · 浅色基调
+        // 灵蓝(主色 brand): 方法/运行资源 → sky(天蓝/水蓝)
         brand: {
           50: '#F0F9FF',
           100: '#E0F2FE',
@@ -19,7 +19,7 @@ export default {
           800: '#075985',
           900: '#0C4A6E',
         },
-        // 赤金(经验 exp): 修为/奖励 → amber
+        // 赤金(经验 exp): 学习进度/奖励 → amber
         exp: {
           50: '#FEF9E7',
           100: '#FDF0C4',

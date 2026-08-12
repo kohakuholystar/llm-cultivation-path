@@ -1,4 +1,4 @@
-"""灵讯通 · 结构化抽取 v1:用 response_format 强制模型输出 JSON"""
+"""星澈助手 · 结构化抽取 v1:用 response_format 强制模型输出 JSON"""
 import json
 import os
 import sys
@@ -8,7 +8,7 @@ from openai import OpenAI
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 
 # 一段客服对话记录,作为抽取对象
-DEMO_DIALOG = """客服:您好,这里是灵讯通,请问有什么可以帮您?
+DEMO_DIALOG = """客服:您好,这里是星澈助手,请问有什么可以帮您?
 用户:我昨天充值的会员到现在还没到账,订单号 88231。
 客服:非常抱歉,我马上帮您核实订单状态。
 用户:麻烦尽快处理,我今晚等着用。"""
@@ -46,14 +46,14 @@ def main() -> None:
     client = build_client()
     messages = [
         {"role": "system", "content": (
-            "你是灵讯通客服质检助手。请从对话中抽取关键信息,"
+            "你是星澈助手客服质检助手。请从对话中抽取关键信息,"
             "只输出一个 JSON 对象,包含 issue、order_id、emotion 三个字段。"
         )},
         {"role": "user", "content": DEMO_DIALOG},
     ]
     raw = chat_once(client, messages)
     data = json.loads(raw)  # JSON 模式下此处理应解析成功
-    print("[灵讯通] 抽取结果:")
+    print("[星澈助手] 抽取结果:")
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 

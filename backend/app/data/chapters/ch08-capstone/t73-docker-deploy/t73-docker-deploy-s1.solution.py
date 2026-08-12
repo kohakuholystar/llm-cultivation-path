@@ -1,17 +1,17 @@
-"""渡劫飞升 · s1:FastAPI 服务封装
+"""终期交付 · s1:FastAPI 服务封装
 把前几关打磨好的 Agent 应用封装为 HTTP 服务:先写出 main.py 的完整源码,
 再用 ast 做「源码审计」——不依赖 fastapi 也能解析结构、盘点路由。
 """
 import ast
 
 # 目标服务 main.py 的完整源码(文本)。真实项目里,这一步就是把文件真实写出。
-SERVICE_PY = """# 渡劫飞升 · Agent 应用 HTTP 服务(由构建脚本生成)。
+SERVICE_PY = """# 黑糖资料室 · Agent 应用 HTTP 服务(由构建脚本生成)。
 import os
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="渡劫飞升", version="0.1.0")
+app = FastAPI(title="黑糖资料室", version="0.1.0")
 
 @app.get("/health")
 def health() -> dict:

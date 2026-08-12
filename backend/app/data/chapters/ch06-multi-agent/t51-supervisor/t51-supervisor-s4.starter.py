@@ -1,7 +1,25 @@
-"""天庭 · s4:接入 DeepSeek,Supervisor 智能分派
+"""校园 AI 社 · s4:接入 DeepSeek,Supervisor 智能分派
 
 s3 的关键词路由是死规则,本步请 deepseek-v4-pro 当军师拆需求。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：LangGraph Supervisor：DeepSeek 智能分派。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `build_llm() -> ChatOpenAI`：输入为签名中的参数；输出为 `ChatOpenAI`。用途：按本节调用链完成对应处理
+#   - `parse_tasks(content: str) -> list[AgentTask]`：输入为签名中的参数；输出为 `list[AgentTask]`。用途：按本节调用链完成对应处理
+#   - `split_by_llm_node(state: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：按本节调用链完成对应处理
+#   - `execute_node(state: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：按本节调用链完成对应处理
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `AgentTask`：承载本节状态/数据；重点方法：见类定义。
+#   - `TaskResult`：承载本节状态/数据；重点方法：见类定义。
+#   - `StateGraph`：承载本节状态/数据；重点方法：add_node, add_edge, set_entry_point, run。
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json, os, sys
 
 from dataclasses import dataclass
@@ -60,9 +78,9 @@ class StateGraph:
         return state
 
 
-SUPERVISOR_PROMPT = """你是天庭的玉帝,把下面的需求拆成任务单。
+SUPERVISOR_PROMPT = """你是校园 AI 社的社长,把下面的需求拆成任务单。
 只输出 JSON 数组,每项含 "title" 与 "assignee";
-assignee 从 [前端仙官, 后端仙官, 测试仙官, 文档仙官] 中选。需求: {request}"""
+assignee 从 [前端同学, 后端同学, 测试同学, 文档同学] 中选。需求: {request}"""
 
 
 def build_llm() -> ChatOpenAI:
@@ -89,16 +107,16 @@ def split_by_llm_node(state: dict) -> dict:
     #       llm = build_llm()
     #       reply = llm.invoke([HumanMessage(content=SUPERVISOR_PROMPT.format(request=state["request"]))])
     #       tasks = parse_tasks(reply.content)
-    #       if not tasks: tasks = [AgentTask(id="t1", title=state["request"], assignee="后端仙官")]
+    #       if not tasks: tasks = [AgentTask(id="t1", title=state["request"], assignee="后端同学")]
     #       return {"tasks": tasks}
     raise NotImplementedError("t51-supervisor-s4 尚未实现:请按 TODO 提示补齐 split_by_llm_node 拆单")
 
 
 def execute_node(state: dict) -> dict:
-    fmt = {"前端仙官": "已产出页面骨架: {}", "测试仙官": "已编写测试用例 {} 条,全部通过",
-           "文档仙官": "文档已更新: {}", "后端仙官": "后端接口已就绪: {}"}
+    fmt = {"前端同学": "已产出页面骨架: {}", "测试同学": "已编写测试用例 {} 条,全部通过",
+           "文档同学": "文档已更新: {}", "后端同学": "后端接口已就绪: {}"}
     return {"results": [TaskResult(task_id=t.id, assignee=t.assignee, ok=True,
-                                   data=fmt[t.assignee].format(len(t.title) if t.assignee == "测试仙官" else t.title))
+                                   data=fmt[t.assignee].format(len(t.title) if t.assignee == "测试同学" else t.title))
                         for t in state["tasks"]]}
 
 
@@ -109,7 +127,7 @@ def main() -> None:
     graph.set_entry_point("split")
     graph.add_edge("split", "execute")
     state = graph.run({"request": "开发一个登录页,后端提供登录接口,再写点测试"})
-    print(f"玉帝拆出 {len(state['tasks'])} 张任务单,仙官开工:")
+    print(f"社长拆出 {len(state['tasks'])} 张任务单,社团成员开工:")
     for r in state["results"]:
         print(f"  · {r.assignee}: {r.data}")
 

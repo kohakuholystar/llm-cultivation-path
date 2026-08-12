@@ -6,9 +6,9 @@ import { Card, Badge } from '@/components/ui'
 import { levelFromExp } from '@shared/types'
 
 /** 测试阶段: 强制解锁所有章节(上线前改为 false)。 */
-const TEST_UNLOCK_ALL = false
+const TEST_UNLOCK_ALL = true
 
-/** 修炼之路: 章节地图, 展示解锁状态与进度。 */
+/** 学习之路: 章节地图, 展示解锁状态与进度。 */
 export function CourseMap() {
   const course = useCourse((s) => s.course)
   const loadCourse = useCourse((s) => s.loadCourse)
@@ -28,13 +28,13 @@ export function CourseMap() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-3xl font-bold text-slate-900">
-        修炼<span className="text-gradient-brand">之路</span>
+        学习<span className="text-gradient-brand">之路</span>
       </h1>
       <p className="mt-1 text-slate-500">
-        完成 {course.chapters.length} 章修炼,从 LLM 基础到自建模型,成为 Agent 工程师
+        完成 {course.chapters.length} 章学习,从 LLM 基础到自建模型,成为 Agent 工程师
       </p>
 
-      {/* 当前修为面板 */}
+      {/* 当前学习进度面板 */}
       <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-brand-200 bg-gradient-to-r from-brand-50 to-exp-50 p-4 text-sm shadow-glow-brand">
         <span className="flex items-center gap-1.5 font-semibold text-brand-700">
           <span className="text-lg">⚡</span> Lv.{level}

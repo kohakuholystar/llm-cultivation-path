@@ -1,4 +1,4 @@
-"""百宝囊 · s3:人工接管钩子
+"""社团工具箱 · s3:人工接管钩子
 闸门升级为三态裁决:批准 / 拒绝 / 接管,并留下审计日志。
 """
 import json
@@ -16,7 +16,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-SYSTEM_PROMPT = ("你是「百宝囊」法宝管家。决定调用工具还是直接回答,只输出 JSON: "
+SYSTEM_PROMPT = ("你是「社团工具箱」工具管家。决定调用工具还是直接回答,只输出 JSON: "
                  '{"tool": 工具名或 null, "args": {...}, "reply": "回答"}。'
                  "可用工具: get_time()、delete_file(path)。")
 
@@ -52,6 +52,9 @@ class HITLController:
     @staticmethod
     def _ask(tool, args):
         """真实模式默认裁决器:命令行询问用户。"""
+        if not sys.stdin.isatty():
+            print("[中断] 非交互运行默认拒绝危险操作")
+            return "n", "非交互运行默认拒绝"
         ans = input("允许执行? [y]批准/[N]拒绝/[t]接管 ").strip().lower() or "n"
         note = input("备注: ") if ans == "t" else ""
         return ("t" if ans == "t" else "y" if ans == "y" else "n"), note

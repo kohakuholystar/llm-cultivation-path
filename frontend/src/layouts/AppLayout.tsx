@@ -1,11 +1,11 @@
 import { Outlet, Link, NavLink } from 'react-router-dom'
 import { ExpBar } from '@/components/ExpBar'
 import { AiConfigModal } from '@/components/AiConfigModal'
-import { useAiConfig, useHasApiKey } from '@/features/aiConfig/store'
+import { useAiConfig, useHasDeepSeekConfig } from '@/features/aiConfig/store'
 
 const navItems = [
   { to: '/', label: '首页' },
-  { to: '/learn', label: '修炼之路' },
+  { to: '/learn', label: '学习之路' },
   { to: '/profile', label: '个人中心' },
   { to: '/achievements', label: '成就' },
   { to: '/about', label: '关于' },
@@ -16,7 +16,7 @@ const navItems = [
 export function AppLayout() {
   const modalOpen = useAiConfig((s) => s.modalOpen)
   const setModalOpen = useAiConfig((s) => s.setModalOpen)
-  const hasKey = useHasApiKey()
+  const hasSystemConfig = useHasDeepSeekConfig()
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -27,7 +27,7 @@ export function AppLayout() {
               修
             </span>
             <span className="hidden bg-gradient-to-r from-brand-600 to-exp-500 bg-clip-text text-transparent sm:inline">
-              LLM Agent 工程师修炼之路
+              LLM Agent 工程师学习之路
             </span>
           </Link>
           <nav className="flex items-center gap-1">
@@ -52,13 +52,13 @@ export function AppLayout() {
               onClick={() => setModalOpen(true)}
               title="AI 配置(全局)"
               className={`relative ml-1 flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 ${
-                hasKey
+                hasSystemConfig
                   ? 'text-brand-600 hover:bg-brand-50'
                   : 'text-amber-500 hover:bg-amber-50'
               }`}
             >
               <span className="text-base">⚙️</span>
-              {!hasKey && (
+              {!hasSystemConfig && (
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
               )}
             </button>
@@ -72,10 +72,16 @@ export function AppLayout() {
       </main>
 
       <footer className="border-t border-slate-200 bg-white/70 py-4 text-center text-xs text-slate-400">
-        LLM Agent 工程师修炼之路 · 打怪升级式 LLM 学习平台 · 本地优先,数据在你手里
+        LLM Agent 工程师学习之路 · 打怪升级式 LLM 学习平台 · 本地优先,数据在你手里
       </footer>
 
-      <AiConfigModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <AiConfigModal
+        open={modalOpen || !hasSystemConfig}
+        required={!hasSystemConfig}
+        onClose={() => {
+          if (hasSystemConfig) setModalOpen(false)
+        }}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-"""乾坤圈 · s3:钩子系统
+"""Agent 运行时底座 · s3:钩子系统
 
 插件之间不互相点名,而是向事件总线注册钩子。运行时发布事件,
 插件按钩子表决定听不听、怎么听。getattr 反射分发,
@@ -94,7 +94,7 @@ def main():
     counts = rt.bus.counts()
     print(f"订阅情况: request_in={counts.get('request_in', 0)} request_out={counts.get('request_out', 0)}")
     print("--- 正常请求 ---")
-    rt.handle("你好,乾坤圈")
+    rt.handle("你好,Agent 运行时底座")
     print("--- 违规请求 ---")
     rt.handle("这个请求禁止执行")
 

@@ -13,6 +13,8 @@ dependencies = [
     "PyYAML>=6.0",
     "openai>=1.30",
     "json-repair>=0.25",
+    "langgraph>=0.2",
+    "crewai>=0.100",
 ]
 
 [project.optional-dependencies]

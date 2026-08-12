@@ -5,7 +5,7 @@
       "taskId": "t30-tools-basics",
       "order": 1,
       "title": "用 @tool 装饰器定义简单工具",
-      "instruction": "## 目标\n学会使用 `@tool` 装饰器将一个 Python 函数转换为 LLM 可调用的工具。\n\n## 概念\n- **@tool 装饰器**：来自 `langchain.tools`，它会自动从函数的签名和文档字符串中提取工具的名称、描述和参数信息。\n- **Tool 对象**：装饰后的函数会变成一个 `Tool` 实例，包含 `name`、`description`、`args_schema` 等属性。\n\n## 操作指引\n1. 导入 `from langchain.tools import tool`。\n2. 定义一个函数 `get_current_time`，接收一个可选参数 `timezone`（字符串，默认 'UTC'），返回当前时间的字符串表示。\n3. 在函数上方添加 `@tool` 装饰器。\n4. 函数体内，使用 `datetime.now(timezone)` 获取当前时间（注意处理时区）。\n5. 返回格式化的时间字符串。\n\n**为什么这样写？** 装饰器让 LLM 能够识别该函数为可用工具，并在需要时自动调用。参数 `timezone` 会被自动提取为工具的参数。",
+      "instruction": "## 目标\n学会使用 `@tool` 装饰器将一个 Python 函数转换为 LLM 可调用的工具。\n\n## 概念\n- **@tool 装饰器**：来自 `langchain.tools`，它会自动从函数的签名和文档字符串中提取工具的名称、描述和参数信息。\n- **Tool 对象**：装饰后的函数会变成一个 `Tool` 实例，包含 `name`、`description`、`args_schema` 等属性。\n\n## 操作指引\n1. 导入 `from langchain.tools import tool`。\n2. 定义一个函数 `get_current_time`，接收一个可选参数 `timezone`（字符串，默认 'UTC'），返回当前时间的字符串表示。\n3. 在函数上方添加 `@tool` 装饰器。\n4. 函数体内，使用 `datetime.now(timezone)` 获取当前时间（注意淬炼时区）。\n5. 返回格式化的时间字符串。\n\n**为什么这样写？** 装饰器让 LLM 能够识别该函数为可用工具，并在需要时自动调用。参数 `timezone` 会被自动提取为工具的参数。",
       "starterCode": "from langchain.tools import tool\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\n\n    Args:\n        timezone: 时区名称，例如 'Asia/Shanghai', 'US/Eastern'。默认为 'UTC'。\n    \"\"\"\n    # TODO: 获取指定时区的当前时间并返回格式化的字符串\n# 提示: Args:\n    pass\n\n# 测试工具是否被正确创建\nif __name__ == \"__main__\":\n    print(get_current_time.name)\n    print(get_current_time.description)\n    print(get_current_time.args)",
       "solutionCode": "from langchain.tools import tool\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\n\n    Args:\n        timezone: 时区名称，例如 'Asia/Shanghai', 'US/Eastern'。默认为 'UTC'。\n    \"\"\"\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\nif __name__ == \"__main__\":\n    print(get_current_time.name)\n    print(get_current_time.description)\n    print(get_current_time.args)",
       "hints": [
@@ -19,7 +19,7 @@
         },
         {
           "order": 3,
-          "text": "替换 `pass` 为正确的实现：获取时区，获取当前时间，格式化返回。"
+          "text": "替换 `pass` 为正确的构建：获取时区，获取当前时间，格式化返回。"
         }
       ],
       "codeSamples": [
@@ -27,7 +27,7 @@
           "title": "基本 @tool 用法",
           "language": "python",
           "code": "from langchain.tools import tool\n\n@tool\ndef add(a: int, b: int) -> int:\n    \"\"\"Add two numbers.\"\"\"\n    return a + b\n\nprint(add.name)  # 'add'\nprint(add.description)  # 'add(a: int, b: int) -> int - Add two numbers.'",
-          "description": "展示 @tool 如何从函数签名生成工具"
+          "description": "展示 @tool 如何从函数签名实现工具"
         }
       ],
       "terms": [
@@ -51,8 +51,8 @@
         },
         {
           "name": "pytz",
-          "role": "时区处理",
-          "description": "时区处理库,提供全球时区数据库与转换。用于工具函数获取指定时区时间。",
+          "role": "时区淬炼",
+          "description": "时区淬炼库,提供全球时区数据库与转换。用于工具函数获取指定时区时间。",
           "officialUrl": "https://pythonhosted.org/pytz/",
           "category": "时区库",
           "installHint": "pip install pytz"
@@ -61,7 +61,7 @@
       "validation": [
         {
           "type": "placeholder_filled",
-          "message": "请替换 # TODO: 占位符，实现 get_current_time 函数。",
+          "message": "请替换 # TODO: 占位符，构建 get_current_time 函数。",
           "placeholder": "# TODO:",
           "blocking": true
         },
@@ -126,7 +126,7 @@
       "validation": [
         {
           "type": "placeholder_filled",
-          "message": "请替换 # TODO: 占位符，实现 multiply 函数。",
+          "message": "请替换 # TODO: 占位符，构建 multiply 函数。",
           "placeholder": "# TODO:",
           "blocking": true
         },
@@ -143,7 +143,7 @@
       "taskId": "t30-tools-basics",
       "order": 3,
       "title": "让 LLM 使用工具：绑定工具并调用",
-      "instruction": "## 目标\n将定义好的工具绑定到 LLM，让模型在需要时自主调用工具。\n\n## 概念\n- **bind_tools**：ChatModel 的方法，将工具列表绑定到模型，使模型能够输出工具调用。\n- **AIMessage.tool_calls**：模型返回的消息中包含的调用信息，包含工具名称和参数。\n\n## 操作指引\n1. 使用前两步定义的 `get_current_time` 和 `multiply_tool`（或重新定义）。\n2. 初始化一个 ChatOpenAI 模型（假设环境变量 OPENAI_API_KEY 已配置）。\n3. 使用 `model.bind_tools([get_current_time, multiply_tool])` 绑定工具。\n4. 发送一条需要调用工具的消息，例如“现在北京时间是多少？”，并打印模型响应。\n5. 观察 `response.tool_calls` 是否包含工具调用。\n\n**为什么这样写？** 绑定工具后，LLM 会在需要时自动决定调用哪个工具并生成参数，实现自主行动。",
+      "instruction": "## 目标\n将定义好的工具绑定到 LLM，让模型在需要时自主调用工具。\n\n## 概念\n- **bind_tools**：ChatModel 的方法，将工具列表绑定到模型，使模型能够输出工具调用。\n- **AIMessage.tool_calls**：模型返回的消息中包含的调用信息，包含工具名称和参数。\n\n## 操作指引\n1. 使用前两步定义的 `get_current_time` 和 `multiply_tool`（或重新定义）。\n2. 初始化一个 ChatOpenAI 模型（假设环境变量 OPENAI_API_KEY 已配置）。\n3. 使用 `model.bind_tools([get_current_time, multiply_tool])` 绑定工具。\n4. 发送一条需要调用工具的消息，例如“现在北京时间是多少？”，并打印模型响应。\n5. 观察 `response.tool_calls` 是否包含工具调用。\n\n**为什么这样写？** 绑定工具后，LLM 会在需要时自动决定调用哪个工具并实现参数，构建自主行动。",
       "starterCode": "import os\nfrom langchain.tools import tool\nfrom langchain.tools import Tool\nfrom langchain_openai import ChatOpenAI\nfrom datetime import datetime\nimport pytz\n\n# 定义工具（复用之前的）\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\"\"\"\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"将两个整数相乘\"\"\"\n    return a * b\n\nmultiply_tool = Tool(\n    name=\"multiply\",\n    description=\"将两个整数相乘\",\n    func=multiply\n)\n\n# 初始化模型\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\n\n# 绑定工具\nmodel_with_tools = model.bind_tools([get_current_time, multiply_tool])\n\n# 发送消息\nresponse = model_with_tools.invoke(\"现在北京时间是多少？\")\n\n# 打印 response 的 tool_calls 属性\nprint(response)\n",
       "solutionCode": "import os\nfrom langchain.tools import tool\nfrom langchain.tools import Tool\nfrom langchain_openai import ChatOpenAI\nfrom datetime import datetime\nimport pytz\n\n@tool\ndef get_current_time(timezone: str = \"UTC\") -> str:\n    \"\"\"返回指定时区的当前时间。\"\"\"\n    tz = pytz.timezone(timezone)\n    now = datetime.now(tz)\n    return now.strftime(\"%Y-%m-%d %H:%M:%S %Z\")\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"将两个整数相乘\"\"\"\n    return a * b\n\nmultiply_tool = Tool(\n    name=\"multiply\",\n    description=\"将两个整数相乘\",\n    func=multiply\n)\n\nmodel = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"), temperature=0)\nmodel_with_tools = model.bind_tools([get_current_time, multiply_tool])\n\nresponse = model_with_tools.invoke(\"现在北京时间是多少？\")\nprint(response.tool_calls)\n",
       "hints": [

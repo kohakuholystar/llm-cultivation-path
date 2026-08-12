@@ -1,4 +1,4 @@
-"""灵讯通 · s1:流式初体验
+"""星澈助手 · s1:流式初体验
 stream=True 把一次性响应变成一连串增量 chunk,拼接即得完整回复。
 """
 import os
@@ -10,7 +10,7 @@ from openai import OpenAI
 # 联网前置检查:无 Key 且未开 MOCK 演示模式时,给出引导并优雅退出
 MOCK = bool(os.environ.get("MOCK_LLM"))
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地演示可设置 MOCK_LLM=1 使用内置假回复)")
     sys.exit(0)
@@ -48,7 +48,7 @@ def create_client(config: APIConfig) -> OpenAI:
 
 def iter_mock_chunks() -> list:
     """MOCK 演示:把一句假回复切成两字一片的增量序列。"""
-    reply = "流式输出让灵讯通边想边说,等待变成了阅读。"
+    reply = "流式输出让星澈助手边想边说,等待变成了阅读。"
     return [reply[i:i + 2] for i in range(0, len(reply), 2)]
 
 
@@ -78,7 +78,7 @@ def main() -> None:
     question = "用一句话夸夸流式输出。"
     print(f"你: {question}")
     reply, n = stream_chat(client, config, question)
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
     print(f"[统计] 共收到 {n} 个增量块,拼接后 {len(reply)} 字")
     print("提示:每个块只有几个字,完整回复是拼出来的。")
 

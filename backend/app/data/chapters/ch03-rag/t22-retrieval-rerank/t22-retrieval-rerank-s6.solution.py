@@ -1,22 +1,22 @@
-"""藏经阁 · t22-s6:检索管线总装 —— 向量检索 -> MMR -> 阈值过滤 -> 重排序,并做三策略总评测。"""
+"""黑糖资料室 · t22-s6:检索管线总装 —— 向量检索 -> MMR -> 阈值过滤 -> 重排序,并做三策略总评测。"""
 import hashlib
 import math
 from dataclasses import dataclass
 
 EMBED_DIM, SCORE_THRESHOLD = 512, 0.12
 
-RAW_DOCS = [  # (编号, 经名, 正文, 主题词, 距今更新天数)
-    ("d01", "凌波微步·卷一", "凌波微步乃逍遥派轻功,步法依周易六十四卦方位变化,踏水而行不湿鞋袜。", "轻功,步法,逍遥派", 3),
-    ("d02", "凌波微步·卷二", "凌波微步卷二补述步法变化,依周易卦象踏位,内力绵长者可避暗器。", "轻功,内力", 40),
-    ("d03", "水上漂心法", "水上漂讲究提气轻身,足尖点水借力而行,需十年桩功打底。", "轻功,水上漂,身法", 5),
-    ("d04", "铁掌功", "铁掌功掌力刚猛,开碑裂石,裘千仞以此掌法名震江湖。", "掌法,刚猛", 120),
-    ("d05", "火焰刀", "火焰刀以无形刀气伤人,出招时掌心灼热如火,乃密宗绝学。", "刀法,掌法,密宗", 200),
-    ("d06", "九阳疗伤篇", "九阳神功疗伤篇,气走任督,可解寒毒,内伤自愈。", "疗伤,内功", 10),
-    ("d07", "暴雨梨花针", "暴雨梨花针乃唐门暗器,二十七枚银针激射而出,避无可避。", "暗器,唐门", 60),
-    ("d08", "基础剑法图解", "剑法入门图解,刺撩劈扫四式,配图三十幅,适合初学。", "剑法,入门", 2),
+RAW_DOCS = [  # (编号, 标题, 正文, 主题词, 距今更新天数)
+    ("d01", "文档切分指南·基础", "文档切分需按标题、段落与长度边界处理,并保留必要的上下文重叠。", "切分,段落,上下文", 3),
+    ("d02", "文档切分指南·进阶", "进阶切分需要保存来源元数据,并用重叠窗口避免语义在边界处丢失。", "切分,上下文", 40),
+    ("d03", "查询改写方法", "查询改写应保留原始意图,补充同义表达后再进入召回阶段。", "查询,改写,召回", 5),
+    ("d04", "错误恢复指南", "错误恢复应记录失败原因,再按重试、降级与状态恢复顺序处理。", "错误,恢复,稳定", 120),
+    ("d05", "缓存失效策略", "缓存应绑定数据版本与有效期,源文档更新后必须及时失效。", "缓存,失效,版本", 200),
+    ("d06", "服务恢复手册", "服务恢复手册记录重试、降级与状态恢复方法,用于处理常见运行异常。", "故障,恢复,重试", 10),
+    ("d07", "引用校验清单", "引用校验需要核对来源编号、原文片段与回答事实是否一致。", "引用,校验,来源", 60),
+    ("d08", "基础创作方法图解", "创作方法入门图解,刺撩劈扫四式,配图三十幅,适合初学。", "创作方法,入门", 2),
 ]
-EVAL_SET = [("如何练成踏水而行的轻功", "d01"), ("刚猛的掌法绝学", "d04"),  # 标注集
-            ("中了寒毒如何疗伤", "d06"), ("踏水而行能躲开唐门暗器吗", "d07"), ("初学者怎么学剑", "d08")]
+EVAL_SET = [("如何按段落切分并保留上下文", "d01"), ("稳定的错误恢复方法", "d04"),  # 标注集
+            ("服务故障后如何恢复", "d06"), ("引用结果如何校验", "d07"), ("初学者怎么学方案", "d08")]
 
 
 @dataclass
@@ -83,7 +83,7 @@ def rerank(results: list, query: str, alpha=0.6, beta=0.25, gamma=0.15, tau=30.0
 
 
 class CangjingRetriever:
-    """藏经阁检索管线:三档策略 plain / mmr / full,共用一个向量库。"""
+    """黑糖资料室检索管线:三档策略 plain / mmr / full,共用一个向量库。"""
 
     def __init__(self, docs: list, threshold: float = SCORE_THRESHOLD,
                  lambda_param: float = 0.5, pool_size: int = 6):
@@ -103,7 +103,7 @@ class CangjingRetriever:
 
 
 def evaluate(retriever: CangjingRetriever, strategy: str, k: int = 3) -> float:
-    hits = 0  # 命中率@k:期望经书进前 k 即命中,返回命中比例
+    hits = 0  # 命中率@k:期望文档进前 k 即命中,返回命中比例
     for query, expected in EVAL_SET:
         kept, _ = retriever.retrieve(query, k=k, strategy=strategy)
         hits += expected in [d.doc_id for d, _ in kept]
@@ -113,14 +113,14 @@ def evaluate(retriever: CangjingRetriever, strategy: str, k: int = 3) -> float:
 def main() -> None:
     docs = [Document(i, t, x, k_.split(","), d) for i, t, x, k_, d in RAW_DOCS]
     retriever = CangjingRetriever(docs)
-    print("=== 藏经阁 · 检索策略总评测 ===")
+    print("=== 黑糖资料室 · 检索策略总评测 ===")
     for strategy in ("plain", "mmr", "full"):
         print(f"策略 {strategy:5s} 命中率@1 = {evaluate(retriever, strategy, k=1):.0%}")
-    kept, _ = retriever.retrieve("轻功水上漂怎么练", k=3, strategy="full")
-    print("[演示] 查询:轻功水上漂怎么练")
+    kept, _ = retriever.retrieve("文档切分查询改写怎么练", k=3, strategy="full")
+    print("[演示] 查询:文档切分查询改写怎么练")
     for rank, (doc, score) in enumerate(kept, 1):
         print(f"TOP{rank} {doc.title} final={score:.4f}")
-    print("藏经阁检索管线就绪")
+    print("黑糖资料室检索管线就绪")
 
 
 if __name__ == "__main__":

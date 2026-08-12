@@ -1,4 +1,10 @@
-"""藏经阁 · 第 6 步:封装 ScriptureStore —— 一个可复用的向量入库组件"""
+"""黑糖资料室 · 第 6 步:封装 ScriptureStore —— 一个可复用的向量入库组件"""
+# 学习契约
+# 目标：完成 t21-embedding-store-s6 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 6 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：char_ngrams(text, n) -> 未标注; doc_id(text) -> 未标注; main() -> 未标注。
+# 技术栈：re, hashlib, numpy, chromadb。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import re, hashlib
 
 import numpy as np
@@ -45,7 +51,7 @@ def doc_id(text):  # 内容寻址 ID:同一段经文永远同一个 ID,入库天
 
 
 class ScriptureStore:
-    """藏经阁向量库:建索引、增量同步、语义检索一站封装(替换点:Client 与 Embedder)。"""
+    """黑糖资料室向量库:建索引、增量同步、语义检索一站封装(替换点:Client 与 Embedder)。"""
 
     def __init__(self, name="cangjingge", ngram=2):
         self.collection = chromadb.EphemeralClient().get_or_create_collection(
@@ -96,18 +102,18 @@ class ScriptureStore:
 
 def main():
     scriptures = [
-        {"title": "九阳神功", "category": "内功", "text": "他强由他强，清风拂山岗。九阳真气生生不息，乃内功之正宗"},
-        {"title": "九阴真经", "category": "内功", "text": "天之道，损有余而补不足。九阴真经总纲以柔克刚，载有疗伤之篇"},
-        {"title": "独孤九剑", "category": "剑法", "text": "无招胜有招，料敌机先。破剑破刀破枪，天下剑法皆可破"},
-        {"title": "太极剑", "category": "剑法", "text": "以柔克刚，以静制动。剑意连绵不绝，如长江大河"},
-        {"title": "降龙十八掌", "category": "掌法", "text": "亢龙有悔，盈不可久。掌法刚猛，招式简明而威力无穷"},
-        {"title": "凌波微步", "category": "轻功", "text": "步法依易经六十四卦方位变化，动无常则，若危若安"},
+        {"title": "检索基础指南", "category": "基础指南", "text": "输入表达可以变化，核心语义应保持稳定。索引构建完成后，应使用固定查询集验证召回结果。"},
+        {"title": "数据清洗手册", "category": "基础指南", "text": "清理冗余信息，补足缺失字段，并统一编码、日期与枚举值。"},
+        {"title": "重排设计指南", "category": "检索工程", "text": "减少无效规则，优先识别相关信号，并使用稳定排序避免结果漂移。"},
+        {"title": "引用规范", "category": "检索工程", "text": "回答中的事实必须标注来源编号，且编号能够回到原始文档。"},
+        {"title": "故障恢复指南", "category": "运行保障", "text": "服务异常时先记录错误，再按重试、降级与状态恢复顺序处理。"},
+        {"title": "文档切分指南", "category": "检索工程", "text": "按标题、段落与长度边界切分文档，并保留必要的上下文重叠。"},
     ]
     store = ScriptureStore()
-    print(f"建库完成: {store.build_index(scriptures)} 条秘籍")
-    updates = [scriptures[0], {"title": "神照经", "category": "内功", "text": "神照功内力浑厚，有起死回生之效"}]  # 1 重复 1 新增
+    print(f"建库完成: {store.build_index(scriptures)} 条操作指南")
+    updates = [scriptures[0], {"title": "神照经", "category": "基础指南", "text": "神照功处理能力浑厚，有起死回生之效"}]  # 1 重复 1 新增
     print(f"增量同步报告: {store.sync(updates)}")
-    for i, h in enumerate(store.search("刚猛的武功", top_k=2), 1):
+    for i, h in enumerate(store.search("稳定的技术方案", top_k=2), 1):
         print(f"  TOP{i} 《{h['title']}》 相似度 {h['score']}")
 
 

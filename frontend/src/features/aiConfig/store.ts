@@ -4,9 +4,9 @@ import { persist } from 'zustand/middleware'
 /**
  * 全局 AI 配置(本地 localStorage 优先)。
  *
- * 学习者在前端填一次 API key / base_url / model,
- * 后续所有任务跑沙箱时由前端注入到容器 env, 全局复用。
- * 不填则 fallback 到后端 .env 的配置。
+ * 学习者在前端填一次自己的 DeepSeek API key / model，
+ * 后续联网任务跑沙箱时由前端注入到容器 env，全局复用。
+ * 联网课程不使用后端 .env 兜底 Key。
  */
 
 // DeepSeek 为默认(便宜 + OpenAI 兼容接口)
@@ -20,16 +20,12 @@ interface AiConfigState {
   baseUrl: string
   /** 模型名 */
   model: string
-  /** 是否已完成首次配置(用于引导弹窗) */
-  configured: boolean
   /** 配置弹窗是否打开(全局可控, 任何组件能触发) */
   modalOpen: boolean
 }
 
 interface AiConfigActions {
   setConfig: (cfg: Partial<Pick<AiConfigState, 'apiKey' | 'baseUrl' | 'model'>>) => void
-  /** 标记为已配置(用户点过保存即算) */
-  markConfigured: () => void
   /** 重置为默认值(清空 key) */
   reset: () => void
   /** 打开/关闭配置弹窗 */
@@ -42,7 +38,6 @@ const defaultState: AiConfigState = {
   apiKey: '',
   baseUrl: DEFAULT_BASE_URL,
   model: DEFAULT_MODEL,
-  configured: false,
   modalOpen: false,
 }
 
@@ -51,15 +46,7 @@ export const useAiConfig = create<AiConfigStore>()(
     (set) => ({
       ...defaultState,
 
-      setConfig: (cfg) =>
-        set((s) => ({
-          ...s,
-          ...cfg,
-          // 改了配置视为已配置
-          configured: true,
-        })),
-
-      markConfigured: () => set({ configured: true }),
+      setConfig: (cfg) => set((s) => ({ ...s, ...cfg })),
 
       reset: () => set({ ...defaultState }),
 
@@ -73,13 +60,16 @@ export const useAiConfig = create<AiConfigStore>()(
         apiKey: s.apiKey,
         baseUrl: s.baseUrl,
         model: s.model,
-        configured: s.configured,
       }),
     },
   ),
 )
 
-/** 便捷选择器: 当前是否已填 key(决定是否 fallback 后端 .env) */
-export const useHasApiKey = () => useAiConfig((s) => s.apiKey.trim().length > 0)
+/** 便捷选择器: 当前配置是否可用于真实 DeepSeek 联网课程。 */
+export const useHasDeepSeekConfig = () =>
+  useAiConfig((s) => {
+    const baseUrl = s.baseUrl.trim().replace(/\/+$/, '')
+    return Boolean(s.apiKey.trim()) && baseUrl === DEFAULT_BASE_URL && s.model.trim().startsWith('deepseek-')
+  })
 
 export { DEFAULT_BASE_URL, DEFAULT_MODEL }

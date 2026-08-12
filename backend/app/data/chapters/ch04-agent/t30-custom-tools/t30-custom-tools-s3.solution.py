@@ -1,4 +1,4 @@
-"""百宝囊 v0.3 —— 新增文本法宝:统计与大小写转换。"""
+"""社团工具箱 v0.3 —— 新增文本工具:统计与大小写转换。"""
 import ast
 import operator
 import random

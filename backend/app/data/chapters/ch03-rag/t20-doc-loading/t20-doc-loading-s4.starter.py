@@ -1,18 +1,24 @@
-"""藏经阁 · 第四步:立户——给 chunk 签发身份证(元数据设计)"""
+"""黑糖资料室 · 第四步:立户——给 chunk 签发身份证(元数据设计)"""
+# 学习契约
+# 目标：完成 t20-doc-loading-s4 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 4 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：shelve_books(corpus, lib_dir) -> None; load_document(path) -> Document; _merge_splits(pieces, sep, chunk_size, chunk_overlap) -> list; split_text(text, chunk_size, chunk_overlap, separators) -> list。
+# 技术栈：dataclasses, pathlib。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 from dataclasses import dataclass, field
 from pathlib import Path
 
 CORPUS = {
-    "筑基总纲.txt": "筑基总纲\n\n筑基者,仙道之基石也。气沉丹田,意守玄关,百日方可筑基。初入门者每日卯时吐纳,采东方紫气纳入气海,切忌心浮气躁。\n\n筑基有三境:一曰引气,二曰凝液,三曰化丹。化丹期液聚成丹,可窥金丹大道。\n\n常见走火之症:一曰气逆,当即刻停功,以温水沐足;二曰神散,当静坐三日,只饮清泉。",
-    "藏经阁须知.md": "# 藏经阁须知\n\n## 开放时间\n藏经阁每日辰时开放,戌时闭馆。月圆之夜开放顶层,供金丹期弟子参悟。\n\n## 借阅规则\n外门弟子限借一层典籍两卷,期限七日;内门弟子限借二层五卷,期限半月。",
-    "吐纳心法.py": "# 吐纳心法 · 以代码铭刻的功法口诀\n\ndef tuna(weeks: int = 9) -> str:\n    # 周天数须为九之倍数\n    if weeks % 9 != 0:\n        raise ValueError('周天数须为九之倍数')\n    return f'行{weeks}周天,气归丹田'",
+    "基础阶段总纲.txt": "基础阶段总纲\n\n基础阶段者,工程实践之基石也。写入缓存区,意守入口条件,百日方可基础阶段。初入门者每日每日早间数据清洗,采东方原始数据纳入数据池,切忌心浮气躁。\n\n基础阶段有三境:一曰加载,二曰清洗,三曰索引。索引期液聚成丹,可窥进阶阶段完整路线。\n\n常见走火之症:一曰字段错位,当即刻停功,以温水沐足;二曰上下文丢失,当静坐三日,只饮基础数据。",
+    "黑糖资料室须知.md": "# 黑糖资料室须知\n\n## 开放时间\n黑糖资料室每日每日开放时段开放,晚间闭馆。项目展示日开放顶层,供进阶阶段期成员查阅。\n\n## 借阅规则\n普通成员限借一层资料两篇,期限七日;维护成员限借二层五卷,期限半月。",
+    "数据清洗方法.py": "# 数据清洗方法 · 以代码铭刻的方法口诀\n\ndef tuna(weeks: int = 9) -> str:\n    # 处理轮次数须为九之倍数\n    if weeks % 9 != 0:\n        raise ValueError('处理轮次数须为九之倍数')\n    return f'行{weeks}处理轮次,气归缓存区'",
 }
 LIB_DIR = Path("cangjingge")
 SEPARATORS = ["\n\n", "\n", "。", "！", "？", ""]  # 语义层级:段落 > 换行 > 句子 > 逐字兜底
 
 
 def shelve_books(corpus: dict, lib_dir: Path) -> None:
-    """把内置语料写入磁盘,模拟真实的藏经阁书库。"""
+    """把内置语料写入磁盘,模拟真实的黑糖资料室书库。"""
     lib_dir.mkdir(exist_ok=True)
     for name, content in corpus.items():
         (lib_dir / name).write_text(content, encoding="utf-8")
@@ -85,7 +91,7 @@ def main() -> None:
     shelve_books(CORPUS, LIB_DIR)
     docs = [load_document(p) for p in sorted(LIB_DIR.iterdir())]
     chunks = split_documents(docs, chunk_size=60, chunk_overlap=15)
-    print("== 藏经阁 chunk 户口本 ==")
+    print("== 黑糖资料室 chunk 户口本 ==")
     for c in chunks:
         m = c.metadata
         brief = c.page_content.replace("\n", " ")[:16]

@@ -1,8 +1,27 @@
-"""渡劫飞升 · s3:数据模型——Pydantic 契约先行
+"""终期交付 · s3:数据模型——Pydantic 契约先行
 
-先定义数据契约,再写业务逻辑:文档、切块、典籍库、检索请求、
+先定义数据契约,再写业务逻辑:文档、切块、知识库、检索请求、
 检索命中五份模型,把「知识库里存什么、请求长什么样」一次说清。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：数据模型:Pydantic 契约先行。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `build_sample_kb() -> KnowledgeBase`：输入为签名中的参数；输出为 `KnowledgeBase`。用途：造一份样例库,演示契约如何落地。
+#   - `demo_schemas() -> None`：输入为签名中的参数；输出为 `None`。用途：把四份契约导出成 JSON Schema,落盘供前端复用。
+#   - `demo_validation() -> None`：输入为签名中的参数；输出为 `None`。用途：演示非法请求被契约拦下:top_k=0 越界。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Document`：承载本节状态/数据；重点方法：见类定义。
+#   - `Chunk`：承载本节状态/数据；重点方法：见类定义。
+#   - `KnowledgeBase`：承载本节状态/数据；重点方法：见类定义。
+#   - `RetrievalQuery`：承载本节状态/数据；重点方法：见类定义。
+#   - `RetrievalHit`：承载本节状态/数据；重点方法：见类定义。
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
 import os
 
@@ -10,12 +29,12 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 class Document(BaseModel):
-    """一篇典籍原文:入库的最小单元。"""
+    """一篇资料原文:入库的最小单元。"""
 
     doc_id: str = Field(description="唯一文档 ID,如 kb-0001")
-    title: str = Field(description="典籍标题,如《筑基入门》")
+    title: str = Field(description="资料标题,如《基础阶段入门》")
     author: str = Field(default="佚名", description="作者或出处")
-    text: str = Field(description="典籍正文")
+    text: str = Field(description="资料正文")
     tags: list[str] = Field(default_factory=list, description="分类标签")
 
 
@@ -29,7 +48,7 @@ class Chunk(BaseModel):
 
 
 class KnowledgeBase(BaseModel):
-    """典籍库:文档与切块两棵树的根。"""
+    """知识库:文档与切块两棵树的根。"""
 
     docs: list[Document] = Field(default_factory=list)
     chunks: list[Chunk] = Field(default_factory=list)
@@ -55,10 +74,10 @@ class RetrievalHit(BaseModel):
 
 def build_sample_kb() -> KnowledgeBase:
     """造一份样例库,演示契约如何落地。"""
-    doc = Document(doc_id="kb-0001", title="《筑基入门》", text="引气入体,守心如一。")
+    doc = Document(doc_id="kb-0001", title="《基础阶段入门》", text="加载入体,守心如一。")
     return KnowledgeBase(
         docs=[doc],
-        chunks=[Chunk(chunk_id="kb-0001-0", doc_id="kb-0001", content="引气入体,守心如一。", order=0)],
+        chunks=[Chunk(chunk_id="kb-0001-0", doc_id="kb-0001", content="加载入体,守心如一。", order=0)],
     )
 
 
@@ -79,7 +98,7 @@ def demo_schemas() -> None:
 def demo_validation() -> None:
     """演示非法请求被契约拦下:top_k=0 越界。"""
     try:
-        RetrievalQuery(text="如何筑基", top_k=0)
+        RetrievalQuery(text="如何基础阶段", top_k=0)
     except ValidationError as exc:
         err = exc.errors()[0]
         print(f"拦截成功:字段 {err['loc'][0]} 违规:{err['msg']}")

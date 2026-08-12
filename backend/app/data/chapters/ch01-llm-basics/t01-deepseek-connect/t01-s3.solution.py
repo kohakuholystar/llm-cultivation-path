@@ -1,5 +1,5 @@
-"""灵讯通 · s3:首次对话
-构造 messages 剧本发出第一条请求,完成灵讯通的第一次真实对话。
+"""星澈助手 · s3:首次对话
+构造 messages 剧本发出第一条请求,完成星澈助手的第一次真实对话。
 """
 import os
 import sys
@@ -8,7 +8,7 @@ from openai import OpenAI
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -46,7 +46,7 @@ def chat_once(client: OpenAI, question: str) -> str:
         model=MODEL,
         messages=[
             # system 是"人设说明书",整场对话生效
-            {"role": "system", "content": "你是灵讯通,一个简洁可靠的命令行智能助手。"},
+            {"role": "system", "content": "你是星澈助手,一个简洁可靠的命令行智能助手。"},
             # user 是用户这一轮的提问
             {"role": "user", "content": question},
         ],
@@ -63,7 +63,7 @@ def main() -> None:
     question = "你好!请用一句话介绍你自己。"
     print(f"你: {question}")
     reply = chat_once(client, question)
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
 
 
 if __name__ == "__main__":

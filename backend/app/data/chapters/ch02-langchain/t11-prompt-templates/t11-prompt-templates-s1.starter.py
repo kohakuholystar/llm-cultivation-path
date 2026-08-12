@@ -1,19 +1,23 @@
-"""铸剑台 · 模板工程 第 1 步:ChatPromptTemplate 基础。
+"""黑糖资料室 · 提示词模板工程 · s1：用 LangChain 完成可验证的学习任务。"""
 
-把铸剑配方从"字符串拼接"升级为"显式声明变量的模板",
-实现提示词内容与代码分离。本任务全程只渲染 prompt,不调用模型。
-"""
+# 学习契约
+# - 目标：把提示词写成显式变量的消息模板，而非字符串拼接。
+# - 补写：补写 `build_forge_prompt`。
+# - 关键函数/类（入参 → 出参）：`build_forge_prompt() -> ChatPromptTemplate` 返回 system/human 模板；`render_messages(prompt, variables: dict)` 渲染消息。
+# - 技术栈：LangChain Core、`ChatPromptTemplate`、`BaseMessage`。
+# - 前置条件：本步只渲染模板，不需要联网或 API Key。
+# - 可观察结果：打印包含角色与内容的消息列表。
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import BaseMessage
 
 
 def build_forge_prompt() -> ChatPromptTemplate:
-    """构建铸剑台主模板:system 锁定铸剑师人设,human 接收铸剑需求。"""
+    """构建黑糖资料室主模板:system 锁定内容设计师人设,human 接收制作需求。"""
     # TODO: 用 ChatPromptTemplate.from_messages([...]) 返回模板,含两条消息
-    # 提示: ("system", "你是铸剑台的总铸剑师,出身门派「{sect}」。"
-    #        "你只回答铸剑相关问题,其余话题一律回绝。")
-    #       ("human", "我要铸一柄{sword_type},主材是{material},请给出锻造要点。")
+    # 提示: ("system", "你是黑糖资料室的项目主理人,出身社团「{sect}」。"
+    #        "你只回答制作相关问题,其余话题一律回绝。")
+    #       ("human", "我要制作一份{sword_type},主素材是{material},请给出制作要点。")
     raise NotImplementedError("build_forge_prompt 尚未实现:请按 TODO 提示构建主模板")
 
 
@@ -42,15 +46,15 @@ def main() -> None:
 
     messages = render_messages(
         prompt,
-        {"sect": "玄铁阁", "sword_type": "双手重剑", "material": "天外陨铁"},
+        {"sect": "素材组", "sword_type": "双手长篇方案", "material": "活动素材"},
     )
     show_messages(messages)
 
     # 换一组变量,同一份模板渲染出完全不同的提示词——模板即数据
-    print("--- 换一批铸剑需求 ---")
+    print("--- 换一批内容制作需求 ---")
     messages2 = render_messages(
         prompt,
-        {"sect": "百花谷", "sword_type": "柳叶细剑", "material": "精钢"},
+        {"sect": "视觉设计组", "sword_type": "竖版海报", "material": "精钢"},
     )
     show_messages(messages2)
 

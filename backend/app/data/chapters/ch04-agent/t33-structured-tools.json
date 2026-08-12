@@ -4,8 +4,8 @@
       "id": "t33-structured-tools-s1",
       "taskId": "t33-structured-tools",
       "order": 1,
-      "title": "多参数法宝:Pydantic args_schema 入炉",
-      "instruction": "### 目标\n\n为章项目「百宝囊」打造第一件法宝——炼器炉 `refine_calc`。它接收 4 个参数(法器名、数量、单价、品质),你要用 Pydantic `BaseModel` 声明这份参数契约,并通过 `@tool(args_schema=...)` 绑定到工具上,让非法参数在进入函数体之前就被拦截。\n\n### 原理\n\nLangChain 工具的本质是「函数 + JSON Schema」。模型决定调用工具时,输出的只是一段 JSON 参数;这段 JSON 天然不可信——不校验就直接 `**kwargs` 展开,类型错误、越界值会一路漏进业务逻辑,在最深处爆炸。`args_schema` 把校验前置到工具边界:LangChain 执行前先用你的 Pydantic 模型解析参数——能 coercion 的自动转换(字符串 `\"2\"` → 整数 `2`),转换不了或违反约束(如 `gt=0`)的直接抛 `ValidationError`,函数体根本不会被触碰。同时,`Field(description=...)` 里写的每一句说明都会进入发给模型的 JSON Schema,是模型「学会用工具」的教材:description 写得越清楚,模型传参越准。这也是为什么参数契约宁可啰嗦,不可省略。\n\n### 操作\n\n1. 定义 `RefineInput(BaseModel)`,四个字段均用 `Field` 给出约束与中文 description;`rarity` 用 `Literal` 限定三档品质;\n2. 用 `@tool(args_schema=RefineInput)` 装饰 `refine_calc`,函数内按品质系数计算总成本(已给出);\n3. 在 `demo_invoke` 里补上第三种演示:`quantity=0` 的非法调用被 `ValidationError` 拦截,打印字段名与错误信息。\n\n### 常见坑\n\n- `@tool` 装饰的函数**必须有 docstring**,它会被当作工具描述发给模型,缺失会直接报错;\n- `Literal[\"凡品\", \"精品\", \"仙品\"]` 这类枚举约束同样靠 Pydantic 在边界校验,传「神品」会在进函数前被拦下——不要在函数体内再手写一遍判断,那是重复设防。\n",
+      "title": "多参数工具:Pydantic args_schema 入处理器",
+      "instruction": "### 目标\n\n为章项目「工具助手」打造第一件工具——工具开发处理器 `refine_calc`。它接收 4 个参数(工具名、数量、单价、品质),你要用 Pydantic `BaseModel` 声明这份参数契约,并通过 `@tool(args_schema=...)` 绑定到工具上,让非法参数在进入函数体之前就被拦截。\n\n### 原理\n\nLangChain 工具的本质是「函数 + JSON Schema」。模型决定调用工具时,输出的只是一段 JSON 参数;这段 JSON 天然不可信——不校验就直接 `**kwargs` 展开,类型错误、越界值会一路漏进业务逻辑,在最深处爆炸。`args_schema` 把校验前置到工具边界:LangChain 执行前先用你的 Pydantic 模型解析参数——能 coercion 的自动转换(字符串 `\"2\"` → 整数 `2`),转换不了或违反约束(如 `gt=0`)的直接抛 `ValidationError`,函数体根本不会被触碰。同时,`Field(description=...)` 里写的每一句说明都会进入发给模型的 JSON Schema,是模型「学会用工具」的教材:description 写得越清楚,模型传参越准。这也是为什么参数契约宁可啰嗦,不可省略。\n\n### 操作\n\n1. 定义 `RefineInput(BaseModel)`,四个字段均用 `Field` 给出约束与中文 description;`rarity` 用 `Literal` 限定三档品质;\n2. 用 `@tool(args_schema=RefineInput)` 装饰 `refine_calc`,函数内按品质系数计算总成本(已给出);\n3. 在 `demo_invoke` 里补上第三种演示:`quantity=0` 的非法调用被 `ValidationError` 拦截,打印字段名与错误信息。\n\n### 常见坑\n\n- `@tool` 装饰的函数**必须有 docstring**,它会被当作工具描述发给模型,缺失会直接报错;\n- `Literal[\"凡品\", \"精品\", \"高质量\"]` 这类枚举约束同样靠 Pydantic 在边界校验,传「神品」会在进函数前被拦下——不要在函数体内再手写一遍判断,那是重复设防。\n",
       "hints": [
         {
           "order": 1,
@@ -13,7 +13,7 @@
         },
         {
           "order": 2,
-          "text": "关键写法:quantity: int = Field(gt=0, le=99, description=\"...\");rarity: Literal[\"凡品\", \"精品\", \"仙品\"] = Field(default=\"凡品\", description=\"...\")。"
+          "text": "关键写法:quantity: int = Field(gt=0, le=99, description=\"...\");rarity: Literal[\"凡品\", \"精品\", \"高质量\"] = Field(default=\"凡品\", description=\"...\")。"
         },
         {
           "order": 3,
@@ -24,14 +24,14 @@
         {
           "title": "模型眼中的工具说明书",
           "language": "python",
-          "code": "# RefineInput.model_json_schema() 的输出(节选),\n# 会随 bind_tools 一起发给模型:\n{\n  \"properties\": {\n    \"item_name\": {\"description\": \"要炼制的法器名称,如「飞剑」\", \"type\": \"string\"},\n    \"quantity\": {\"description\": \"炼制数量,1-99 件\", \"exclusiveMinimum\": 0, \"type\": \"integer\"}\n  },\n  \"required\": [\"item_name\", \"quantity\", \"unit_cost\"]\n}",
-          "description": "args_schema 生成的 JSON Schema:description 与约束都会成为模型传参的依据。"
+          "code": "# RefineInput.model_json_schema() 的输出(节选),\n# 会随 bind_tools 一起发给模型:\n{\n  \"properties\": {\n    \"item_name\": {\"description\": \"要实现的工具名称,如「演示设备」\", \"type\": \"string\"},\n    \"quantity\": {\"description\": \"实现数量,1-99 件\", \"exclusiveMinimum\": 0, \"type\": \"integer\"}\n  },\n  \"required\": [\"item_name\", \"quantity\", \"unit_cost\"]\n}",
+          "description": "args_schema 实现的 JSON Schema:description 与约束都会成为模型传参的依据。"
         }
       ],
       "terms": [
         {
           "name": "args_schema",
-          "definition": "LangChain 工具的参数契约,通常是一个 Pydantic BaseModel;执行前用它解析与校验模型给出的 JSON 参数,并生成发给模型的 JSON Schema。"
+          "definition": "LangChain 工具的参数契约,通常是一个 Pydantic BaseModel;执行前用它解析与校验模型给出的 JSON 参数,并实现发给模型的 JSON Schema。"
         },
         {
           "name": "ValidationError",
@@ -54,7 +54,7 @@
         {
           "name": "Pydantic",
           "role": "数据校验库",
-          "description": "用 BaseModel + Field 声明参数 schema,承担类型校验、约束检查与 JSON Schema 生成。",
+          "description": "用 BaseModel + Field 声明参数 schema,承担类型校验、约束检查与 JSON Schema 实现。",
           "officialUrl": "https://docs.pydantic.dev",
           "category": "库",
           "installHint": "pip install pydantic"
@@ -84,14 +84,14 @@
         },
         {
           "type": "regex_in_code",
-          "message": "请用 @tool(args_schema=RefineInput) 装饰法宝函数。",
+          "message": "请用 @tool(args_schema=RefineInput) 装饰工具函数。",
           "pattern": "@tool\\(args_schema=RefineInput\\)",
           "blocking": true
         },
         {
           "type": "sandbox_run",
           "message": "运行应展示正常计算与参数拦截两类结果。",
-          "expectedStdout": "共需 540\\.0 灵石[\\s\\S]*拦截成功",
+          "expectedStdout": "共需 540\\.0 预算点[\\s\\S]*拦截成功",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -103,7 +103,7 @@
       "taskId": "t33-structured-tools",
       "order": 2,
       "title": "StructuredTool 批量入囊",
-      "instruction": "### 目标\n\n百宝囊只有一件法宝太寒酸。本步新增「库存盘点」法宝 `query_stock`,并把注册方式从 `@tool` 装饰器升级为 `StructuredTool.from_function` 显式锻造:两件法宝装进同一个列表,再写一个统一入口 `dispatch` 按名字取用——这就是日后 Agent 调度工具的雏形。\n\n### 原理\n\n`@tool` 装饰器适合随手定义单个工具,但真实项目里工具要批量管理:注册、检索、按名分发。`StructuredTool.from_function` 把「函数、名称、描述、参数契约」四要素显式装配成一个 `StructuredTool` 对象:name 可以与函数名不同,description 可以写得更面向模型,`args_schema` 独立传入,职责一目了然。装配好的工具对象自带 `invoke`(同步)/ `ainvoke`(异步),参数校验依旧由 args_schema 在边界完成,与装饰器路径完全一致——装饰器只是这条路径的语法糖。`dispatch` 体现的是工具调用的核心分工:**模型只给名字和参数 JSON,查找、校验、执行全部是我们的代码负责**。这个「注册表 + 分发器」结构在后面接 Agent 时会原样复用,请把它刻进肌肉记忆。\n\n### 操作\n\n1. 保留 s1 的 `RefineInput` 与 `refine_calc`(去掉装饰器,回归普通函数);\n2. 补全 `StockQueryInput`:关键词必填,`min_stock` / `limit` 带默认值与约束;\n3. 在 `build_pouch()` 里用 `StructuredTool.from_function` 注册第二件法宝;\n4. 通读已给出的 `dispatch`:找到就执行并捕获 `ValidationError`,找不到就返回明确错误。\n\n### 常见坑\n\n- `from_function` 必须显式传 `description`,或保证函数有 docstring,两者都没有会直接报错;\n- `dispatch` 里「没找到工具」一定要**返回**错误文案而不是 `raise`——这个返回值将来直接回喂模型,抛异常会炸掉整个 Agent 回合。\n",
+      "instruction": "### 目标\n\n工具助手只有一件工具太寒酸。本步新增「库存盘点」工具 `query_stock`,并把注册方式从 `@tool` 装饰器升级为 `StructuredTool.from_function` 显式处理:两件工具装进同一个列表,再写一个统一入口 `dispatch` 按名字取用——这就是日后 Agent 调度工具的雏形。\n\n### 原理\n\n`@tool` 装饰器适合随手定义单个工具,但真实项目里工具要批量管理:注册、检索、按名分发。`StructuredTool.from_function` 把「函数、名称、描述、参数契约」四要素显式装配成一个 `StructuredTool` 对象:name 可以与函数名不同,description 可以写得更面向模型,`args_schema` 独立传入,职责一目了然。装配好的工具对象自带 `invoke`(同步)/ `ainvoke`(异步),参数校验依旧由 args_schema 在边界完成,与装饰器路径完全一致——装饰器只是这条路径的语法糖。`dispatch` 体现的是工具调用的核心分工:**模型只给名字和参数 JSON,查找、校验、执行全部是我们的代码负责**。这个「注册表 + 分发器」结构在后面接 Agent 时会原样复用,请把它刻进肌肉记忆。\n\n### 操作\n\n1. 保留 s1 的 `RefineInput` 与 `refine_calc`(去掉装饰器,回归普通函数);\n2. 补全 `StockQueryInput`:关键词必填,`min_stock` / `limit` 带默认值与约束;\n3. 在 `build_pouch()` 里用 `StructuredTool.from_function` 注册第二件工具;\n4. 通读已给出的 `dispatch`:找到就执行并捕获 `ValidationError`,找不到就返回明确错误。\n\n### 常见坑\n\n- `from_function` 必须显式传 `description`,或保证函数有 docstring,两者都没有会直接报错;\n- `dispatch` 里「没找到工具」一定要**返回**错误文案而不是 `raise`——这个返回值将来直接回喂模型,抛异常会炸掉整个 Agent 回合。\n",
       "hints": [
         {
           "order": 1,
@@ -122,25 +122,25 @@
         {
           "title": "注册表 + 分发器模式",
           "language": "python",
-          "code": "pouch = build_pouch()            # 注册表:工具对象的列表\nok, text = dispatch(\n    pouch,\n    \"query_stock\",               # 模型只给名字\n    {\"keyword\": \"剑\", \"limit\": 3},  # 和一段参数 JSON\n)\n# 找不到工具 -> (False, \"百宝囊里没有名为 xxx 的法宝\")\n# 参数非法   -> (False, \"参数校验失败,字段 limit: ...\")",
+          "code": "pouch = build_pouch()            # 注册表:工具对象的列表\nok, text = dispatch(\n    pouch,\n    \"query_stock\",               # 模型只给名字\n    {\"keyword\": \"方案\", \"limit\": 3},  # 和一段参数 JSON\n)\n# 找不到工具 -> (False, \"工具助手里没有名为 xxx 的工具\")\n# 参数非法   -> (False, \"参数校验失败,字段 limit: ...\")",
           "description": "Agent 调度工具的最小闭环:注册表查找 + 边界校验 + 错误文案化。"
         }
       ],
       "terms": [
         {
           "name": "StructuredTool",
-          "definition": "LangChain 的多参数工具类型;通过 from_function 显式装配函数、名称、描述与 args_schema,是批量管理工具的标准形态。"
+          "definition": "LangChain 的多参数工具类型;通过 from_function 显式装配函数、名称、描述与 args_schema,是批量管理工具的精品形态。"
         },
         {
           "name": "工具注册表(Tool Registry)",
-          "definition": "集中存放工具对象的数据结构(通常是列表或字典),配合分发函数按名查找与执行,是 Agent 工具调度的基础设施。"
+          "definition": "集中存放工具对象的数据结构(通常是列表或字典),配合分发函数按名查找与执行,是 Agent 工具调度的凡品设施。"
         }
       ],
       "techStack": [
         {
           "name": "LangChain",
           "role": "Agent 编排框架",
-          "description": "StructuredTool.from_function 把函数显式锻造为带 schema 的工具对象。",
+          "description": "StructuredTool.from_function 把函数显式处理为带 schema 的工具对象。",
           "officialUrl": "https://python.langchain.com",
           "category": "框架",
           "installHint": "pip install langchain langchain-core"
@@ -162,14 +162,14 @@
         },
         {
           "type": "ast_structure",
-          "message": "请实现 build_pouch 注册函数。",
+          "message": "请构建 build_pouch 注册函数。",
           "astType": "function_def",
           "name": "build_pouch",
           "blocking": true
         },
         {
           "type": "ast_structure",
-          "message": "两件法宝都要用 StructuredTool.from_function 注册。",
+          "message": "两件工具都要用 StructuredTool.from_function 注册。",
           "astType": "call",
           "name": "StructuredTool.from_function",
           "minCount": 2,
@@ -177,8 +177,8 @@
         },
         {
           "type": "sandbox_run",
-          "message": "运行应展示炼器计算、库存检索与参数拦截三类结果。",
-          "expectedStdout": "共需 900\\.0 灵石[\\s\\S]*找到 3 件[\\s\\S]*调用失败",
+          "message": "运行应展示配置计算、库存检索与参数拦截三类结果。",
+          "expectedStdout": "共需 900\\.0 预算点[\\s\\S]*找到 3 件[\\s\\S]*调用失败",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -189,8 +189,8 @@
       "id": "t33-structured-tools-s3",
       "taskId": "t33-structured-tools",
       "order": 3,
-      "title": "接入 DeepSeek:让模型亲手掏法宝",
-      "instruction": "### 目标\n\n前两步的法宝都是我们手动 `invoke` 的。本步把百宝囊绑定到 DeepSeek:用 `bind_tools` 把每件法宝的 JSON Schema 交给 `deepseek-v4-pro`,由模型根据用户输入自己决定调用哪件法宝、传什么参数;我们执行后把结果包成 `ToolMessage` 回传。没有 API Key 时程序优雅退出;设 `MOCK_LLM=1` 可离线用剧本跑通全流程。\n\n### 原理\n\nTool calling 的协议分两半。**决策半**:`bind_tools(tools)` 会把每个工具的 `name`、`description`、以及 `args_schema` 生成的 JSON Schema 一起塞进请求的 `tools` 字段;模型读完用户输入后,若判断需要工具,就在 `AIMessage.tool_calls` 里返回调用计划——一个列表,每项是 `{\"name\", \"args\", \"id\"}` 三元组。注意,**模型只负责\"决定\",从不替你执行**,`args` 里的每个值都受过你在 s1/s2 定义的 args_schema 约束,这正是前面两步的价值兑现。**执行半**:我们的 `dispatch` 按 `name` 找到法宝、用 `args` 调用,结果必须包成 `ToolMessage(content=..., tool_call_id=...)` 追加进消息历史。`tool_call_id` 是结果与调用的配对凭证——模型一次可能发起多个调用,缺了 id 或对错号,它就分不清哪份结果属于哪次调用。\n\n### 操作\n\n1. 补全 `build_llm()`:从环境变量读 `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `MODEL_NAME` 装配 `ChatOpenAI`;\n2. 补全 `run_agent_turn`:先判 `reply.tool_calls` 为空的情况,再逐个 `dispatch` 并把结果包成 `ToolMessage`;\n3. 本地无 Key 时设 `MOCK_LLM=1` 运行,观察剧本走完整个回合;有 Key 后取消 MOCK 真实调用。\n\n### 常见坑\n\n- `ToolMessage` 的 `tool_call_id` 必须等于对应 `tool_calls[i][\"id\"]`,手写死字符串在真实多轮里会错位;\n- `reply.tool_calls` 可能是空列表(模型觉得不需要工具),直接取下标 `[0]` 会 IndexError,务必先判空;\n- `temperature` 建议设为 0:工具调用要的是稳定的参数,不是文采。\n",
+      "title": "接入 DeepSeek:让模型亲手掏工具",
+      "instruction": "### 目标\n\n前两步的工具都是我们手动 `invoke` 的。本步把工具助手绑定到 DeepSeek:用 `bind_tools` 把每件工具的 JSON Schema 交给 `deepseek-v4-pro`,由模型根据用户输入自己决定调用哪件工具、传什么参数;我们执行后把结果包成 `ToolMessage` 回传。没有 API Key 时程序优雅退出;设 `MOCK_LLM=1` 可离线用剧本跑通全流程。\n\n### 原理\n\nTool calling 的协议分两半。**决策半**:`bind_tools(tools)` 会把每个工具的 `name`、`description`、以及 `args_schema` 实现的 JSON Schema 一起塞进请求的 `tools` 字段;模型读完用户输入后,若判断需要工具,就在 `AIMessage.tool_calls` 里返回调用计划——一个列表,每项是 `{\"name\", \"args\", \"id\"}` 三元组。注意,**模型只负责\"决定\",从不替你执行**,`args` 里的每个值都受过你在 s1/s2 定义的 args_schema 约束,这正是前面两步的价值兑现。**执行半**:我们的 `dispatch` 按 `name` 找到工具、用 `args` 调用,结果必须包成 `ToolMessage(content=..., tool_call_id=...)` 追加进消息历史。`tool_call_id` 是结果与调用的配对凭证——模型一次可能发起多个调用,缺了 id 或对错号,它就分不清哪份结果属于哪次调用。\n\n### 操作\n\n1. 补全 `build_llm()`:从环境变量读 `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `MODEL_NAME` 装配 `ChatOpenAI`;\n2. 补全 `run_agent_turn`:先判 `reply.tool_calls` 为空的情况,再逐个 `dispatch` 并把结果包成 `ToolMessage`;\n3. 本地无 Key 时设 `MOCK_LLM=1` 运行,观察剧本走完整个回合;有 Key 后取消 MOCK 真实调用。\n\n### 常见坑\n\n- `ToolMessage` 的 `tool_call_id` 必须等于对应 `tool_calls[i][\"id\"]`,手写死字符串在真实多轮里会错位;\n- `reply.tool_calls` 可能是空列表(模型觉得不需要工具),直接取下标 `[0]` 会 IndexError,务必先判空;\n- `temperature` 建议设为 0:工具调用要的是稳定的参数,不是文采。\n",
       "hints": [
         {
           "order": 1,
@@ -209,7 +209,7 @@
         {
           "title": "tool_calls 与 ToolMessage 的配对",
           "language": "python",
-          "code": "# 模型的回复(决策,不执行):\nreply.tool_calls == [\n    {\"name\": \"query_stock\", \"args\": {\"keyword\": \"剑\"}, \"id\": \"call_1\"},\n]\n# 我们执行后回传(每个调用一条 ToolMessage,id 一一对应):\nToolMessage(content=\"【库存】找到 1 件:...\", tool_call_id=\"call_1\")",
+          "code": "# 模型的回复(决策,不执行):\nreply.tool_calls == [\n    {\"name\": \"query_stock\", \"args\": {\"keyword\": \"方案\"}, \"id\": \"call_1\"},\n]\n# 我们执行后回传(每个调用一条 ToolMessage,id 一一对应):\nToolMessage(content=\"【库存】找到 1 件:...\", tool_call_id=\"call_1\")",
           "description": "tool_call_id 是调用与结果的配对凭证,多调用场景下尤其关键。"
         }
       ],
@@ -220,7 +220,7 @@
         },
         {
           "name": "ToolMessage",
-          "definition": "承载工具执行结果的消息类型,必须带 tool_call_id 与模型的某次调用配对,之后回喂模型生成最终答复。"
+          "definition": "承载工具执行结果的消息类型,必须带 tool_call_id 与模型的某次调用配对,之后回喂模型实现最终答复。"
         },
         {
           "name": "tool_calls",
@@ -261,14 +261,14 @@
         },
         {
           "type": "api_call_exists",
-          "message": "请用 bind_tools 把百宝囊绑定给模型。",
+          "message": "请用 bind_tools 把工具助手绑定给模型。",
           "api": "bind_tools",
           "minCount": 1,
           "blocking": true
         },
         {
           "type": "ast_structure",
-          "message": "请实现 run_agent_turn 回合函数。",
+          "message": "请构建 run_agent_turn 回合函数。",
           "astType": "function_def",
           "name": "run_agent_turn",
           "blocking": true
@@ -291,12 +291,12 @@
       "id": "t33-structured-tools-s4",
       "taskId": "t33-structured-tools",
       "order": 4,
-      "title": "异步法宝:ainvoke 与并发淬炼",
-      "instruction": "### 目标\n\n给百宝囊添置两件异步法宝:「鉴定」`appraise` 与「询价」`scout_price`——它们模拟耗时的远程服务(网络 I/O)。当模型一个回合要求连掏多件法宝时,用 `ainvoke` + `asyncio.gather` 并发执行,把串行等待变成一次齐发,并在输出里对比串行与并发的耗时差距。\n\n### 原理\n\nLangChain 工具有两套执行通道:`invoke` 走同步函数,`ainvoke` 走协程。注册方式决定了工具对象上 `func` 与 `coroutine` 两个属性的填充:同步函数传 `func=`,**协程必须传 `coroutine=`**——`coroutine` 属性非空的工具,`ainvoke` 才会真正 `await` 它。为什么值得折腾?Agent 的瓶颈几乎全在 I/O:一次深度鉴定 0.4s、一次询价 0.3s,串行掏三件法宝就是 0.9s 干等;而这些等待彼此独立,`asyncio.gather` 让它们在事件循环里齐头并进,总耗时约等于最慢的一件(0.4s)。模型一个回合发起的多个 tool_calls 天然是独立任务,这正是并发的主场。注意:`gather` 里混入同步 `invoke` 会阻塞整个事件循环,并发立刻失效——所以 `call_one` 按 `tool.coroutine` 分流,同步法宝本步直接调用(生产环境应 `run_in_executor` 丢线程池)。\n\n### 操作\n\n1. 在 `build_pouch()` 里用 `StructuredTool.from_function(coroutine=...)` 注册两件异步法宝;\n2. 通读 `call_one`:理解 `tool.coroutine` 分流与 `await tool.ainvoke(...)` 的写法;\n3. 在 `run_agent_turn` 里补并发段:`asyncio.gather` 齐发全部调用、计时、打印结果并组装 `ToolMessage`;\n4. 设 `MOCK_LLM=1` 运行,观察串行约 0.9s vs 并发约 0.4s 的对比。\n\n### 常见坑\n\n- 只把 async 函数传给 `from_function(func=...)` 在本版本**不会**被识别为协程(`coroutine` 仍是 None),`ainvoke` 会返回未 await 的协程对象——异步法宝务必用 `coroutine=` 关键字注册;\n- `asyncio.gather` 里任何一个 `await` 抛异常会整体失败(除非 `return_exceptions=True`),本步先让错误冒泡,s5 再学把异常规范化为模型可读的反馈。\n",
+      "title": "异步工具:ainvoke 与并发淬炼",
+      "instruction": "### 目标\n\n给工具助手添置两件异步工具:「鉴定」`appraise` 与「询价」`scout_price`——它们模拟耗时的远程服务(网络 I/O)。当模型一个回合要求连掏多件工具时,用 `ainvoke` + `asyncio.gather` 并发执行,把串行等待变成一次齐发,并在输出里对比串行与并发的耗时差距。\n\n### 原理\n\nLangChain 工具有两套执行通道:`invoke` 走同步函数,`ainvoke` 走协程。注册方式决定了工具对象上 `func` 与 `coroutine` 两个属性的填充:同步函数传 `func=`,**协程必须传 `coroutine=`**——`coroutine` 属性非空的工具,`ainvoke` 才会真正 `await` 它。为什么值得折腾?Agent 的瓶颈几乎全在 I/O:一次深度鉴定 0.4s、一次询价 0.3s,串行掏三件工具就是 0.9s 干等;而这些等待彼此独立,`asyncio.gather` 让它们在事件循环里齐头并进,总耗时约等于最慢的一件(0.4s)。模型一个回合发起的多个 tool_calls 天然是独立任务,这正是并发的主场。注意:`gather` 里混入同步 `invoke` 会阻塞整个事件循环,并发立刻失效——所以 `call_one` 按 `tool.coroutine` 分流,同步工具本步直接调用(生产环境应 `run_in_executor` 丢线程池)。\n\n### 操作\n\n1. 在 `build_pouch()` 里用 `StructuredTool.from_function(coroutine=...)` 注册两件异步工具;\n2. 通读 `call_one`:理解 `tool.coroutine` 分流与 `await tool.ainvoke(...)` 的写法;\n3. 在 `run_agent_turn` 里补并发段:`asyncio.gather` 齐发全部调用、计时、打印结果并处理 `ToolMessage`;\n4. 设 `MOCK_LLM=1` 运行,观察串行约 0.9s vs 并发约 0.4s 的对比。\n\n### 常见坑\n\n- 只把 async 函数传给 `from_function(func=...)` 在本版本**不会**被识别为协程(`coroutine` 仍是 None),`ainvoke` 会返回未 await 的协程对象——异步工具务必用 `coroutine=` 关键字注册;\n- `asyncio.gather` 里任何一个 `await` 抛异常会整体失败(除非 `return_exceptions=True`),本步先让错误冒泡,s5 再学把异常规范化为模型可读的反馈。\n",
       "hints": [
         {
           "order": 1,
-          "text": "异步工具的两个关键点:注册时用 coroutine= 关键字,执行时用 await tool.ainvoke(args);其余(参数契约、ToolMessage 组装)与同步工具完全一样。"
+          "text": "异步工具的两个关键点:注册时用 coroutine= 关键字,执行时用 await tool.ainvoke(args);其余(参数契约、ToolMessage 处理)与同步工具完全一样。"
         },
         {
           "order": 2,
@@ -311,8 +311,8 @@
         {
           "title": "ainvoke + gather 并发模板",
           "language": "python",
-          "code": "async def call_one(pouch, call):\n    tool = next(t for t in pouch if t.name == call[\"name\"])\n    if tool.coroutine is not None:      # 异步法宝\n        return await tool.ainvoke(call[\"args\"])\n    return tool.invoke(call[\"args\"])  # 同步法宝\n\n# 一个回合的多件法宝一次齐发:\nresults = await asyncio.gather(*(call_one(pouch, c) for c in tool_calls))",
-          "description": "按 coroutine 属性分流同步/异步通道,是并发执行混合工具箱的标准写法。"
+          "code": "async def call_one(pouch, call):\n    tool = next(t for t in pouch if t.name == call[\"name\"])\n    if tool.coroutine is not None:      # 异步工具\n        return await tool.ainvoke(call[\"args\"])\n    return tool.invoke(call[\"args\"])  # 同步工具\n\n# 一个回合的多件工具一次齐发:\nresults = await asyncio.gather(*(call_one(pouch, c) for c in tool_calls))",
+          "description": "按 coroutine 属性分流同步/异步通道,是并发执行混合工具箱的精品写法。"
         }
       ],
       "terms": [
@@ -326,7 +326,7 @@
         },
         {
           "name": "事件循环(Event Loop)",
-          "definition": "asyncio 的调度核心:协程在 await 处让出控制权,事件循环转而运行其他就绪任务,从而实现单线程并发。"
+          "definition": "asyncio 的调度核心:协程在 await 处让出控制权,事件循环转而运行其他就绪任务,从而构建单线程并发。"
         }
       ],
       "techStack": [
@@ -341,10 +341,10 @@
         {
           "name": "asyncio",
           "role": "异步运行时",
-          "description": "Python 标准库的异步框架,提供事件循环与 gather 等并发原语。",
+          "description": "Python 精品库的异步框架,提供事件循环与 gather 等并发原语。",
           "officialUrl": "https://docs.python.org/3/library/asyncio.html",
           "category": "库",
-          "installHint": "标准库,无需安装"
+          "installHint": "精品库,无需安装"
         }
       ],
       "validation": [
@@ -356,7 +356,7 @@
         },
         {
           "type": "ast_structure",
-          "message": "请定义异步法宝 appraise。",
+          "message": "请定义异步工具 appraise。",
           "astType": "async_function_def",
           "name": "appraise",
           "blocking": true
@@ -370,13 +370,13 @@
         },
         {
           "type": "regex_in_code",
-          "message": "请用 asyncio.gather 并发执行本回合的法宝调用。",
+          "message": "请用 asyncio.gather 并发执行本回合的工具调用。",
           "pattern": "asyncio\\.gather",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "异步法宝需用 coroutine= 关键字注册。",
+          "message": "异步工具需用 coroutine= 关键字注册。",
           "pattern": "coroutine\\s*=",
           "blocking": true
         },
@@ -393,8 +393,8 @@
       "id": "t33-structured-tools-s5",
       "taskId": "t33-structured-tools",
       "order": 5,
-      "title": "异常规范化:给百宝囊装上护符",
-      "instruction": "### 目标\n\n让法宝「败而不溃」。本步给炼器炉加上业务约束(仙品一次最多炼 5 件,超出抛 `ToolException`),再写调度层 `safe_call`:无论参数校验失败、业务异常还是未知错误,都收敛成统一的 JSON 信封 `{\"ok\": ..., \"data\"/\"error\": ...}` 作为 `ToolMessage` 回传——模型收到结构化错误后才有机会自我修正,而不是整个 Agent 回合崩溃。\n\n### 原理\n\n工具失败分三类,来源层级不同,处置点也不同。(1) **参数校验失败**(`ValidationError`):发生在 args_schema 解析阶段,函数体还没进——LangChain 的 `handle_tool_error` 根本兜不住它,必须在调度层捕获;(2) **业务异常**(`ToolException`):函数内主动抛出,表达「这次调用合情合理地失败了」——`handle_tool_error=True` 或自定义 handler 能把它转成字符串结果,但实测它**只兜 `ToolException`**,普通 `ValueError` 照样炸出来;(3) **未知异常**:代码 bug,绝不能让它们逃出调度层,否则一个法宝的 bug 炸掉整个回合。统一信封的价值在于提供「模型可读的反馈语言」:`retryable: true` 告诉模型「换个参数再试」,`false` 告诉它「此路不通,换个思路」。这就是工程级 Agent 与玩具 Demo 的分水岭:Demo 用 try/except 把人兜住就完事,工程要把错误变成模型下一步决策的输入。\n\n### 操作\n\n1. 给 `refine_calc` 加业务约束:仙品且 `quantity > 5` 时 `raise ToolException(...)`;\n2. 补全 `safe_call` 的三层捕获:`ValidationError` → `invalid_args`(retryable)、`ToolException` → `tool_error`(retryable)、`Exception` → `internal_error`(不可重试);\n3. 通读 `run_agent_turn`:信封直接作为 `ToolMessage.content`,回合统计成败但不中断;\n4. 设 `MOCK_LLM=1` 运行,观察一次业务失败(quantity=9 仙品)、一次参数非法(depth=9)、一次正常,三种信封同台亮相。\n\n### 常见坑\n\n- 实测两个 `handle_tool_error` 的坑:它**只兜 `ToolException`**;且传字符串模板时 `{error}` 在本版本不会被替换——要定制格式就用 callable,或干脆像本步这样在调度层统一捕获;\n- 信封 JSON 务必 `ensure_ascii=False`,否则中文错误信息变成 `\\uXXXX` 转义,模型和人都不好读;\n- `except Exception` 兜底要放在最后,且记录原始异常类型名——吞掉异常不记录,排查时等于蒙眼排雷。\n",
+      "title": "异常规范化:给工具助手装上护符",
+      "instruction": "### 目标\n\n让工具「败而不溃」。本步给工具开发处理器加上业务约束(高质量一次最多实现 5 件,超出抛 `ToolException`),再写调度层 `safe_call`:无论参数校验失败、业务异常还是未知错误,都收敛成统一的 JSON 信封 `{\"ok\": ..., \"data\"/\"error\": ...}` 作为 `ToolMessage` 回传——模型收到结构化错误后才有机会自我修正,而不是整个 Agent 回合崩溃。\n\n### 原理\n\n工具失败分三类,来源层级不同,处置点也不同。(1) **参数校验失败**(`ValidationError`):发生在 args_schema 解析阶段,函数体还没进——LangChain 的 `handle_tool_error` 根本兜不住它,必须在调度层捕获;(2) **业务异常**(`ToolException`):函数内主动抛出,表达「这次调用合情合理地失败了」——`handle_tool_error=True` 或自定义 handler 能把它转成字符串结果,但实测它**只兜 `ToolException`**,普通 `ValueError` 照样炸出来;(3) **未知异常**:代码 bug,绝不能让它们逃出调度层,否则一个工具的 bug 炸掉整个回合。统一信封的价值在于提供「模型可读的反馈语言」:`retryable: true` 告诉模型「换个参数再试」,`false` 告诉它「此路不通,换个思路」。这就是工程级 Agent 与玩具 Demo 的分水岭:Demo 用 try/except 把人兜住就完事,工程要把错误变成模型下一步决策的输入。\n\n### 操作\n\n1. 给 `refine_calc` 加业务约束:高质量且 `quantity > 5` 时 `raise ToolException(...)`;\n2. 补全 `safe_call` 的三层捕获:`ValidationError` → `invalid_args`(retryable)、`ToolException` → `tool_error`(retryable)、`Exception` → `internal_error`(不可重试);\n3. 通读 `run_agent_turn`:信封直接作为 `ToolMessage.content`,回合统计成败但不中断;\n4. 设 `MOCK_LLM=1` 运行,观察一次业务失败(quantity=9 高质量)、一次参数非法(depth=9)、一次正常,三种信封同台亮相。\n\n### 常见坑\n\n- 实测两个 `handle_tool_error` 的坑:它**只兜 `ToolException`**;且传字符串模板时 `{error}` 在本版本不会被替换——要定制格式就用 callable,或干脆像本步这样在调度层统一捕获;\n- 信封 JSON 务必 `ensure_ascii=False`,否则中文错误信息变成 `\\uXXXX` 转义,模型和人都不好读;\n- `except Exception` 兜底要放在最后,且记录原始异常类型名——吞掉异常不记录,排查时等于蒙眼排雷。\n",
       "hints": [
         {
           "order": 1,
@@ -413,18 +413,18 @@
         {
           "title": "handle_tool_error 的用法与局限",
           "language": "python",
-          "code": "from langchain_core.tools import StructuredTool, ToolException\n\ndef handler(exc: ToolException) -> str:\n    return f\"[法宝失败] {exc}\"   # callable 形式可定制文案\n\ntool = StructuredTool.from_function(\n    func=refine_calc, name=\"refine_calc\",\n    description=\"...\", args_schema=RefineInput,\n    handle_tool_error=handler,  # 只兜 ToolException!\n)\n# ValueError 等普通异常仍会抛出;ValidationError 发生在进函数之前,也兜不住。",
-          "description": "声明式错误处理适合单一工具定制;系统级规范化仍应在调度层统一捕获。"
+          "code": "from langchain_core.tools import StructuredTool, ToolException\n\ndef handler(exc: ToolException) -> str:\n    return f\"[工具失败] {exc}\"   # callable 形式可定制文案\n\ntool = StructuredTool.from_function(\n    func=refine_calc, name=\"refine_calc\",\n    description=\"...\", args_schema=RefineInput,\n    handle_tool_error=handler,  # 只兜 ToolException!\n)\n# ValueError 等普通异常仍会抛出;ValidationError 发生在进函数之前,也兜不住。",
+          "description": "声明式错误淬炼适合单一工具定制;系统级规范化仍应在调度层统一捕获。"
         }
       ],
       "terms": [
         {
           "name": "ToolException",
-          "definition": "LangChain 约定的工具业务异常类型:函数内主动抛出,表达「调用合情合理地失败」;handle_tool_error 只处理这一类异常。"
+          "definition": "LangChain 约定的工具业务异常类型:函数内主动抛出,表达「调用合情合理地失败」;handle_tool_error 只淬炼这一类异常。"
         },
         {
           "name": "handle_tool_error",
-          "definition": "StructuredTool 的错误处理参数:True 表示把 ToolException 转为字符串结果,也可传 callable 自定义文案;不覆盖参数校验错误与普通异常。"
+          "definition": "StructuredTool 的错误淬炼参数:True 表示把 ToolException 转为字符串结果,也可传 callable 自定义文案;不覆盖参数校验错误与普通异常。"
         },
         {
           "name": "错误信封(Error Envelope)",
@@ -435,7 +435,7 @@
         {
           "name": "LangChain",
           "role": "Agent 编排框架",
-          "description": "ToolException 与 handle_tool_error 是工具层错误处理的官方约定。",
+          "description": "ToolException 与 handle_tool_error 是工具层错误淬炼的官方约定。",
           "officialUrl": "https://python.langchain.com",
           "category": "框架",
           "installHint": "pip install langchain langchain-core"
@@ -464,7 +464,7 @@
         },
         {
           "type": "ast_structure",
-          "message": "请实现 safe_call 调度层函数。",
+          "message": "请构建 safe_call 调度层函数。",
           "astType": "async_function_def",
           "name": "safe_call",
           "blocking": true

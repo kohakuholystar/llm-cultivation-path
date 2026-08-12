@@ -1,10 +1,11 @@
-"""百宝囊 · t31-s1:格式契约 —— 约定 ReAct 输出格式,完成第一次 LLM 调用。"""
+"""社团工具箱 · t31-s1:格式契约 —— 约定 ReAct 输出格式,完成第一次 LLM 调用。"""
 
+# ?????????? ReAct ???????????????????build_prompt ? call_llm???????????????????????????OpenAI ?? SDK?DeepSeek????t30???????????? Key ?????? Thought/Action ??????
 import ast, operator, os, sys
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-REACT_INSTRUCTION = """你是「百宝囊」Agent,借助工具完成任务。每轮严格按格式输出,不要输出其他内容:
+REACT_INSTRUCTION = """你是「社团工具箱」Agent,借助工具完成任务。每轮严格按格式输出,不要输出其他内容:
 Thought: 思考 / Action: 工具名 / Action Input: JSON 参数(无参数写 {})
 掌握足够信息后改输出: Thought: 总结 + Final Answer: 最终答案"""
 
@@ -34,10 +35,10 @@ def calculate(expression: str) -> str:
     except (ValueError, SyntaxError, ZeroDivisionError): return f"错误:无法计算表达式 {expression!r}"
 
 
-TOOL_MANUAL = "法宝图鉴:\n" + "\n".join(f"- {n}: {f.tool_description}" for n, f in TOOLBOX.items())  # 注册表自动生成说明书
+TOOL_MANUAL = "工具清单:\n" + "\n".join(f"- {n}: {f.tool_description}" for n, f in TOOLBOX.items())  # 注册表自动生成说明书
 
-def build_prompt(question: str) -> str:  # 组装提示词:法宝图鉴 + 问题 + 开场引导
-    # TODO: 返回提示词:法宝图鉴 + 问题 + 开场引导
+def build_prompt(question: str) -> str:  # 组装提示词:工具清单 + 问题 + 开场引导
+    # TODO: 返回提示词:工具清单 + 问题 + 开场引导
     # 提示:f"{TOOL_MANUAL}\n\n问题: {question}\n\n请开始你的第一轮输出:"
     raise NotImplementedError("t31-s1-build-prompt 尚未实现:请按 TODO 提示拼接提示词")
 
@@ -59,7 +60,7 @@ def main() -> None:
         print("请先在右上角 AI 配置填入 DeepSeek API Key")
         sys.exit(0)
     print(f"端点: {BASE_URL}  模型: {MODEL_NAME}")
-    print(f"百宝囊已装填 {len(TOOLBOX)} 件法宝: {'、'.join(TOOLBOX)}")
+    print(f"社团工具箱已装填 {len(TOOLBOX)} 件工具: {'、'.join(TOOLBOX)}")
     prompt = build_prompt("帮我算 (3 + 4) * 5")
     print("===== 发给模型的提示词 =====")
     print(prompt)

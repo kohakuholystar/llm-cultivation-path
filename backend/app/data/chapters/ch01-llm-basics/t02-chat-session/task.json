@@ -5,7 +5,7 @@
       "taskId": "t02-chat-session",
       "order": 1,
       "title": "记忆从追加开始:ChatSession 与消息历史",
-      "instruction": "### 目标\n把 t01 的一次性 `chat_once` 升级为 `ChatSession` 类:每轮对话自动把问答追加进 `history`,请求时带上全部历史——让灵讯通第一次拥有\"记忆\"。\n\n### 原理\n**LLM 是无状态的,记忆是客户端的工程。** 服务端不会为你保存任何对话:你第一轮说\"我叫阿灵\",第二轮问\"我叫什么\",如果第二轮的 messages 里没有第一轮的内容,模型必然答不上来。所谓多轮对话,本质是一个不断变长的剧本:客户端把每一轮 user/assistant 追加到列表,下次请求整本重发。ChatSession 就是这个剧本的保管员。\n\n**为什么用类而不是全局列表?** 会话是一个明确的对象:它有状态(history)、有依赖(client/config)、有行为(say)。封装成类后,重置会话 = 新建实例,多个会话并存互不干扰——这是后续所有 Agent 记忆模块的基本形态。\n\n**mock 分支的意义。** 本任务默认真实调用 DeepSeek;设置 `MOCK_LLM=1` 时改用本地规则假回复。它\"只能从 messages 里找答案\",恰好直观演示:模型知道什么,完全取决于你发了什么。\n\n### 操作\n1. 定义 `ChatSession`:`__init__` 保存 client/config,初始化空 `history`\n2. 实现 `say`:追加 user 消息 → 带 history 调 `chat.completions.create` → 取回复 → 追加 assistant 消息\n3. main 里连聊三轮(自报姓名 → 闲聊 → 反问名字),观察模型\"记得\"你\n\n### 常见坑\n- 只把 user 消息塞进 history、忘了追加 assistant 回复——下一轮模型看不到自己说过的话,会前后矛盾\n- 调试\"模型怎么忘了\"时先打印 messages 的长度与内容,九成问题出在 history 没攒对,而不是模型不行",
+      "instruction": "### 目标\n把 t01 的一次性 `chat_once` 升级为 `ChatSession` 类:每轮对话自动把问答追加进 `history`,请求时带上全部历史——让星澈助手第一次拥有\"记忆\"。\n\n### 原理\n**LLM 是无状态的,记忆是客户端的工程。** 服务端不会为你保存任何对话:你第一轮说\"我叫阿灵\",第二轮问\"我叫什么\",如果第二轮的 messages 里没有第一轮的内容,模型必然答不上来。所谓多轮对话,本质是一个不断变长的剧本:客户端把每一轮 user/assistant 追加到列表,下次请求整本重发。ChatSession 就是这个剧本的保管员。\n\n**为什么用类而不是全局列表?** 会话是一个明确的对象:它有状态(history)、有依赖(client/config)、有行为(say)。封装成类后,重置会话 = 新建实例,多个会话并存互不干扰——这是后续所有 Agent 记忆模块的基本形态。\n\n**mock 分支的意义。** 本任务默认真实调用 DeepSeek;设置 `MOCK_LLM=1` 时改用本地规则假回复。它\"只能从 messages 里找答案\",恰好直观演示:模型知道什么,完全取决于你发了什么。\n\n### 操作\n1. 定义 `ChatSession`:`__init__` 保存 client/config,初始化空 `history`\n2. 实现 `say`:追加 user 消息 → 带 history 调 `chat.completions.create` → 取回复 → 追加 assistant 消息\n3. main 里连聊三轮(自报姓名 → 闲聊 → 反问名字),观察模型\"记得\"你\n\n### 常见坑\n- 只把 user 消息塞进 history、忘了追加 assistant 回复——下一轮模型看不到自己说过的话,会前后矛盾\n- 调试\"模型怎么忘了\"时先打印 messages 的长度与内容,九成问题出在 history 没攒对,而不是模型不行",
       "todoItems": [
         {
           "title": "定义 ChatSession：__init__ 保存 client/config 并初始化空 history",
@@ -126,12 +126,12 @@
       "taskId": "t02-chat-session",
       "order": 2,
       "title": "人设注入:system prompt 的正确位置",
-      "instruction": "### 目标\n给 ChatSession 加人设:构造函数接收 `persona`,system 消息在每次请求时注入到 messages 最前面;支持 `change_persona` 中途换人格且不动历史。\n\n### 原理\n**system prompt 是\"常量\",不该混进历史。** 新手常把 system 当成 history[0] 存进去,麻烦随之而来:滑动窗口截断(下一步)可能把它切掉,人设就丢了;换人设要改历史,污染\"真实对话\"的记录。正确姿势是分离存储——history 只记 user/assistant,system 在发送时由 `_messages()` 现场拼装。人设与记忆各归各位,这是\"上下文工程\"的第一课。\n\n**system 为什么有约束力?** 模型在指令微调阶段被训练为优先服从 system 角色的指令(指令层级),DeepSeek 等模型都遵循这一约定。它不是魔法——执意越狱仍可能成功——但对\"语气、格式、边界\"这类软约束非常可靠,是人格化助手的主要实现手段。\n\n**换人设 = 改注入内容。** 因为 system 不在历史里,`change_persona` 只需替换一个字符串,下一条请求立刻生效,历史原封不动——这就是关注点分离的回报。\n\n### 操作\n1. `__init__` 增加 `persona` 参数,默认\"你是灵讯通,一个简洁可靠的命令行智能助手\"\n2. 实现 `_messages()`:返回 `[system 字典, *history]`\n3. 实现 `change_persona()`;演示换人设前后模型的语气变化\n\n### 常见坑\n- 把 system 追加到 history 末尾——它必须位于 messages 最前面,放在中间约束力大打折扣\n- 换人设时顺手 `clear()` 了历史:人设和记忆是两回事,别把用户记忆一起洗掉",
+      "instruction": "### 目标\n给 ChatSession 加人设:构造函数接收 `persona`,system 消息在每次请求时注入到 messages 最前面;支持 `change_persona` 中途换人格且不动历史。\n\n### 原理\n**system prompt 是\"常量\",不该混进历史。** 新手常把 system 当成 history[0] 存进去,麻烦随之而来:滑动窗口截断(下一步)可能把它切掉,人设就丢了;换人设要改历史,污染\"真实对话\"的记录。正确姿势是分离存储——history 只记 user/assistant,system 在发送时由 `_messages()` 现场拼装。人设与记忆各归各位,这是\"上下文工程\"的第一课。\n\n**system 为什么有约束力?** 模型在指令微调阶段被训练为优先服从 system 角色的指令(指令层级),DeepSeek 等模型都遵循这一约定。它不是魔法——执意越狱仍可能成功——但对\"语气、格式、边界\"这类软约束非常可靠,是人格化助手的主要实现手段。\n\n**换人设 = 改注入内容。** 因为 system 不在历史里,`change_persona` 只需替换一个字符串,下一条请求立刻生效,历史原封不动——这就是关注点分离的回报。\n\n### 操作\n1. `__init__` 增加 `persona` 参数,默认\"你是星澈助手,一个简洁可靠的命令行智能助手\"\n2. 实现 `_messages()`:返回 `[system 字典, *history]`\n3. 实现 `change_persona()`;演示换人设前后模型的语气变化\n\n### 常见坑\n- 把 system 追加到 history 末尾——它必须位于 messages 最前面,放在中间约束力大打折扣\n- 换人设时顺手 `clear()` 了历史:人设和记忆是两回事,别把用户记忆一起洗掉",
       "todoItems": [
         {
           "title": "__init__ 增加 persona 参数并存入 self",
           "target": "ChatSession.__init__()",
-          "code": "persona=\"你是灵讯通，一个简洁可靠的命令行智能助手\"",
+          "code": "persona=\"你是星澈助手，一个简洁可靠的命令行智能助手\"",
           "expect": "不传 persona 也能创建实例"
         },
         {
@@ -465,8 +465,8 @@
       "id": "t02-s5",
       "taskId": "t02-chat-session",
       "order": 5,
-      "title": "组装灵讯通:REPL 多轮对话主循环",
-      "instruction": "### 目标\n把前四步组装成真正的 CLI 工具:`repl()` 交互主循环,支持 `/exit`、`/history`、`/tokens`、`/reset` 斜杠命令;非交互环境(管道/沙箱)自动降级为 `demo()` 脚本化演示。\n\n### 原理\n**REPL 是 Agent 的最小外壳。** Read-Eval-Print-Loop:读输入 → 判断是命令还是对话 → 执行 → 打印 → 循环。灵讯通的 repl 已具备生产 CLI 的骨架:斜杠命令分流、异常隔离、优雅退出。后续章节的 Agent 循环,本质就是在这个循环里加工具调用与规划。\n\n**为什么要区分交互/非交互?** 课程沙箱、CI、管道场景里 stdin 不是终端,`input()` 会立刻撞 EOF。`sys.stdin.isatty()` 探测运行环境:真人用时进交互模式,自动化环境跑脚本化 demo——同一份代码两种行为,是可测试 CLI 的标准做法。\n\n**异常隔离的位置决定系统的健壮性。** try/except 要包在\"单轮 say\"上,而不是整个 while 循环:一轮网络抖动只损失这一轮,会话状态(history)完好,用户接着说下一句。这是 t01\"错误分类\"思想在会话层的落地。同理,`EOFError`/`KeyboardInterrupt` 必须接住——Ctrl+C 和管道关闭都不该让用户看到 traceback。\n\n### 操作\n1. 实现 `repl()`:循环读输入,分流四个斜杠命令,其余交给 `session.say`\n2. 实现 `demo()`:脚本化三轮对话 + 用量报告\n3. main 里用 `sys.stdin.isatty()` 选择 repl 或 demo\n4. 本地 `MOCK_LLM=1 python t02.py` 体验完整交互模式\n\n### 常见坑\n- try/except 包住了整个 while:一次网络异常直接退出程序,历史全丢\n- `input()` 不处理 `EOFError`:管道输入结束时程序以 traceback 收场",
+      "title": "组装星澈助手:REPL 多轮对话主循环",
+      "instruction": "### 目标\n把前四步组装成真正的 CLI 工具:`repl()` 交互主循环,支持 `/exit`、`/history`、`/tokens`、`/reset` 斜杠命令;非交互环境(管道/沙箱)自动降级为 `demo()` 脚本化演示。\n\n### 原理\n**REPL 是 Agent 的最小外壳。** Read-Eval-Print-Loop:读输入 → 判断是命令还是对话 → 执行 → 打印 → 循环。星澈助手的 repl 已具备生产 CLI 的骨架:斜杠命令分流、异常隔离、优雅退出。后续章节的 Agent 循环,本质就是在这个循环里加工具调用与规划。\n\n**为什么要区分交互/非交互?** 课程沙箱、CI、管道场景里 stdin 不是终端,`input()` 会立刻撞 EOF。`sys.stdin.isatty()` 探测运行环境:真人用时进交互模式,自动化环境跑脚本化 demo——同一份代码两种行为,是可测试 CLI 的标准做法。\n\n**异常隔离的位置决定系统的健壮性。** try/except 要包在\"单轮 say\"上,而不是整个 while 循环:一轮网络抖动只损失这一轮,会话状态(history)完好,用户接着说下一句。这是 t01\"错误分类\"思想在会话层的落地。同理,`EOFError`/`KeyboardInterrupt` 必须接住——Ctrl+C 和管道关闭都不该让用户看到 traceback。\n\n### 操作\n1. 实现 `repl()`:循环读输入,分流四个斜杠命令,其余交给 `session.say`\n2. 实现 `demo()`:脚本化三轮对话 + 用量报告\n3. main 里用 `sys.stdin.isatty()` 选择 repl 或 demo\n4. 本地 `MOCK_LLM=1 python t02.py` 体验完整交互模式\n\n### 常见坑\n- try/except 包住了整个 while:一次网络异常直接退出程序,历史全丢\n- `input()` 不处理 `EOFError`:管道输入结束时程序以 traceback 收场",
       "todoItems": [
         {
           "title": "实现 repl()：while 循环读输入，分流四个斜杠命令",
@@ -509,7 +509,7 @@
         },
         {
           "order": 3,
-          "text": "接近答案:if q == \"/exit\": print(\"灵讯通: 再见!\"); return … main 里 repl(session) if sys.stdin.isatty() else demo(session)"
+          "text": "接近答案:if q == \"/exit\": print(\"星澈助手: 再见!\"); return … main 里 repl(session) if sys.stdin.isatty() else demo(session)"
         }
       ],
       "codeSamples": [

@@ -1,4 +1,4 @@
-"""灵讯通 · 结构化抽取 v4:few-shot 示例锁定格式与标签空间"""
+"""星澈助手 · 结构化抽取 v4:few-shot 示例锁定格式与标签空间"""
 import json
 import os
 import sys
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ValidationError
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 MAX_RETRIES = 2
 
-DEMO_DIALOG = """客服:您好,这里是灵讯通,请问有什么可以帮您?
+DEMO_DIALOG = """客服:您好,这里是星澈助手,请问有什么可以帮您?
 用户:我昨天充值的会员到现在还没到账,订单号 88231。
 客服:非常抱歉,我马上帮您核实订单状态。
 用户:麻烦尽快处理,我今晚等着用。"""
@@ -49,7 +49,7 @@ def build_client() -> OpenAI:
 def build_messages(dialog: str) -> list[dict]:
     """组装带 few-shot 示例的消息列表。"""
     lines = [
-        "你是灵讯通客服质检助手。请从对话中抽取关键信息,",
+        "你是星澈助手客服质检助手。请从对话中抽取关键信息,",
         "只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。",
         "emotion 只能是 平静/焦急/愤怒,priority 只能是 低/中/高。",
         "参考示例:",
@@ -103,15 +103,15 @@ def extract_with_retry(client: OpenAI, messages: list[dict],
 def main() -> None:
     client = build_client()
     messages = build_messages(DEMO_DIALOG)
-    print("[灵讯通] system prompt 预览(含 few-shot 示例):")
+    print("[星澈助手] system prompt 预览(含 few-shot 示例):")
     print(messages[0]["content"])
     print("-" * 40)
     try:
         ticket, attempts = extract_with_retry(client, messages)
     except RuntimeError as exc:
-        print(f"[灵讯通] {exc}")
+        print(f"[星澈助手] {exc}")
         sys.exit(1)
-    print(f"[灵讯通] 第 {attempts} 次尝试后抽取成功:")
+    print(f"[星澈助手] 第 {attempts} 次尝试后抽取成功:")
     print(ticket.model_dump_json(indent=2))
 
 

@@ -1,10 +1,10 @@
-"""灵讯通 · 成本仪表盘 v0.3:预算守卫——超支就拒绝调用的装饰器。"""
+"""星澈助手 · 成本仪表盘 v0.3:预算守卫——超支就拒绝调用的装饰器。"""
 import functools
 import tiktoken
 from dataclasses import dataclass
 
 PAT_STR = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-FALLBACK_WORDS = ["灵讯通", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
+FALLBACK_WORDS = ["星澈助手", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
 CHAT_OVERHEAD = 4  # 每条 chat 消息的包装开销(教学近似值)
 MODEL_NAME = "deepseek-v4-pro"
 
@@ -96,7 +96,7 @@ def mock_chat(messages: list[dict], max_tokens: int = 200) -> dict:
     prompt_tokens = TokenMeter().count_messages(messages)  # 演示规模小直接新建;生产应复用
     completion_tokens = min(32, max_tokens)
     return {
-        "reply": "收到,灵讯通成本助手已记录你的请求。",
+        "reply": "收到,星澈助手成本助手已记录你的请求。",
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "cost": estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens),
@@ -106,14 +106,14 @@ def mock_chat(messages: list[dict], max_tokens: int = 200) -> dict:
 def main() -> None:
     meter = TokenMeter()
     guarded_chat = budget_guard(max_budget=0.002, meter=meter)(mock_chat)
-    prompts = ["帮我写一句灵讯通的欢迎语", "再写一句口号", "继续写第三条"]
+    prompts = ["帮我写一句星澈助手的欢迎语", "再写一句口号", "继续写第三条"]
     for prompt in prompts:
         try:
             result = guarded_chat([{"role": "user", "content": prompt}], max_tokens=200)
             print(f"[放行] {prompt} -> {result['reply']} (本次 ¥{result['cost']:.6f})")
         except BudgetExceededError as exc:
             print(f"[拒绝] {prompt} -> {exc}")
-    print(f"[灵讯通] 守卫账目: 已花 ¥{guarded_chat.state['spent']:.6f},拒绝 {guarded_chat.state['rejected']} 次")
+    print(f"[星澈助手] 守卫账目: 已花 ¥{guarded_chat.state['spent']:.6f},拒绝 {guarded_chat.state['rejected']} 次")
 
 
 if __name__ == "__main__":

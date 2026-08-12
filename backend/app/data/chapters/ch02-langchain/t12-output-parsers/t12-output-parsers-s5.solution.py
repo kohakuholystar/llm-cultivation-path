@@ -1,9 +1,4 @@
-"""铸剑台 · s5:三层防线
-
-线上没有"永远守规矩"的模型:多余的客套话、被截断的 JSON、越界的数值……
-本步给铸剑台装上三层防线:严格解析 → 正则提取 → OutputFixingParser 让
-LLM 自己把输出修成契约格式。任何一层成功即放行,并记录是哪一层通过的。
-"""
+"""黑糖资料室 · 结构化输出验收 · s5：用 LangChain 完成可验证的学习任务。"""
 import os
 import re
 import sys
@@ -12,30 +7,38 @@ from pydantic import BaseModel, Field
 from langchain_core.exceptions import OutputParserException
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.language_models.fake import FakeListLLM
-from langchain_classic.output_parsers.fix import OutputFixingParser
 from langchain_openai import ChatOpenAI
 
 # 联网前置检查:没有 Key 且未开 MOCK 时给出引导并优雅退出
 if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("MOCK_LLM"):
-    print("[铸剑台] 未检测到 OPENAI_API_KEY。")
+    print("[提示词工作台] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
-# MOCK 剧情:第一炉回复又啰嗦又有错(锋芒 999 越界),第二炉才是修好的 JSON
-MOCK_RESPONSES = ['回禀东家:{"name": "青霜", "material": "寒铁", "sharpness": 999, "inscription": "霜刃未曾试"},请您过目!',
-                  '{"name": "青霜", "material": "寒铁", "sharpness": 92, "inscription": "霜刃未曾试"}']
+# MOCK 剧情:第一流程回复又啰嗦又有错(质量 999 越界),第二流程才是修好的 JSON
+MOCK_RESPONSES = ['模型原始输出:{"name": "晨光", "material": "冷色调素材", "sharpness": 999, "inscription": "让创意被看见"},请检查格式!',
+                  '{"name": "晨光", "material": "冷色调素材", "sharpness": 92, "inscription": "让创意被看见"}']
 
 
 class SwordOrder(BaseModel):
-    """一柄剑的铸剑单:铸剑台全链路的统一数据契约。"""
+    """一份方案的制作单:黑糖资料室全链路的统一数据契约。"""
 
-    name: str = Field(description="剑名,两到四个汉字,要有古意")
-    material: str = Field(description="主材,如 寒铁/玄钢/陨星砂")
-    sharpness: int = Field(ge=1, le=100, description="锋芒值,1-100 的整数")
-    inscription: str = Field(description="剑身铭文,不超过十二字")
+    name: str = Field(description="方案名称,两到四个汉字,要有古意")
+    material: str = Field(description="主材,如 冷色调图片/品牌字体/活动图标")
+    sharpness: int = Field(ge=1, le=100, description="质量评分,1-100 的整数")
+    inscription: str = Field(description="方案文案,不超过十二字")
 
 
 parser = PydanticOutputParser(pydantic_object=SwordOrder)
+
+
+def ask_for_repair(raw: str, llm) -> SwordOrder:
+    """用一次明确、可审计的修复调用处理最后的坏输出。"""
+    fixed = llm.invoke(
+        "只返回符合下列 JSON Schema 的 JSON，不要解释。\n"
+        f"原输出：{raw}\n{parser.get_format_instructions()}"
+    )
+    return parser.parse(getattr(fixed, "content", fixed))
 
 
 def get_llm():
@@ -63,24 +66,24 @@ def robust_parse(raw: str, llm):
         try:
             return parser.parse(match.group(0)), "第二层·正则提取"
         except OutputParserException:
-            pass  # 抠出来了但内容违约(如锋芒 999),继续降级
-    # 第三层:LLM 修复——把错误和原输出交给模型,让它按契约重写
-    fixing = OutputFixingParser.from_llm(parser=parser, llm=llm)
-    return fixing.parse(raw), "第三层·LLM 修复"
+            pass  # 抠出来了但内容违约(如质量 999),继续降级
+    # 第三层:LLM 修复——额外调用明确写在应用代码中，便于审计成本。
+    return ask_for_repair(raw, llm), "第三层·LLM 修复"
 
 
 def main() -> None:
-    """开一炉,展示三层防线如何接力拦下脏输出。"""
+    """开一流程,展示三层防线如何接力拦下脏输出。"""
     llm = get_llm()
-    raw = llm.invoke("请以「塞北飞雪」为题开一张铸剑单。")
-    print(f"== 原始输出 ==\n{raw}\n")
-    order, route = robust_parse(raw, llm)
+    raw = llm.invoke("请以「塞北飞雪」为题开一张内容方案单。")
+    raw_text = getattr(raw, "content", raw)  # ChatModel 返回 AIMessage，解析器需要纯文本
+    print(f"== 原始输出 ==\n{raw_text}\n")
+    order, route = robust_parse(raw_text, llm)
     print(f"== 解析成功({route}) ==")
-    print(f"  剑名 : {order.name}")
+    print(f"  方案名称 : {order.name}")
     print(f"  主材 : {order.material}")
-    print(f"  锋芒 : {order.sharpness}/100")
-    print(f"  铭文 : {order.inscription}")
-    print("  (一层败于散文包裹,二层败于锋芒越界,三层 LLM 修复通过)")
+    print(f"  质量 : {order.sharpness}/100")
+    print(f"  文案 : {order.inscription}")
+    print("  (一层败于散文包裹,二层败于质量越界,三层 LLM 修复通过)")
 
 
 if __name__ == "__main__":

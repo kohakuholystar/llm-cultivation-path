@@ -1,9 +1,12 @@
-"""铸剑台 · 模板工程 第 2 步:Few-shot 示例模板。
+"""黑糖资料室 · 提示词模板工程 · s2：用 LangChain 完成可验证的学习任务。"""
 
-零样本(只下指令)时模型输出格式飘忽;给几条"需求→标准剑谱"示例,
-模型靠上下文学习自动模仿示例的字段与风格。
-在第 1 步基础上演进:system 人设 + few-shot 示例块 + 当前需求。
-"""
+# 学习契约
+# - 目标：通过 few-shot 示例约束模型的输出格式。
+# - 补写：补写单条示例、few-shot 块和主模板。
+# - 关键函数/类（入参 → 出参）：`build_example_prompt()` 定义示例消息；`build_fewshot_block(examples)` 构造示例块；`build_forge_prompt(examples)` 返回组合模板。
+# - 技术栈：LangChain Core、Few-shot Prompting。
+# - 前置条件：本步只渲染模板；示例字段必须与模板占位符一致。
+# - 可观察结果：渲染结果包含示例和当前请求。
 
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -11,30 +14,30 @@ from langchain_core.prompts import (
 )
 from langchain_core.messages import BaseMessage
 
-# 铸剑示例库:每条是 (铸剑需求, 标准剑谱) 的对照。
+# 制作示例库:每条是 (制作需求, 标准交付卡) 的对照。
 # 示例不在多而在精——每条都会占 token,风格必须统一,它就是你要的标准。
 FORGE_EXAMPLES = [
     {
-        "request": "轻巧短剑,适合贴身暗卫",
-        "recipe": "《鱼肠》双刃短剑|长一尺二寸|重一斤|淬火:寒潭水|特性:藏锋",
+        "request": "轻巧短视频脚本,适合贴身移动端展示",
+        "recipe": "《鱼肠》双刃短视频脚本|长一尺二寸|重一斤|优化细节:冷色滤镜|特性:藏锋",
     },
     {
         "request": "马上用的长刀,要劈砍有力",
-        "recipe": "《破阵》环首长刀|长四尺|重八斤|淬火:桐油|特性:势沉",
+        "recipe": "《破阵》环首长刀|长四尺|重八斤|优化细节:桐油|特性:势沉",
     },
     {
-        "request": "文人佩剑,以礼为主不尚杀伐",
-        "recipe": "《君子》七星宝剑|长三尺三|重二斤|淬火:山泉|特性:仪礼",
+        "request": "文人活动主视觉,以礼为主不尚杀伐",
+        "recipe": "《君子》七星内容方案|长三尺三|重二斤|优化细节:山泉|特性:仪礼",
     },
 ]
 
 
 def build_example_prompt() -> ChatPromptTemplate:
-    """定义单条示例的呈现格式:一条 human 需求 + 一条 ai 剑谱。
+    """定义单条示例的呈现格式:一条 human 需求 + 一条 ai 交付卡。
 
     示例的"答案"必须用 ai 角色——等于告诉模型"你以前就是这么答的"。
     """
-    # TODO: 返回单条示例的呈现模板:一条 human 需求 + 一条 ai 剑谱
+    # TODO: 返回单条示例的呈现模板:一条 human 需求 + 一条 ai 交付卡
     # 提示: ChatPromptTemplate.from_messages(
     #       [("human", "{request}"), ("ai", "{recipe}")])
     raise NotImplementedError("build_example_prompt 尚未实现:请按 TODO 提示定义示例格式")
@@ -54,8 +57,8 @@ def build_forge_prompt(examples: list[dict]) -> ChatPromptTemplate:
     """主模板 = system 人设 + few-shot 示例块 + 当前需求。"""
     return ChatPromptTemplate.from_messages(
         [
-            ("system", "你是铸剑台的总铸剑师,出身门派「{sect}」。"
-                       "请模仿示例的格式开剑谱。"),
+            ("system", "你是提示词工作台的提示词负责人,出身团队「{sect}」。"
+                       "请模仿示例的格式开输出模板。"),
             build_fewshot_block(examples),  # 示例块作为整体插入此处
             ("human", "{request}"),
         ]
@@ -86,7 +89,7 @@ def main() -> None:
 
     messages = render_messages(
         prompt,
-        {"sect": "玄铁阁", "request": "双手重剑,主材天外陨铁,要能劈开城门"},
+        {"sect": "素材组", "request": "双手长篇方案,主材活动素材,要能劈开城门"},
     )
     # 消息数 = 1 条 system + 2×3 条示例 + 1 条当前需求 = 8
     print(f"渲染出 {len(messages)} 条消息:")

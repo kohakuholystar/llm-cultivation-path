@@ -1,8 +1,26 @@
-"""天庭 · s3:分派、执行与返工
+"""校园 AI 社 · s3:分派、执行与返工
 
 把迷你状态图拼成 Supervisor 编排骨架:拆需求 -> 派活 -> 执行 -> 检查,
 用 FAIL_ONCE 模拟偶发故障,t2 首跑失败后经返工回路收敛。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：LangGraph Supervisor：返工回路与收敛。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `split_node(state: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：按本节调用链完成对应处理
+#   - `execute_node(state: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：按本节调用链完成对应处理
+#   - `router_after_execute(state: dict) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `retry_node(state: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：按本节调用链完成对应处理
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `AgentTask`：承载本节状态/数据；重点方法：见类定义。
+#   - `TaskResult`：承载本节状态/数据；重点方法：见类定义。
+#   - `StateGraph`：承载本节状态/数据；重点方法：add_node, add_edge, add_conditional_edges, set_entry_point, run。
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 from dataclasses import dataclass
 
 
@@ -70,8 +88,8 @@ class StateGraph:
 
 
 def split_node(state: dict) -> dict:
-    # TODO: 把 request 按「和」拆成任务单,统一派给后端仙官
-    # 提示: tasks = [AgentTask(id=f"t{i}", title=t, assignee="后端仙官")
+    # TODO: 把 request 按「和」拆成任务单,统一派给后端同学
+    # 提示: tasks = [AgentTask(id=f"t{i}", title=t, assignee="后端同学")
     #                for i, t in enumerate(state["request"].split("和"), start=1)]
     #       return {"tasks": tasks}
     raise NotImplementedError("t51-supervisor-s3 尚未实现:请按 TODO 提示补齐 split_node 拆单")
@@ -112,7 +130,7 @@ def main() -> None:
     #       graph.add_edge("retry", "execute")
     raise NotImplementedError("t51-supervisor-s3 尚未实现:请按 TODO 提示补齐 main 挂边")
     state = graph.run({"request": "前端页面设计和后端接口联调"})
-    print(f"天庭流转 {state['_steps']} 步{'(含返工)' if state.get('retried') else ''},共 {len(state['tasks'])} 张任务单:")
+    print(f"校园 AI 社流转 {state['_steps']} 步{'(含返工)' if state.get('retried') else ''},共 {len(state['tasks'])} 张任务单:")
     for r in state["results"]:
         print(f"  · {r.assignee}: {r.data}")
     print("全部完工,可交付。")

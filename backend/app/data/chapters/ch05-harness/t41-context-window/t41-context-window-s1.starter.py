@@ -1,8 +1,23 @@
-"""乾坤圈 · s1:预算先行——给每条消息称重
+"""Agent 运行时底座 · s1:预算先行——给每条消息称重
 
 Agent 的上下文窗口不是无限的,消息装多了就会溢出、截断甚至报错。
-本步为「乾坤圈」打地基:用启发式算法估算每条消息的 token 占用,
+本步为「Agent 运行时底座」打地基:用启发式算法估算每条消息的 token 占用,
 再把预算、输出预留与可用窗口之间的账目算清楚。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：预算先行:启发式称重与预算账本。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `heuristic_tokens(text: str) -> int`：输入为签名中的参数；输出为 `int`。用途：启发式估算 token 数:CJK 每字 1 token,ASCII 每 4 字符 1 token。
+#   - `print_ledger(budget: TokenBudget, messages) -> None`：输入为签名中的参数；输出为 `None`。用途：打印上下文账目:总预算、窗口、逐条占用与剩余空间。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Message`：承载本节状态/数据；重点方法：见类定义。
+#   - `TokenBudget`：承载本节状态/数据；重点方法：used, remaining, fits。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import math
 import re
 from dataclasses import dataclass, field
@@ -66,11 +81,11 @@ def print_ledger(budget: TokenBudget, messages) -> None:
 def main() -> None:
     budget = TokenBudget(total=8000, reserve_output=2000)
     history = [
-        Message("system", "你是乾坤圈的守门人,负责守护一座仙山的运转。"),
-        Message("user", "请汇报仙山今日的灵气收支情况,并给出三条建议。"),
-        Message("assistant", "遵命。今日灵气收入 5200,支出 3100,结余 2100。"),
+        Message("system", "你是Agent 运行时底座的守门人,负责守护一座校园项目的运转。"),
+        Message("user", "请汇报校园项目今日的运行资源收支情况,并给出三条建议。"),
+        Message("assistant", "遵命。今日运行资源收入 5200,支出 3100,结余 2100。"),
         Message("user", "结余部分建议怎么处理?请说得详细一些。"),
-        Message("assistant", "建议:一扩充炼丹房,二修缮护山大阵,三储备过冬灵石。"),
+        Message("assistant", "建议:一扩充内容制作环境,二修缮监控系统,三储备过冬预算点。"),
     ]
     print_ledger(budget, history)
 

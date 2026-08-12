@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useCourse } from '@/features/course/store'
 import { useProgress } from '@/features/progression/store'
 import { ACHIEVEMENTS } from '@/features/progression/achievements'
-import { useAiConfig } from '@/features/aiConfig/store'
+import { DEFAULT_BASE_URL, useAiConfig } from '@/features/aiConfig/store'
 import { api } from '@/api/client'
 import { validateStep, stepNeedsSandboxRun } from '@/utils/validator'
 import { strHash } from '@/utils/hash'
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui'
 
 const STEP_BASE_EXP = 10
 
-/** 从全局 aiConfig 构造沙箱 env(有 key 才传, 无 key 交后端 fallback .env) */
+/** 从全局 DeepSeek 配置构造沙箱 env。联网课程必须由学习者提供 Key。 */
 function buildLlmEnv(): Record<string, string> {
   const { apiKey, baseUrl, model } = useAiConfig.getState()
   const env: Record<string, string> = {}
@@ -44,6 +44,12 @@ export function TaskWorkspace() {
   // 用户是否已点过运行/验证(解锁"完整代码参考"Tab)
   const [hasRunOrValidated, setHasRunOrValidated] = useState(false)
   const [hintsRevealed, setHintsRevealed] = useState(0)
+  const [lastRunCodeHash, setLastRunCodeHash] = useState<string | undefined>()
+  const hasDeepSeekConfig = useAiConfig((s) => {
+    const baseUrl = s.baseUrl.trim().replace(/\/+$/, '')
+    return Boolean(s.apiKey.trim()) && baseUrl === DEFAULT_BASE_URL && s.model.trim().startsWith('deepseek-')
+  })
+  const setAiConfigModalOpen = useAiConfig((s) => s.setModalOpen)
 
   useEffect(() => {
     if (!course) loadCourse()
@@ -53,16 +59,17 @@ export function TaskWorkspace() {
   const task = chapter?.tasks.find((t) => t.id === taskId)
   const step = task?.steps[currentStep]
   const stepId = step?.id
+  const stepNeedsNetwork = step?.needsNetwork ?? task?.needsNetwork ?? false
+  const sandboxTimeout = step?.sandboxTimeout ?? (stepNeedsNetwork ? 30 : 10)
+  const sandboxProfile = step?.sandboxProfile ?? 'core'
 
-  // 首次进入需要联网的任务且未配置 API key 时, 自动弹出配置引导
+  // 首次进入联网任务且未配置自己的 API key 时, 自动弹出强制配置引导。
   useEffect(() => {
     if (!task) return
-    const { apiKey, configured, setModalOpen } = useAiConfig.getState()
-    if (task.needsNetwork && !apiKey.trim() && !configured) {
-      setModalOpen(true)
+    if (stepNeedsNetwork && !hasDeepSeekConfig) {
+      setAiConfigModalOpen(true)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskId])
+  }, [taskId, stepId, stepNeedsNetwork, hasDeepSeekConfig, setAiConfigModalOpen])
 
   // 切换 step 时加载草稿/初始代码
   useEffect(() => {
@@ -79,6 +86,7 @@ export function TaskWorkspace() {
       setOutput(undefined)
       setValidation(undefined)
       setShowComplete(false)
+      setLastRunCodeHash(undefined)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepId])
@@ -96,6 +104,17 @@ export function TaskWorkspace() {
 
   const handleRun = useCallback(async () => {
     if (!step || !task) return
+    if (stepNeedsNetwork && !hasDeepSeekConfig) {
+      setOutput({
+        stdout: '',
+        stderr: '联网课程必须先在右上角 DeepSeek 配置中输入你自己的 API Key。',
+        exitCode: -1,
+        durationMs: 0,
+        timedOut: false,
+      })
+      setAiConfigModalOpen(true)
+      return
+    }
     setHasRunOrValidated(true)
     setRunning(true)
     setOutput(undefined)
@@ -103,11 +122,13 @@ export function TaskWorkspace() {
       const resp = await api.runSandbox({
         code,
         language: 'python',
-        timeout: task.needsNetwork ? 30 : 10,
-        needsNetwork: task.needsNetwork,
-        env: task.needsNetwork ? buildLlmEnv() : undefined,
+        timeout: sandboxTimeout,
+        needsNetwork: stepNeedsNetwork,
+        env: stepNeedsNetwork ? buildLlmEnv() : undefined,
+        sandboxProfile,
       })
       setOutput(resp)
+      setLastRunCodeHash(strHash(code))
       progress.recordSandboxRun()
     } catch (e) {
       setOutput({
@@ -121,24 +142,39 @@ export function TaskWorkspace() {
     } finally {
       setRunning(false)
     }
-  }, [code, step, task, progress])
+  }, [code, step, task, progress, hasDeepSeekConfig, setAiConfigModalOpen, stepNeedsNetwork, sandboxTimeout, sandboxProfile])
 
   const handleValidate = useCallback(async () => {
     if (!step || !task) return
+    if (stepNeedsNetwork && !hasDeepSeekConfig) {
+      setOutput({
+        stdout: '',
+        stderr: '联网课程必须先在右上角 DeepSeek 配置中输入你自己的 API Key。',
+        exitCode: -1,
+        durationMs: 0,
+        timedOut: false,
+      })
+      setAiConfigModalOpen(true)
+      return
+    }
     setHasRunOrValidated(true)
     let sandboxOutput = output
-    // 需要沙箱但未运行, 先运行
-    if (stepNeedsSandboxRun(step) && !sandboxOutput) {
+    // 联网步骤必须用当前代码完成一次真实 DeepSeek 运行；其他步骤按规则决定是否先运行。
+    const needsCurrentRun = (stepNeedsNetwork || stepNeedsSandboxRun(step)) &&
+      (!sandboxOutput || lastRunCodeHash !== strHash(code))
+    if (needsCurrentRun) {
       setRunning(true)
       try {
         sandboxOutput = await api.runSandbox({
           code,
           language: 'python',
-          timeout: task.needsNetwork ? 30 : 10,
-          needsNetwork: task.needsNetwork,
-          env: task.needsNetwork ? buildLlmEnv() : undefined,
+          timeout: sandboxTimeout,
+          needsNetwork: stepNeedsNetwork,
+          env: stepNeedsNetwork ? buildLlmEnv() : undefined,
+          sandboxProfile,
         })
         setOutput(sandboxOutput)
+        setLastRunCodeHash(strHash(code))
         progress.recordSandboxRun()
       } catch (e) {
         sandboxOutput = {
@@ -155,6 +191,49 @@ export function TaskWorkspace() {
       }
     }
     const result = await validateStep({ code, step, sandboxOutput })
+    if (stepNeedsNetwork && sandboxOutput?.exitCode !== 0) {
+      result.allPassed = false
+      result.results.push({
+        ruleIndex: result.results.length,
+        ruleType: 'sandbox_run',
+        passed: false,
+        blocking: true,
+        message: '必须用你的 DeepSeek Key 成功完成真实联网运行',
+        details: '请检查 Key、账户余额、模型名和网络后重试。',
+      })
+    }
+    // 已迁移行为测试的步骤以服务端 pytest 为最终判定；未迁移步骤保留现有
+    // 页面即时反馈，避免把迁移中的课程误判为失败。
+    try {
+      const authoritative = await api.validateStep(
+        task.id,
+        step.id,
+        code,
+        stepNeedsNetwork ? buildLlmEnv() : undefined,
+      )
+      result.results.push({
+        ruleIndex: result.results.length,
+        ruleType: 'unit_test',
+        passed: authoritative.passed,
+        blocking: true,
+        message: authoritative.passed ? '服务端行为测试通过' : '服务端行为测试未通过',
+        details: authoritative.output.stdout || authoritative.output.stderr || 'pytest 未返回输出',
+      })
+      if (!authoritative.passed) result.allPassed = false
+    } catch (error) {
+      // 409 代表该历史步骤尚未迁移 .test.py，不影响原有即时反馈通关。
+      if (!(error instanceof Error) || !error.message.startsWith('409:')) {
+        result.allPassed = false
+        result.results.push({
+          ruleIndex: result.results.length,
+          ruleType: 'unit_test',
+          passed: false,
+          blocking: true,
+          message: '服务端行为测试暂时不可用',
+          details: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
     setValidation(result)
     if (result.allPassed) {
       const willCompleteTask = task.steps.every(
@@ -169,7 +248,7 @@ export function TaskWorkspace() {
       setShowComplete(true)
       void taskExp
     }
-  }, [code, step, task, output, progress, hintsRevealed])
+  }, [code, step, task, output, progress, hintsRevealed, hasDeepSeekConfig, setAiConfigModalOpen, lastRunCodeHash, stepNeedsNetwork, sandboxTimeout, sandboxProfile])
 
   const handleNext = () => {
     setShowComplete(false)
@@ -208,7 +287,7 @@ export function TaskWorkspace() {
       <div className="p-8 text-center">
         <p className="text-slate-400">任务不存在</p>
         <Button className="mt-4" onClick={() => navigate('/learn')}>
-          返回修炼之路
+          返回学习之路
         </Button>
       </div>
     )
@@ -253,6 +332,11 @@ export function TaskWorkspace() {
               </Button>
             </div>
           </div>
+          {stepNeedsNetwork && !hasDeepSeekConfig && (
+            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              本任务需要真实 DeepSeek 调用。请先点击右上角齿轮输入你自己的 API Key。
+            </div>
+          )}
           <div className="flex-1 overflow-hidden border-b border-slate-200">
             <CodeEditor value={code} onChange={setCode} />
           </div>

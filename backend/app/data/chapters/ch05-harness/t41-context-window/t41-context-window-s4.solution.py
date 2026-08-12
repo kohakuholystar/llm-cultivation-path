@@ -1,4 +1,4 @@
-"""乾坤圈 · s4:重要性淘汰——低价值消息逐个让位
+"""Agent 运行时底座 · s4:重要性淘汰——低价值消息逐个让位
 
 摘要擅长压缩旧对话,但有些消息不该被压扁:工具返回、最新指令信息密度太高。
 本步换一条思路:给每条消息打重要性分,窗口放不下时就弹出得分最低的,
@@ -70,15 +70,15 @@ def evict_low_importance(messages, budget):
 def main() -> None:
     budget = TokenBudget(total=900, reserve_output=850)
     history = [
-        Message("system", "你是乾坤圈,负责在窗口紧张时淘汰低价值消息。"),
-        Message("user", "第1轮:灵药库存几何?"),
-        Message("assistant", "灵药库存三千二百株。"),
+        Message("system", "你是Agent 运行时底座,负责在窗口紧张时淘汰低价值消息。"),
+        Message("user", "第1轮:参考资料库存几何?"),
+        Message("assistant", "参考资料库存三千二百株。"),
         Message("user", "第2轮:库房何时盘点?"),
         Message("assistant", "库房每月初一盘点。"),
-        Message("user", "第3轮:外门弟子几何?"),
-        Message("assistant", "外门弟子三千人。"),
-        Message("user", "第4轮:藏经阁开放时间?"),
-        Message("assistant", "藏经阁每日辰时开放。"),
+        Message("user", "第3轮:普通成员几何?"),
+        Message("assistant", "普通成员三千人。"),
+        Message("user", "第4轮:黑糖资料室开放时间?"),
+        Message("assistant", "黑糖资料室每日每日开放时段开放。"),
     ]
     kept, victims = evict_low_importance(history, budget)
     print(f"被淘汰 {len(victims)} 条:" + " ".join(f"[{v}]" for v in victims))

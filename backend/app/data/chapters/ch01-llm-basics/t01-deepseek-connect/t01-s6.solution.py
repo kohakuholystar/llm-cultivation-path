@@ -1,5 +1,5 @@
-"""灵讯通 · s6:用量与延迟观测
-对话的同时采集延迟与 token 用量,给灵讯通装上第一块仪表盘。
+"""星澈助手 · s6:用量与延迟观测
+对话的同时采集延迟与 token 用量,给星澈助手装上第一块仪表盘。
 """
 import os
 import sys
@@ -11,7 +11,7 @@ from openai import (OpenAI, AuthenticationError, RateLimitError,
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -68,7 +68,7 @@ def chat_with_metrics(client: OpenAI, question: str):
             messages=[{"role": "user", "content": question}],
         )
     except Exception as exc:
-        print(f"[灵讯通] {friendly_error(exc)}")
+        print(f"[星澈助手] {friendly_error(exc)}")
         return None
     latency_ms = (time.perf_counter() - start) * 1000
     usage = response.usage  # 账单明细:prompt / completion / total tokens
@@ -86,7 +86,7 @@ def main() -> None:
         sys.exit(1)
     reply, m = result
 
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
     print("--- 调用报告 ---")
     print(f"延迟      : {m.latency_ms:.0f} ms")
     print(f"输入 token: {m.prompt_tokens}")

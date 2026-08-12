@@ -1,4 +1,4 @@
-"""灵讯通 · s2:TTFT 测量
+"""星澈助手 · s2:TTFT 测量
 流式的第一个工程价值是可测量:首 token 延迟决定用户对"快"的感受。
 """
 import os
@@ -10,7 +10,7 @@ from openai import OpenAI
 
 MOCK = bool(os.environ.get("MOCK_LLM"))
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地演示可设置 MOCK_LLM=1 使用内置假回复)")
     sys.exit(0)
@@ -58,7 +58,7 @@ class StreamStats:
 
 def iter_mock_chunks() -> list:
     """MOCK 演示:假回复切片,模拟逐块到达。"""
-    reply = "TTFT 越短,用户越觉得灵讯通反应快。"
+    reply = "TTFT 越短,用户越觉得星澈助手反应快。"
     return [reply[i:i + 2] for i in range(0, len(reply), 2)]
 
 
@@ -103,7 +103,7 @@ def main() -> None:
     question = "用两句话解释为什么首 token 延迟重要。"
     print(f"你: {question}")
     reply, stats = stream_with_stats(client, config, question)
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
     print("—— 计时报告 ——")
     print(f"  TTFT(首 token 延迟): {stats.ttft_ms:.0f} ms")
     print(f"  总耗时            : {stats.total_ms:.0f} ms")

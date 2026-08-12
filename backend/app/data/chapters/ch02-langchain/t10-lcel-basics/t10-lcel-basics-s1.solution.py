@@ -1,4 +1,4 @@
-"""铸剑台 · 第一步:开炉点火 —— 用 ChatOpenAI 把 DeepSeek 封装成可复用的 LLM 组件。"""
+"""黑糖资料室 · LCEL 处理管道 · s1：用 LangChain 完成可验证的学习任务。"""
 import os
 import sys
 
@@ -25,12 +25,12 @@ def check_api_key() -> None:
 
 
 def build_llm(temperature: float = 0.7):
-    """铸造 LLM 组件:两种模式返回同一接口(都有 .invoke),上层代码无感切换。"""
+    """构建 LLM 组件:两种模式返回同一接口(都有 .invoke),上层代码无感切换。"""
     if use_mock():
         # 假模型按顺序循环吐出预置回答,接口与真模型完全一致
         return FakeListChatModel(responses=[
-            "青霜:剑光如霜,吹毛断发,乃陨铁之精魄所凝。",
-            "寒玥:寒玉为骨,月华为锋,出鞘自带三分冷意。",
+            "晨光:配色清爽,重点突出,适合作为活动主视觉。",
+            "夜蓝:冷色渐变为底,点缀柔和高光,适合夜间活动海报。",
         ])
     # base_url 指向 DeepSeek 的 OpenAI 兼容端点,换供应商不改业务逻辑
     return ChatOpenAI(
@@ -43,23 +43,23 @@ def build_llm(temperature: float = 0.7):
 
 
 def forge_sword_name(llm, material: str) -> str:
-    """调用 LLM,为给定铸剑材料起剑名并附一句点评。"""
-    prompt = f"你是一名铸剑大师。用「{material}」铸一剑,给出剑名和一句点评,60 字以内。"
+    """调用 LLM,为给定制作素材起方案名并附一句点评。"""
+    prompt = f"你是一名内容策划助手。用「{material}」制作一份方案,给出方案名称和一句点评,60 字以内。"
     try:
         resp = llm.invoke(prompt)     # 返回的是 AIMessage 对象
         return resp.content.strip()   # 真正的文本在 .content 属性里
     except Exception as exc:          # 鉴权失败/网络超时统一兜底,不让程序崩
-        return f"铸造失败:{type(exc).__name__}"
+        return f"生成失败:{type(exc).__name__}"
 
 
 def main() -> None:
     check_api_key()
     llm = build_llm()
     mode = "本地演示(mock)" if use_mock() else "真实 API"
-    print(f"炉号:{MODEL_NAME} @ {BASE_URL} [{mode}]")
-    for material in ["天外陨铁", "千年寒玉"]:
+    print(f"处理器号:{MODEL_NAME} @ {BASE_URL} [{mode}]")
+    for material in ["活动素材", "校园照片"]:
         print(f"【{material}】{forge_sword_name(llm, material)}")
-    print("炉火已燃,铸剑台开张。")
+    print("模型服务已燃,提示词工作台开张。")
 
 
 if __name__ == "__main__":

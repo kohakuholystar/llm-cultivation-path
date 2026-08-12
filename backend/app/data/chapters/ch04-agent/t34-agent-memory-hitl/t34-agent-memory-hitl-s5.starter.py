@@ -1,6 +1,7 @@
-"""百宝囊 · s5:收官实战
-记忆、工具、HITL 全装配的「百宝囊」,跑一段完整使用剧本并输出行动报告。
+"""社团工具箱 · s5:收官实战
+记忆、工具、HITL 全装配的「社团工具箱」,跑一段完整使用剧本并输出行动报告。
 """
+# ?????????????? Agent ???????????print_report ??????????????????????????????memory?HITL?????????t34-s4??????????????????????
 import json
 import os
 import sys
@@ -16,7 +17,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-SYSTEM_PROMPT = ("你是「百宝囊」法宝管家,只输出 JSON 决策: "
+SYSTEM_PROMPT = ("你是「社团工具箱」工具管家,只输出 JSON 决策: "
                  '{"tool": 工具名或 null, "args": {...}, "reply": "回答"}。'
                  "可用工具: get_time()、delete_file(path)。")
 TOOLS = {"get_time": {"fn": lambda: datetime.now().strftime("%H:%M:%S"), "risky": False},
@@ -84,7 +85,7 @@ class LLM:
 
 
 class BaibaonangAgent:
-    """「百宝囊」完全体:记忆 + 工具 + HITL 闸门 + 步数保险丝。"""
+    """「社团工具箱」完全体:记忆 + 工具 + HITL 闸门 + 步数保险丝。"""
 
     def __init__(self, llm, hitl, max_steps=4):
         self.llm, self.hitl, self.max_steps = llm, hitl, max_steps
@@ -113,12 +114,12 @@ class BaibaonangAgent:
 def print_report(agent) -> None:
     """收官报告:记忆规模 + 人工干预审计。"""
     # TODO: 打印分隔行与记忆条数;遍历审计日志,为空时提示「无(全部是安全操作)」
-    # 提示: print("\\n===== 百宝囊行动报告 =====");len(agent.memory.history());for i, e in enumerate(agent.hitl.audit, 1): print(f"  {i}. {e['tool']} -> {e['decision']} ({e['note']})")
+    # 提示: print("\\n===== 社团工具箱行动报告 =====");len(agent.memory.history());for i, e in enumerate(agent.hitl.audit, 1): print(f"  {i}. {e['tool']} -> {e['decision']} ({e['note']})")
     raise NotImplementedError("t34-s5 尚未实现:请按 TODO 提示完成 print_report")
 
 
 def main() -> None:
-    open("design.txt", "w", encoding="utf-8").write("百宝囊设计稿")
+    open("design.txt", "w", encoding="utf-8").write("社团工具箱设计稿")
     client = None if MOCK else OpenAI(api_key=os.environ["OPENAI_API_KEY"],
                                       base_url=BASE_URL, timeout=30, max_retries=0)
     script = [                                   # 三问五答的完整使用剧本
@@ -130,7 +131,7 @@ def main() -> None:
     ]
     hitl = HITLController((lambda t, a: ("n", "设计稿不能删")) if MOCK else None)
     # TODO: 装配 Agent 依次问三问,最后打印行动报告与检查结果
-    # 提示: agent = BaibaonangAgent(LLM(client, script), hitl);for q in [...]: print(f"\\n我: {q}") + print(f"百宝囊: {agent.chat(q)}");print_report(agent);print(f"[检查] design.txt 是否还在: {os.path.exists('design.txt')}")
+    # 提示: agent = BaibaonangAgent(LLM(client, script), hitl);for q in [...]: print(f"\\n我: {q}") + print(f"社团工具箱: {agent.chat(q)}");print_report(agent);print(f"[检查] design.txt 是否还在: {os.path.exists('design.txt')}")
     raise NotImplementedError("t34-s5 尚未实现:请按 TODO 提示装配 Agent 并完成收官演练")
 
 

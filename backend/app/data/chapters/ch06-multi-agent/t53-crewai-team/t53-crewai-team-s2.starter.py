@@ -1,60 +1,36 @@
-"""天庭 · s2:排兵布阵,Task 任务清单成形
-
-角色卡就位后,本步为天庭排兵布阵:定义任务实体 Task,
-把四道军令组成一张按依赖顺序排列的作战图,复刻 CrewAI 的 Task。
-"""
-
-from dataclasses import dataclass, field
+"""校园 AI 社 · s2：用真实 CrewAI Task 连接上游产出。"""
 
 
-@dataclass
-class Agent:
-    """角色卡:role 你是谁,goal 要达成什么,backstory 立场与专长。"""
+# === 学习契约（面向学生）===
+# 本节目标：对照原型：CrewAI Task 依赖。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `build_llm() -> LLM`：输入为签名中的参数；输出为 `LLM`。用途：按本节调用链完成对应处理
+#   - `build_plan(llm: LLM) -> list[Task]`：输入为签名中的参数；输出为 `list[Task]`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：需要在右上角 AI 配置填写自己的 DeepSeek API Key，并允许本节联网运行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
+import os
+import sys
 
-    role: str
-    goal: str
-    backstory: str
-
-
-def build_heaven() -> list[Agent]:
-    """天庭班子:四位执行神职。"""
-    return [
-        Agent("产品经理", "把用户诉求翻译成清晰需求", "凡间走一遭,最懂用户要什么。"),
-        Agent("后端工程师", "把需求落成可靠接口", "内务府执笔,契约先行,数据为王。"),
-        Agent("前端工程师", "把接口画成可用界面", "凌云殿画师,像素与交互皆精。"),
-        Agent("测试工程师", "把风险挡在上线之前", "雷部判官,专门挑刺。"),
-    ]
+from crewai import Agent, LLM, Task
 
 
-@dataclass
-class Task:
-    """军令:干什么、验收标准、交给谁、依赖什么。"""
-    # TODO: 定义四个字段:description / expected_output / role 为 str,context 声明前置依赖
-    # 提示: 无默认值字段在前;context: list = field(default_factory=list)
-    pass
+def build_llm() -> LLM:
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        print("请先在右上角 AI 配置填入 DeepSeek API Key，然后重新运行。")
+        sys.exit(2)
+    # TODO: 创建使用右上角 Key 的 CrewAI LLM。
+    raise NotImplementedError("请配置 CrewAI LLM")
 
 
-def build_plan() -> list[Task]:
-    """天庭作战图:四道军令,顺序即依赖顺序。"""
-    # TODO: 返回 4 个按依赖顺序排列的 Task,后三道写明 context 依赖
-    # 提示: Task(description=..., expected_output=..., role=..., context=[...])
-    raise NotImplementedError("build_plan 尚未实现:请按 TODO 提示返回 4 个 Task(...) 组成的列表")
-
-
-def show_plan(plan: list[Task]) -> None:
-    """把作战图渲染成可读的军令清单。"""
-    for i, task in enumerate(plan, 1):
-        deps = "、".join(task.context) if task.context else "无"
-        print(f"军令 {i}:{task.description}")
-        print(f"  执行者:{task.role}")
-        print(f"  验收标准:{task.expected_output}")
-        print(f"  依赖:{deps}")
-
-
-def main() -> None:
-    print("== 天庭作战图 ==")
-    show_plan(build_plan())
+def build_plan(llm: LLM) -> list[Task]:
+    # TODO: 创建两个真实 Agent 和两个 Task；第二个 Task 用 context=[第一个 Task]。
+    raise NotImplementedError("请创建带依赖的 CrewAI Task")
 
 
 if __name__ == "__main__":
-    main()
+    for index, task in enumerate(build_plan(build_llm()), 1):
+        print(f"任务 {index}: {task.description}")

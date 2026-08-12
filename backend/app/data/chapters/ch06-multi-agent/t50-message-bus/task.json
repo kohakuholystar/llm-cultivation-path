@@ -5,11 +5,26 @@
       "taskId": "t50-message-bus",
       "order": 1,
       "title": "消息协议:Agent 的第一门共同语言",
-      "instruction": "### 目标\n\n本章主题是「天庭」——一支由多个 Agent 组成的虚拟开发团队。本步先立规矩:所有 Agent 之间只通过统一的消息结构沟通。你要完成 `Message` 数据类的两个方法:`to_dict()` 把消息转成字典,`__str__()` 给出人类可读的一行摘要,并运行一段模拟「任务分派 → 进度汇报 → 系统告警」的小剧场,验证协议可用。\n\n### 原理\n\n多 Agent 协作的第一步是确定「说什么语言」。如果把沟通写成「调对方函数」,每个 Agent 都得知道其他 Agent 的内部接口,耦合极深,新增一个成员就要改一大片代码。消息协议把沟通降级为「生产消息、消费消息」:消息只包含六个字段——`sender`(谁发的)、`receiver`(发给谁)、`topic`(主题)、`payload`(载荷)、`msg_id`(全局唯一编号)与 `ts`(时间戳),任何 Agent 看到一条消息都能独立理解它。`dataclass` 自动生成 `__init__` 与 `__repr__`;`field(default_factory=...)` 让 `msg_id` 与 `ts` 在每条消息创建时自动填充,无需手动传入——这是「每条消息都自带身份与时间」的保证。\n\n### 操作\n\n1. 实现 `Message.to_dict()`,返回含 `msg_id / ts / sender / receiver / topic / payload` 六键的字典;\n2. 实现 `Message.__str__()`,返回格式为 `f\"[{self.ts}] {self.sender} -> {self.receiver} <{self.topic}> {self.payload}\"` 的一行摘要;\n3. 运行脚本,确认先打印三条消息摘要,再按「== 序列化为字典 ==」逐键打印。\n\n### 常见坑\n\n- `field(default_factory=_next_id)` 的 `_next_id` 是模块级函数,不能写成 `field(default_factory=next(_ID_GEN))`——后者在创建类时就求值了,所有消息会共用同一个编号;\n- `__str__` 返回的是字符串,**不是 print**:只写 `return`,不要在里面 `print`;\n- `to_dict` 的键名要与字段名保持一致,后续步骤的落库、审计都依赖这份契约。\n",
+      "instruction": "### 目标\n\nch06 的主线是用 LangGraph 构建可控工作流。本任务先准备工作流之间要传递的消息：完成 `Message.to_dict()` 与 `Message.__str__()`，再运行「任务分派 → 进度汇报 → 系统告警」示例。后续 LangGraph 节点会读取同样清晰的输入与输出。\n\n### 原理\n\n多 Agent 协作先要约定数据形状。消息包含 `sender`、`receiver`、`topic`、`payload`、`msg_id` 与 `ts`，让生产者与消费者只依赖这份契约，而不依赖彼此的内部函数。`dataclass` 生成初始化方法；`field(default_factory=...)` 会在每次创建消息时生成编号和时间。消息总线不是本章的框架主线，而是理解 LangGraph 节点间状态和事件边界的基础。\n\n### 操作\n\n1. 实现 `Message.to_dict()`，返回六个字段组成的字典。\n2. 实现 `Message.__str__()`，返回一行可读摘要，不要在方法内 `print`。\n3. 运行脚本，确认消息摘要与序列化结果正确。\n\n### 常见坑\n\n- `default_factory` 接收函数，不要在类定义时提前调用它。\n- 字典键名必须与字段名一致，后续节点和审计逻辑才可稳定读取。",
       "todoItems": [
-        {"title": "实现 Message.to_dict", "target": "Message.to_dict", "code": "return 含 msg_id/ts/sender/receiver/topic/payload 六键的字典", "expect": "to_dict() 返回六键与字段一一对应的字典"},
-        {"title": "实现 Message.__str__", "target": "Message.__str__", "code": "return f'[{self.ts}] {self.sender} -> {self.receiver} <{self.topic}> {self.payload}'(注意 return 不要 print)", "expect": "print(msg) 输出一行可读摘要"},
-        {"title": "运行脚本验证协议", "target": "main", "code": "python <文件名>.py", "expect": "先三条消息摘要,再按「== 序列化为字典 ==」逐键打印"}
+        {
+          "title": "实现 Message.to_dict",
+          "target": "Message.to_dict",
+          "code": "return 含 msg_id/ts/sender/receiver/topic/payload 六键的字典",
+          "expect": "to_dict() 返回六键与字段一一对应的字典"
+        },
+        {
+          "title": "实现 Message.__str__",
+          "target": "Message.__str__",
+          "code": "return f'[{self.ts}] {self.sender} -> {self.receiver} <{self.topic}> {self.payload}'(注意 return 不要 print)",
+          "expect": "print(msg) 输出一行可读摘要"
+        },
+        {
+          "title": "运行脚本验证协议",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "先三条消息摘要,再按「== 序列化为字典 ==」逐键打印"
+        }
       ],
       "hints": [
         {
@@ -109,9 +124,24 @@
       "title": "发布订阅总线:消息交给总线分发",
       "instruction": "### 目标\n\n让消息不再「点对点直连」,而是投进一条共享的发布订阅总线。你将在 s1 的消息协议之上实现 `MessageBus`:订阅方按主题登记回调,发布方把消息交给总线,总线按主题把消息派发给所有订阅者,并保留一份完整审计记录。\n\n### 原理\n\n发布订阅(pub/sub)把「消息生产」与「消息消费」彻底解耦:发布方不需要知道谁在听,订阅方不需要知道谁在发,双方只认「主题」这个契约。总线的核心是一张订阅表——`topic → [handler1, handler2, ...]`;`publish` 时先写入审计列表 `published`,再遍历订阅表,把消息逐个派发给主题匹配的处理器。每个订阅者的异常用 `try/except` 单独隔离:一个订阅者挂了,不影响其他人收消息。用 `defaultdict(list)` 建订阅表,`subscribe` 时不用先判断主题是否存在,`self._subs[topic].append(handler)` 一行搞定。\n\n### 操作\n\n1. 实现 `MessageBus.subscribe(topic, handler)`,把回调注册到 `self._subs[topic]`;\n2. 实现 `MessageBus.publish(msg)`:先记入 `self.published` 审计,再按 `topic == msg.topic` 精确匹配派发,单个订阅者异常要隔离;\n3. 运行脚本,验证三条消息中前两条被 `[日志]` 打印,第三条 `alarm.critical` 无人订阅而静默,审计区显示 3 条,最后列出注册主题。\n\n### 常见坑\n\n- 派发循环里遍历的是 `list(self._subs.items())` 的拷贝——回调内部若修改订阅表,不会破坏正在进行的派发;\n- `topics()` 要返回 `sorted(self._subs)` 排好序的列表,而不是字典本身,否则输出顺序不稳定;\n- 订阅者的异常要在 `publish` 里拦截,不要在订阅回调里 try——回调是别人的代码,你管不到它内部怎么处理。\n",
       "todoItems": [
-        {"title": "实现 subscribe 注册回调", "target": "MessageBus.subscribe", "code": "self._subs[topic].append(handler)", "expect": "回调登记进对应主题"},
-        {"title": "实现 publish 分发", "target": "MessageBus.publish", "code": "先 self.published.append(msg) 审计,再遍历 list(self._subs.items()) 按 topic == msg.topic 派发,try/except 隔离订阅者异常", "expect": "两条 [日志]、alarm.critical 静默、审计 3 条"},
-        {"title": "运行验证", "target": "main", "code": "python <文件名>.py", "expect": "展示两条日志、三条审计与注册主题列表"}
+        {
+          "title": "实现 subscribe 注册回调",
+          "target": "MessageBus.subscribe",
+          "code": "self._subs[topic].append(handler)",
+          "expect": "回调登记进对应主题"
+        },
+        {
+          "title": "实现 publish 分发",
+          "target": "MessageBus.publish",
+          "code": "先 self.published.append(msg) 审计,再遍历 list(self._subs.items()) 按 topic == msg.topic 派发,try/except 隔离订阅者异常",
+          "expect": "两条 [日志]、alarm.critical 静默、审计 3 条"
+        },
+        {
+          "title": "运行验证",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "展示两条日志、三条审计与注册主题列表"
+        }
       ],
       "hints": [
         {
@@ -219,10 +249,30 @@
       "title": "通配符订阅:一个模式收下一整类消息",
       "instruction": "### 目标\n\n把 s2 的「精确主题匹配」升级为「通配符订阅」:订阅 `task.*` 一次收下 `task.assign`、`task.done` 等所有二级主题;订阅 `alarm.#` 收下任意层级的告警。你要实现 `topic_match(pattern, topic)` 匹配函数,并把订阅表改造成「模式 + 回调」的列表。\n\n### 原理\n\n精确订阅下,订阅方要为每个主题重复登记,消息一多就烦。借鉴 MQTT 的主题层级思想:`*` 匹配恰好一层,`#` 匹配剩余任意层(可以为空)。例如 `task.*` 能匹配 `task.assign` 但匹配不了 `task.assign.rev`;`task.#` 既能匹配 `task.assign` 也能匹配 `task.assign.rev`。匹配算法把主题按 `.` 切成段,逐段比较:遇到 `#` 直接命中;遇到 `*` 跳过本层;普通段必须相等;最后还要比较段数——这就是「`*` 只吃一层、`#` 吃无限层」的实现关键。订阅表从「主题 → 回调列表」的字典变成「(模式, 回调)」的列表,`publish` 时逐个用 `topic_match` 试配。\n\n### 操作\n\n1. 实现 `topic_match(pattern, topic)`,按上述规则返回布尔值;\n2. 改造 `MessageBus.subscribe`:把 `(pattern, handler)` 二元组追加进 `self._subs`;\n3. 改写 `publish`:遍历订阅表,用 `topic_match(pattern, msg.topic)` 判断是否派发;\n4. 实现 `counts()` 按主题统计消息条数;运行脚本,验证 `[看板]` 收到三条 task 消息、`[告警]` 收到一条 alarm 消息。\n\n### 常见坑\n\n- `#` 要在逐段比较的**开头就 return True**,而不是把它当成普通段比完再放行——它吞掉剩余所有层,直接返回即可;\n- 段数比较放在最后:只有整个模式段都匹配、且双方段数一致才返回 True,漏掉它 `task.*` 会错误匹配三层主题;\n- `publish` 遍历时要拷贝订阅表快照,防止回调里新增订阅影响本轮派发。\n",
       "todoItems": [
-        {"title": "实现 topic_match 通配匹配", "target": "topic_match", "code": "pattern 与 topic 按 . 分段;'#' 开头直接 return True;'*' 跳过本层;末尾比较双方段数一致才返回", "expect": "task.* 匹配 task.assign 但匹配不了 task.assign.rev"},
-        {"title": "改造 subscribe 存模式", "target": "MessageBus.subscribe", "code": "self._subs.append((pattern, handler))", "expect": "订阅表变成 (模式, 回调) 列表"},
-        {"title": "改写 publish 按模式派发", "target": "MessageBus.publish", "code": "if not topic_match(pattern, msg.topic): continue;分发前先审计,try/except 隔离异常", "expect": "[看板] 收三条 task 消息、[告警] 收一条 alarm"},
-        {"title": "运行验证", "target": "main", "code": "python <文件名>.py", "expect": "输出统计: task.assign: 2"}
+        {
+          "title": "实现 topic_match 通配匹配",
+          "target": "topic_match",
+          "code": "pattern 与 topic 按 . 分段;'#' 开头直接 return True;'*' 跳过本层;末尾比较双方段数一致才返回",
+          "expect": "task.* 匹配 task.assign 但匹配不了 task.assign.rev"
+        },
+        {
+          "title": "改造 subscribe 存模式",
+          "target": "MessageBus.subscribe",
+          "code": "self._subs.append((pattern, handler))",
+          "expect": "订阅表变成 (模式, 回调) 列表"
+        },
+        {
+          "title": "改写 publish 按模式派发",
+          "target": "MessageBus.publish",
+          "code": "if not topic_match(pattern, msg.topic): continue;分发前先审计,try/except 隔离异常",
+          "expect": "[看板] 收三条 task 消息、[告警] 收一条 alarm"
+        },
+        {
+          "title": "运行验证",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "输出统计: task.assign: 2"
+        }
       ],
       "hints": [
         {
@@ -311,9 +361,24 @@
       "title": "共享黑板:团队在同一块板上协作",
       "instruction": "### 目标\n\n在总线之外引入第二种协作范式——共享黑板。所有 Agent 不直接传消息,而是往同一块黑板上写键值对,其他人随时读。你要实现 `Blackboard` 的 `write` 方法与 `BoardEntry.__str__`,让每次写入都带版本号、作者与时间戳,形成完整历史。\n\n### 原理\n\n黑板模式(Blackboard Pattern)模拟人类团队的「白板协作」:有人写需求、有人贴进度、有人贴风险,任何人都能看,没有人直接点名「谁来看」。实现上就是一层 `dict` 加一层版本与历史:同名 key 每写一次版本号加一,旧值被新值覆盖,但历史列表里完整保留每次写入的记录。这样质检、汇报等角色不必订阅具体消息,直接读黑板即可获得全局最新状态;版本号则让「是否被更新过」可判断。`BoardEntry` 是一条不可变的写入流水,记录作者、键、值、版本、编号与时间。\n\n### 操作\n\n1. 实现 `BoardEntry.__str__`,返回 `f\"[{self.ts}] {self.author} 写入 {self.key} -> {self.value} (v{self.version})\"`;\n2. 实现 `Blackboard.write(key, value, author)`:版本号 `new_version = self._versions.get(key, 0) + 1`,更新 `_data` 与 `_versions`,把新 `BoardEntry` 追加进 `history` 并返回;\n3. 运行脚本,验证快照区 `task.login.status` 显示 `review (v2)`(第三次写入覆盖了第一次),历史区有三条记录。\n\n### 常见坑\n\n- 版本号要用 `self._versions.get(key, 0) + 1`,而不是 `len(self.history)`——后者会把其他 key 的写入也算进来,版本号会虚高;\n- `BoardEntry` 的 `value` 类型是 `Any`,写入什么值都行,但读取方要自己保证类型匹配;\n- `write` 必须返回新创建的 `BoardEntry`,方便调用方立刻知道本次写入的版本号。\n",
       "todoItems": [
-        {"title": "实现 BoardEntry.__str__", "target": "BoardEntry.__str__", "code": "return f'[{self.ts}] {self.author} 写入 {self.key} -> {self.value} (v{self.version})'", "expect": "黑板流水一行呈现"},
-        {"title": "实现 Blackboard.write", "target": "Blackboard.write", "code": "new_version = self._versions.get(key, 0) + 1;更新 _data 与 _versions;构造 BoardEntry 追加进 history 并 return", "expect": "同 key 覆盖版本号递增、历史完整"},
-        {"title": "运行验证", "target": "main", "code": "python <文件名>.py", "expect": "快照 task.login.status = review (v2),历史区三条"}
+        {
+          "title": "实现 BoardEntry.__str__",
+          "target": "BoardEntry.__str__",
+          "code": "return f'[{self.ts}] {self.author} 写入 {self.key} -> {self.value} (v{self.version})'",
+          "expect": "黑板流水一行呈现"
+        },
+        {
+          "title": "实现 Blackboard.write",
+          "target": "Blackboard.write",
+          "code": "new_version = self._versions.get(key, 0) + 1;更新 _data 与 _versions;构造 BoardEntry 追加进 history 并 return",
+          "expect": "同 key 覆盖版本号递增、历史完整"
+        },
+        {
+          "title": "运行验证",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "快照 task.login.status = review (v2),历史区三条"
+        }
       ],
       "hints": [
         {
@@ -409,9 +474,24 @@
       "title": "总线驱动黑板:消息自动沉淀为状态",
       "instruction": "### 目标\n\n把 s3 的总线和 s4 的黑板接起来,实现「总线驱动黑板」:消息在总线上流动,桥接器把感兴趣的消息翻译成黑板写入。你要完成 `bridge_progress` 与 `topic_stats` 两个函数,让任务进度消息自动变成黑板上的百分比字段。\n\n### 原理\n\n总线是「动的」(消息流),黑板是「静的」(状态)。桥接器(bridge)是两者之间的翻译官:它订阅某个主题,收到消息后把消息里的字段解出来,写进黑板。这是一种典型的「事件驱动 + 状态沉淀」组合——Agent 们只需要发布事件,黑板会自动长出最新状态,汇报角色读黑板即可,不需要追着每一条消息跑。`bridge_status` 已给出示范:订阅 `task.done`,把 `task.{任务名}.status` 写成 `done`。本步的任务 `bridge_progress` 如法炮制,订阅 `task.progress` 写百分比;`topic_stats` 则纯做统计,把 `bus.published` 按主题聚合。\n\n### 操作\n\n1. 实现 `bridge_progress`:订阅 `\"task.progress\"`,取 `payload` 的 `task` 与 `percent`,写 `board.write(f\"task.{task}.percent\", percent, msg.sender)`;\n2. 实现 `topic_stats`:遍历 `bus.published`,统计每个主题出现的次数,返回 `{主题: 条数}`;\n3. 运行脚本,观察黑板最终状态:发布 4 条消息,只有 3 条被桥接写入(`task.assign` 没有桥匹配)。\n\n### 常见坑\n\n- 订阅模式是 `\"task.progress\"` 精确串,不是 `\"task.*\"`——后者会把 `task.done` 也接进来;\n- `board.write` 的 `key` 用 `f\"task.{task}.percent\"` 动态拼接,`task` 来自消息 payload,不要写死;\n- `topic_stats` 统计的是 `bus.published` 审计列表,不是黑板 `history`,两者条数未必相同——这正是本步想让你看明白的差异。\n",
       "todoItems": [
-        {"title": "实现 bridge_progress 桥接器", "target": "bridge_progress", "code": "handler 内取 payload 的 task 与 percent,board.write(f'task.{task}.percent', percent, msg.sender);末尾 bus.subscribe('task.progress', handler)", "expect": "进度消息自动沉淀为黑板百分比"},
-        {"title": "实现 topic_stats 统计", "target": "topic_stats", "code": "return dict(Counter(m.topic for m in bus.published))", "expect": "返回 {主题: 条数} 统计"},
-        {"title": "运行验证", "target": "main", "code": "python <文件名>.py", "expect": "发布 4 条消息,黑板仅 3 条被桥接写入"}
+        {
+          "title": "实现 bridge_progress 桥接器",
+          "target": "bridge_progress",
+          "code": "handler 内取 payload 的 task 与 percent,board.write(f'task.{task}.percent', percent, msg.sender);末尾 bus.subscribe('task.progress', handler)",
+          "expect": "进度消息自动沉淀为黑板百分比"
+        },
+        {
+          "title": "实现 topic_stats 统计",
+          "target": "topic_stats",
+          "code": "return dict(Counter(m.topic for m in bus.published))",
+          "expect": "返回 {主题: 条数} 统计"
+        },
+        {
+          "title": "运行验证",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "发布 4 条消息,黑板仅 3 条被桥接写入"
+        }
       ],
       "hints": [
         {
@@ -505,12 +585,27 @@
       "id": "t50-message-bus-s6",
       "taskId": "t50-message-bus",
       "order": 6,
-      "title": "迷你天庭:多 Agent 流水线闭环",
-      "instruction": "### 目标\n\n收官实战:组装一个「迷你天庭」。产品经理发任务、开发汇报进度、质检官 `qa_gate` 把关放行,所有消息流入总线,`blackboard_bridge` 把一切沉淀成黑板,最后 `daily_report` 输出一天的日报。你要完成 `qa_gate` 与 `daily_report` 两个函数,让整条流水线闭环运行。\n\n### 原理\n\n前面五步的工具在此汇成一条完整流水线。`blackboard_bridge` 订阅 `task.#`,把任何 task 类消息的整条 payload 都写进黑板,键为 `task.{任务}.{事件}`;`qa_gate` 是质检官:只有进度 100% 且带提交 commit 的任务才算通过,通过就把结果写黑板、并向总线广播 `task.accepted`,否则广播 `task.rejected`——被广播的新消息又会触发 `blackboard_bridge` 写入黑板,形成「消息驱动状态更新」的连锁反应,但因为桥接器只写黑板、不发布新消息,所以不会有死循环。`daily_report` 则是整个系统的观测口:读总线审计、按主题统计、再读黑板快照,一次看清全貌。\n\n### 操作\n\n1. 实现 `qa_gate`:订阅 `\"task.done\"`,判定 `percent == 100` 且 `commit` 非空;通过则写 `task.{task}.qa = \"通过\"` 并发布 `\"task.accepted\"`,否则写 `\"打回\"` 并发布 `\"task.rejected\"`,author/sender 用 `\"qa_1\"`;\n2. 实现 `daily_report`:按示例格式打印日报头部、逐条消息、主题统计、黑板快照与收尾行;\n3. 运行脚本,确认日报中出现 `task.accepted` 广播与最终黑板快照。\n\n### 常见坑\n\n- `qa_gate` 里 `payload.get(\"percent\") == 100` 要用 `==` 而不是 `is`——字典取值是 int,`is` 比较的是对象身份;\n- 广播的 `topic` 是 `\"task.accepted\" if passed else \"task.rejected\"`,在同一个 `Message` 构造函数里用三元表达式一次完成,不要写两个分支重复代码;\n- `daily_report` 的 `stat` 用 `Counter` 聚合 `bus.published` 的主题,统计里应包含广播出的 `task.accepted`,共 5 个主题——如果少了,说明广播时机不对。\n",
+      "title": "迷你校园 AI 社:多 Agent 流水线闭环",
+      "instruction": "### 目标\n\n收官实战:组装一个「迷你校园 AI 社」。产品经理发任务、开发汇报进度、质检官 `qa_gate` 把关放行,所有消息流入总线,`blackboard_bridge` 把一切沉淀成黑板,最后 `daily_report` 输出一天的日报。你要完成 `qa_gate` 与 `daily_report` 两个函数,让整条流水线闭环运行。\n\n### 原理\n\n前面五步的工具在此汇成一条完整流水线。`blackboard_bridge` 订阅 `task.#`,把任何 task 类消息的整条 payload 都写进黑板,键为 `task.{任务}.{事件}`;`qa_gate` 是质检官:只有进度 100% 且带提交 commit 的任务才算通过,通过就把结果写黑板、并向总线广播 `task.accepted`,否则广播 `task.rejected`——被广播的新消息又会触发 `blackboard_bridge` 写入黑板,形成「消息驱动状态更新」的连锁反应,但因为桥接器只写黑板、不发布新消息,所以不会有死循环。`daily_report` 则是整个系统的观测口:读总线审计、按主题统计、再读黑板快照,一次看清全貌。\n\n### 操作\n\n1. 实现 `qa_gate`:订阅 `\"task.done\"`,判定 `percent == 100` 且 `commit` 非空;通过则写 `task.{task}.qa = \"通过\"` 并发布 `\"task.accepted\"`,否则写 `\"打回\"` 并发布 `\"task.rejected\"`,author/sender 用 `\"qa_1\"`;\n2. 实现 `daily_report`:按示例格式打印日报头部、逐条消息、主题统计、黑板快照与收尾行;\n3. 运行脚本,确认日报中出现 `task.accepted` 广播与最终黑板快照。\n\n### 常见坑\n\n- `qa_gate` 里 `payload.get(\"percent\") == 100` 要用 `==` 而不是 `is`——字典取值是 int,`is` 比较的是对象身份;\n- 广播的 `topic` 是 `\"task.accepted\" if passed else \"task.rejected\"`,在同一个 `Message` 构造函数里用三元表达式一次完成,不要写两个分支重复代码;\n- `daily_report` 的 `stat` 用 `Counter` 聚合 `bus.published` 的主题,统计里应包含广播出的 `task.accepted`,共 5 个主题——如果少了,说明广播时机不对。\n",
       "todoItems": [
-        {"title": "实现 qa_gate 质检", "target": "qa_gate", "code": "percent == 100 且 commit 非空才通过;写 task.{task}.qa 并广播 task.accepted/task.rejected,author/sender 用 'qa_1';末尾 bus.subscribe('task.done', handler)", "expect": "合格任务被 accepted 广播"},
-        {"title": "实现 daily_report 日报", "target": "daily_report", "code": "依次打印日报头部、逐条消息、主题统计、黑板快照、收尾行", "expect": "输出完整日报"},
-        {"title": "运行验证", "target": "main", "code": "python <文件名>.py", "expect": "日报出现 task.accepted 与黑板快照,统计共 5 个主题"}
+        {
+          "title": "实现 qa_gate 质检",
+          "target": "qa_gate",
+          "code": "percent == 100 且 commit 非空才通过;写 task.{task}.qa 并广播 task.accepted/task.rejected,author/sender 用 'qa_1';末尾 bus.subscribe('task.done', handler)",
+          "expect": "合格任务被 accepted 广播"
+        },
+        {
+          "title": "实现 daily_report 日报",
+          "target": "daily_report",
+          "code": "依次打印日报头部、逐条消息、主题统计、黑板快照、收尾行",
+          "expect": "输出完整日报"
+        },
+        {
+          "title": "运行验证",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "日报出现 task.accepted 与黑板快照,统计共 5 个主题"
+        }
       ],
       "hints": [
         {
@@ -599,8 +694,8 @@
         },
         {
           "type": "sandbox_run",
-          "message": "运行应输出完整的天庭日报,含 accepted 广播与黑板快照。",
-          "expectedStdout": "===== 天庭日报 =====[\\s\\S]*task\\.accepted[\\s\\S]*===== 日报结束 =====",
+          "message": "运行应输出完整的校园 AI 社日报,含 accepted 广播与黑板快照。",
+          "expectedStdout": "===== 校园 AI 社日报 =====[\\s\\S]*task\\.accepted[\\s\\S]*===== 日报结束 =====",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true

@@ -1,9 +1,29 @@
-"""袖里乾坤 · s5:简易推理服务
+"""模型研究小组 · s5:简易推理服务
 
 把量化小模型挂上 HTTP:字符级 GPT 吃进 {"prompt": "hello"},
 吐出 {"prompt": ..., "generated": "hello..."} 的续写结果,
 用一台玩具服务器完成"模型开口说话"的最后一公里。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：简易推理服务:让模型开口说话。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `make_weights() -> dict`：输入为签名中的参数；输出为 `dict`。用途：蒸馏产物权重:嵌入/隐藏/输出三矩阵,演示用随机权重。
+#   - `quantize_tensor(w: np.ndarray) -> tuple`：输入为签名中的参数；输出为 `tuple`。用途：对称 int8 量化:返回 (int8 权重, scale)。
+#   - `quantize_model(weights: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：逐张量量化,键名加上 _q / _scale 后缀。
+#   - `tokens_of(text: str) -> list[int]`：输入为签名中的参数；输出为 `list[int]`。用途：把文本映射成词表下标;词表外的字符一律回退为空格。
+#   - `dyn_quant(x: np.ndarray) -> tuple`：输入为签名中的参数；输出为 `tuple`。用途：动态量化激活向量:返回 (int8 向量, scale)。
+#   - `forward_int8(qw: dict, tokens: list[int]) -> np.ndarray`：输入为签名中的参数；输出为 `np.ndarray`。用途：INT8 整数前向:平均嵌入 → 隐藏层 → 输出 logits。
+#   - `sample_token(logits: np.ndarray) -> int`：输入为签名中的参数；输出为 `int`。用途：softmax 概率采样:logits → 下一个字符的词表下标。
+#   - `generate(qw: dict, prompt: str, max_len: int=12) -> str`：输入为签名中的参数；输出为 `str`。用途：自回归续写:每一步只喂最近 8 个字符,采样一个字符拼上去。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `TinyServer`：承载本节状态/数据；重点方法：_json, _reply, do_GET, do_POST, log_message。
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
 import threading
 import time

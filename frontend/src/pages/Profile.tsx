@@ -46,7 +46,7 @@ export function Profile() {
         <LevelBadge level={progress.level} size="lg" />
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Lv.{progress.level} <span className="text-gradient-brand">修行者</span>
+            Lv.{progress.level} <span className="text-gradient-brand">学习者</span>
           </h1>
           <p className="text-slate-500">
             累计经验 <span className="font-semibold text-exp-600">{progress.totalExp}</span> exp

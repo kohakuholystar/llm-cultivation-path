@@ -1,27 +1,23 @@
-"""铸剑台 · 模板工程 第 1 步:ChatPromptTemplate 基础。
-
-把铸剑配方从"字符串拼接"升级为"显式声明变量的模板",
-实现提示词内容与代码分离。本任务全程只渲染 prompt,不调用模型。
-"""
+"""黑糖资料室 · 提示词模板工程 · s1：用 LangChain 完成可验证的学习任务。"""
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import BaseMessage
 
 
 def build_forge_prompt() -> ChatPromptTemplate:
-    """构建铸剑台主模板:system 锁定铸剑师人设,human 接收铸剑需求。"""
+    """构建黑糖资料室主模板:system 锁定内容设计师人设,human 接收制作需求。"""
     return ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 # 人设与行为边界放 system,模型对 system 指令服从度更高
-                "你是铸剑台的总铸剑师,出身门派「{sect}」。"
-                "你只回答铸剑相关问题,其余话题一律回绝。",
+                "你是提示词工作台的提示词负责人,出身团队「{sect}」。"
+                "你只回答内容策划问题,其余话题一律回绝。",
             ),
             (
                 "human",
                 # 当前需求放 human:{xxx} 即模板变量,渲染时被替换
-                "我要铸一柄{sword_type},主材是{material},请给出锻造要点。",
+                "我要制作一份{sword_type},主素材是{material},请给出制作要点。",
             ),
         ]
     )
@@ -52,15 +48,15 @@ def main() -> None:
 
     messages = render_messages(
         prompt,
-        {"sect": "玄铁阁", "sword_type": "双手重剑", "material": "天外陨铁"},
+        {"sect": "素材组", "sword_type": "双手长篇方案", "material": "活动素材"},
     )
     show_messages(messages)
 
     # 换一组变量,同一份模板渲染出完全不同的提示词——模板即数据
-    print("--- 换一批铸剑需求 ---")
+    print("--- 换一批内容制作需求 ---")
     messages2 = render_messages(
         prompt,
-        {"sect": "百花谷", "sword_type": "柳叶细剑", "material": "精钢"},
+        {"sect": "视觉设计组", "sword_type": "竖版海报", "material": "精钢"},
     )
     show_messages(messages2)
 

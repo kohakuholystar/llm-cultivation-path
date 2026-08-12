@@ -19,7 +19,7 @@ export function About() {
         关于<span className="text-gradient-brand">本项目</span>
       </h1>
       <p className="mt-4 leading-relaxed text-slate-600">
-        LLM Agent 工程师修炼之路是一个打怪升级式的任务型 LLM 技术栈学习网站。
+        LLM Agent 工程师学习之路是一个打怪升级式的任务型 LLM 技术栈学习网站。
         目标是让初学者在内置 IDE 环境里,一步步从零掌握 LLM 全技术栈,
         成为能独立开发 Agent 应用的工程师。
       </p>

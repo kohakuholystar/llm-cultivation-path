@@ -1,0 +1,14 @@
+[project]
+name = "dujie"
+version = "0.1.0"
+description = "黑糖资料室：可检索、可引用的知识问答服务"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "pydantic>=2.10,<3",
+  "uvicorn[standard]>=0.30,<1",
+  "pytest>=8,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

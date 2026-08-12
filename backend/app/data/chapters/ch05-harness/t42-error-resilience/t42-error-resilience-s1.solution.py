@@ -1,6 +1,6 @@
-"""乾坤圈 · s1:指数退避重试
+"""Agent 运行时底座 · s1:指数退避重试
 
-本步为「乾坤圈」运行时装上第一层护甲:指数退避重试。
+本步为「Agent 运行时底座」运行时装上第一层护甲:指数退避重试。
 compute_backoff 负责计算每次重试前的等待时长,retry_call
 负责在函数调用失败后按该节奏自动重试,并放行不可重试的异常。
 """
@@ -38,7 +38,7 @@ def retry_call(func, args=(), kwargs=None, retries=3, base_delay=0.1,
 
 
 def main():
-    print("== 乾坤圈 · s1:指数退避重试 ==")
+    print("== Agent 运行时底座 · s1:指数退避重试 ==")
     state = {"calls": 0}
 
     def flaky_service():

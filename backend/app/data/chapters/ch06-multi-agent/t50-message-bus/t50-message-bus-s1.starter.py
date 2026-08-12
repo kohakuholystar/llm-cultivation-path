@@ -1,4 +1,19 @@
-"""天庭 · s1:消息协议 —— Agent 之间说什么语言。"""
+"""校园 AI 社 · s1:消息协议 —— Agent 之间说什么语言。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：消息协议:Agent 的第一门共同语言。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `_next_id() -> int`：输入为签名中的参数；输出为 `int`。用途：按本节调用链完成对应处理
+#   - `_now() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `make_messages() -> list[Message]`：输入为签名中的参数；输出为 `list[Message]`。用途：模拟校园 AI 社一天里的三条消息:任务分派、进度汇报、系统告警。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Message`：承载本节状态/数据；重点方法：to_dict。
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import itertools
 import time
 from dataclasses import dataclass, field
@@ -39,7 +54,7 @@ class Message:
 
 
 def make_messages() -> list[Message]:
-    """模拟天庭一天里的三条消息:任务分派、进度汇报、系统告警。"""
+    """模拟校园 AI 社一天里的三条消息:任务分派、进度汇报、系统告警。"""
     return [
         Message(sender="product_manager", topic="task.assign",
                 payload={"task": "实现登录页", "assignee": "dev_1"}),

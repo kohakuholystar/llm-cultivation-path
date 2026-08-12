@@ -1,4 +1,4 @@
-"""百宝囊 v0.2 —— 新增计算器法宝:用 AST 白名单安全求值,绝不用 eval。"""
+"""社团工具箱 v0.2 —— 新增计算器工具:用 AST 白名单安全求值,绝不用 eval。"""
 import ast
 import operator
 import random

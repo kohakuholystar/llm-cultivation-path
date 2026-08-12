@@ -4,6 +4,23 @@
 ChatMemory 用定长裁剪保留最近对话,dispatch_tool 用白名单查表
 分派计算、回显、引用三类工具,未知工具给出友好提示。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：记忆与工具分派:定长记忆 + 白名单工具表。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：recent；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `dispatch_tool(name, args) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：白名单分派:只认 TOOL_TABLE 里的工具,calc 内部再查 _CALC。
+#   - `load_kb(text) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按 --- 分隔符把整份素材切成知识块列表。
+#   - `retrieve(query, kb, top_k=3) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按词频打分,返回最相关的 top_k 个知识块。
+#   - `format_answer(hits) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：把命中结果排版成可直接回复的答案文本。
+#   - `run_tests(work_dir) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：把 TEST_CODE 写成 test_qa.py,再用 pytest 实跑验收。
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `ChatMemory`：承载本节状态/数据；重点方法：add, recent。
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import tempfile
 from dataclasses import dataclass, field
@@ -22,16 +39,16 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    kb = ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"]
-    hits = retrieve("渡劫 飞升", kb, top_k=3)
+    kb = ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"]
+    hits = retrieve("上线验收 完成交付", kb, top_k=3)
     assert len(hits) == 2
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    assert hits[0][0] == "黑糖资料室需要故障演练"
     assert hits[0][1] == 2
 
 
 def test_format_answer_joins_hits():
-    hits = [("渡劫飞升需要雷劫淬体", 2, 0)]
-    assert format_answer(hits) == "[1] 渡劫飞升需要雷劫淬体(来源片段 0)"
+    hits = [("黑糖资料室需要故障演练", 2, 0)]
+    assert format_answer(hits) == "[1] 黑糖资料室需要故障演练(来源片段 0)"
 
 
 def test_memory_trims_when_full():
@@ -63,11 +80,11 @@ def test_unknown_tool():
 
 
 def test_qa_flow():
-    kb = ["渡劫需渡雷劫", "飞升需法器"]
+    kb = ["上线验收需要覆盖故障", "完成交付需工具"]
     m = ChatMemory()
-    m.add("什么是渡劫", format_answer(retrieve("渡劫", kb)))
-    assert m.history[-1][0] == "什么是渡劫"
-    assert "渡劫需渡雷劫" in m.history[-1][1]
+    m.add("什么是上线验收", format_answer(retrieve("上线验收", kb)))
+    assert m.history[-1][0] == "什么是上线验收"
+    assert "上线验收需要覆盖故障" in m.history[-1][1]
 """
 
 
@@ -139,12 +156,12 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 集成测试 s2 ==")
+    print("== 黑糖资料室 · 集成测试 s2 ==")
     m = ChatMemory()
-    m.add("渡劫有几关", format_answer(retrieve("渡劫", load_kb("渡劫需渡雷劫\n\n---\n\n飞升需法器"))))
+    m.add("上线验收有几关", format_answer(retrieve("上线验收", load_kb("上线验收需要覆盖故障\n\n---\n\n完成交付需工具"))))
     print(dispatch_tool("calc", (3, 4, "mul")))
-    print(dispatch_tool("echo", "护体法器"))
-    print(dispatch_tool("quote", "仙路漫漫"))
+    print(dispatch_tool("echo", "护体工具"))
+    print(dispatch_tool("quote", "项目路途漫长"))
     with tempfile.TemporaryDirectory() as d:
         run_tests(d)
     print("pytest 全部通过:10 个用例")

@@ -1,9 +1,26 @@
-"""乾坤圈 · s3:钩子系统
+"""Agent 运行时底座 · s3:钩子系统
 
 插件之间不互相点名,而是向事件总线注册钩子。运行时发布事件,
 插件按钩子表决定听不听、怎么听。getattr 反射分发,
 `is False` 精确识别否决——插件第一次有了「说不」的能力。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：钩子系统:运行时事件总线初鸣。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `Plugin`：承载本节状态/数据；重点方法：run, hooks。
+#   - `EchoPlugin`：承载本节状态/数据；重点方法：hooks, run。
+#   - `LogPlugin`：承载本节状态/数据；重点方法：hooks, handle。
+#   - `BlockPlugin`：承载本节状态/数据；重点方法：hooks, guard。
+#   - `HookBus`：承载本节状态/数据；重点方法：subscribe, publish, counts。
+#   - `HookRuntime`：承载本节状态/数据；重点方法：handle。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 from abc import ABC, abstractmethod
 
 
@@ -96,7 +113,7 @@ def main():
     counts = rt.bus.counts()
     print(f"订阅情况: request_in={counts.get('request_in', 0)} request_out={counts.get('request_out', 0)}")
     print("--- 正常请求 ---")
-    rt.handle("你好,乾坤圈")
+    rt.handle("你好,Agent 运行时底座")
     print("--- 违规请求 ---")
     rt.handle("这个请求禁止执行")
 

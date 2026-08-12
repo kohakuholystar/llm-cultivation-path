@@ -1,4 +1,4 @@
-"""渡劫飞升 · s2:系统架构——mermaid 架构图分层
+"""终期交付 · s2:系统架构——mermaid 架构图分层
 
 把系统按展示、接入、业务、能力、存储五层切分,
 组件间的连线即数据流,自上而下、不可反向。
@@ -27,14 +27,14 @@ LAYER_ORDER = [
 
 # ---- 组件清单:名字 -> 职责说明 ----
 ARCH_COMPONENTS = {
-    "web": "Web 界面:修行者提问与阅读回答的入口",
+    "web": "Web 界面:学习者提问与阅读回答的入口",
     "api": "FastAPI 网关:统一接收请求、做鉴权与限流",
     "svc": "服务编排:串联检索、Agent 决策与回答组装",
     "agent": "问答 Agent:规划、调用工具、管理多轮上下文",
-    "rag": "检索增强:典籍切块、向量化、相关性召回",
+    "rag": "检索增强:资料切块、向量化、相关性召回",
     "harness": "工具执行:在安全沙箱里运行外部工具",
     "vec": "向量服务:相似度检索与重排",
-    "kb": "典籍库:功法原文与切块(文档+向量)",
+    "kb": "知识库:方法原文与切块(文档+向量)",
     "mem": "记忆库:多轮会话上下文与用户画像",
 }
 
@@ -92,7 +92,7 @@ def main() -> None:
     os.makedirs("docs", exist_ok=True)
     diagram = render_mermaid()
     check_diagram(diagram)
-    doc = ["# 渡劫飞升 · 系统架构", "", "> " + TAGLINE]
+    doc = ["# 黑糖资料室 · 系统架构", "", "> " + TAGLINE]
     doc.append("```mermaid")
     doc.append(diagram)
     doc.append("```")

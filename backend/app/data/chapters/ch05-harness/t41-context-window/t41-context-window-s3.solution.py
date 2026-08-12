@@ -1,4 +1,4 @@
-"""乾坤圈 · s3:滚动摘要——旧对话压成一行浓缩信息
+"""Agent 运行时底座 · s3:滚动摘要——旧对话压成一行浓缩信息
 
 对话越长,历史越重,窗口迟早被撑爆。与其把旧消息原样搬进窗口,
 不如把最旧的一批先压成一句话摘要,再用这条摘要代表它们。
@@ -75,13 +75,13 @@ class SummaryBuffer:
 def main() -> None:
     budget = TokenBudget(total=900, reserve_output=700)
     history = [
-        Message("system", "你是乾坤圈,负责把旧对话压缩成摘要。"),
-        Message("user", "第1轮:灵脉吞吐几何?"),
-        Message("assistant", "灵脉每日吞吐三千灵石。"),
-        Message("user", "第2轮:丹炉火候如何?"),
-        Message("assistant", "丹炉火候稳定,可炼上品丹。"),
-        Message("user", "第3轮:护山大阵运转正常吗?"),
-        Message("assistant", "护山大阵一切正常,无破损。"),
+        Message("system", "你是Agent 运行时底座,负责把旧对话压缩成摘要。"),
+        Message("user", "第1轮:网络吞吐几何?"),
+        Message("assistant", "网络每日吞吐三千预算点。"),
+        Message("user", "第2轮:模型服务状态如何?"),
+        Message("assistant", "丹模型服务候稳定,可炼上品丹。"),
+        Message("user", "第3轮:监控系统运转正常吗?"),
+        Message("assistant", "监控系统一切正常,无破损。"),
     ]
     summary = SummaryBuffer(max_chars=100)
     folded = summary.fold(history[1:4])

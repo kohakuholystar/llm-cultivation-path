@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # === 代码执行沙箱 (M2) ===
     sandbox_image: str = "llmquest-sandbox:latest"
+    sandbox_ml_image: str = "llmquest-sandbox-ml:latest"
     sandbox_max_concurrency: int = 5
     sandbox_default_timeout: int = 10
     sandbox_enabled: bool = True
@@ -32,8 +33,8 @@ class Settings(BaseSettings):
     # === 课程数据 ===
     data_dir: str = "app/data"
 
-    # === 课程生成器 (M1) / 沙箱注入 (M2) ===
-    # 默认 DeepSeek(OpenAI 兼容接口, 便宜)。学习者代码与课程生成器共用此配置。
+    # === 课程生成器 (M1) / 默认 DeepSeek 配置 ===
+    # 学习者联网沙箱必须提交自己的 Key；runner 不会读取这里的 Key 作为兜底。
     # 模型名对照(见 https://api-docs.deepseek.com/quick_start/pricing):
     #   deepseek-v4-pro   最新对话模型(默认)
     #   deepseek-v4-flash 更快更便宜

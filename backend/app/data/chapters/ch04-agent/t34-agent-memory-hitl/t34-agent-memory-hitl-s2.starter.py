@@ -1,6 +1,7 @@
-"""百宝囊 · s2:危险操作中断确认
+"""社团工具箱 · s2:危险操作中断确认
 在记忆基座上挂工具,并给危险操作加一道「人工闸门」。
 """
+# ???????????????????????confirm_risky?run_tool?handle????????????????????????????????????????t34-s1??????????????????
 import json
 import os
 import sys
@@ -16,7 +17,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-SYSTEM_PROMPT = ("你是「百宝囊」法宝管家。决定调用工具还是直接回答,只输出 JSON: "
+SYSTEM_PROMPT = ("你是「社团工具箱」工具管家。决定调用工具还是直接回答,只输出 JSON: "
                  '{"tool": 工具名或 null, "args": {...}, "reply": "回答"}。'
                  "可用工具: get_time()、delete_file(path)。")
 
@@ -45,7 +46,7 @@ TOOLS = {                                          # 工具注册表:risky 标�
 def confirm_risky(tool: str, args: dict) -> bool:
     """人工闸门:危险操作执行前必须征得同意。"""
     # TODO: 打印请求提示;MOCK 模式演示拒绝返回 False;真实模式命令行询问用户
-    # 提示: print(f"[中断] 百宝囊请求执行危险操作 {tool}{args}");真实模式 return input("允许执行吗? [y/N] ").strip().lower() == "y"
+    # 提示: print(f"[中断] 社团工具箱请求执行危险操作 {tool}{args}");真实模式 return input("允许执行吗? [y/N] ").strip().lower() == "y"
     raise NotImplementedError("t34-s2 尚未实现:请按 TODO 提示完成 confirm_risky")
 
 
@@ -97,7 +98,7 @@ def handle(llm: LLM, memory: ChatMemory, user_input: str) -> str:
 
 def main() -> None:
     with open("notes.txt", "w", encoding="utf-8") as f:   # 演示用文件
-        f.write("周五前提交百宝囊设计稿。")
+        f.write("周五前提交社团工具箱设计稿。")
     client = None
     if not MOCK:
         client = OpenAI(api_key=os.environ["OPENAI_API_KEY"],
@@ -111,7 +112,7 @@ def main() -> None:
     memory = ChatMemory()
     for q in ["现在几点了?", "我叫阿黎,记一下", "把 notes.txt 删掉"]:
         print(f"\\n我: {q}")
-        print(f"百宝囊: {handle(llm, memory, q)}")
+        print(f"社团工具箱: {handle(llm, memory, q)}")
     print(f"\\n[检查] notes.txt 是否还在: {os.path.exists('notes.txt')}")
 
 

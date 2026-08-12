@@ -1,124 +1,112 @@
-"""t62 训练循环与优化 · s5:checkpoint 保存与恢复。"""
-import json
+"""t62 · PyTorch 训练与 checkpoint：从 NumPy 原理走向真实制品。
 
-import numpy as np
-
-
-class MiniGPT:
-    def __init__(self, vocab=16, dim=8, seq=8, hid=8, seed=7, scale=0.2):
-        rng = np.random.default_rng(seed)
-        names = ["wte", "wpe", "wq", "wk", "wv", "wo", "w1", "w2", "wout"]
-        shapes = [(vocab, dim), (seq, dim), (dim, dim), (dim, dim), (dim, dim), (dim, dim), (dim, hid), (hid, dim), (dim, vocab)]
-        self.params = {n: rng.normal(0, scale, s) for n, s in zip(names, shapes)}
-        for n, s in zip(["b1", "b2", "bout"], [(hid,), (dim,), (vocab,)]):
-            self.params[n] = np.zeros(s)
-
-    def forward(self, x):
-        B, T = x.shape
-        dim = self.params["wte"].shape[1]
-        h = self.params["wte"][x] + self.params["wpe"][:T]
-        q = h @ self.params["wq"]
-        k = h @ self.params["wk"]
-        v = h @ self.params["wv"]
-        sc = q @ k.transpose(0, 2, 1) / np.sqrt(dim)
-        mask = np.tril(np.ones((T, T)))[None]
-        sc = np.where(mask, sc, -1e9)
-        att = np.exp(sc - sc.max(axis=-1, keepdims=True))
-        att = att / att.sum(axis=-1, keepdims=True)
-        h = h + (att @ v) @ self.params["wo"]
-        hh = np.maximum(0.0, h @ self.params["w1"] + self.params["b1"])
-        h = h + hh @ self.params["w2"] + self.params["b2"]
-        return h @ self.params["wout"] + self.params["bout"]
+这个练习使用一个很小的字符预测任务来验证训练、保存和加载的流程。
+它不是预训练语言模型，也不承诺生成质量；这里的可交付物是可复现的
+PyTorch checkpoint，而不是随机初始化后假称的“训练产物”。
+"""
 
 
-def cross_entropy(model, x, y):
-    logits = model.forward(x)
-    B, T, V = logits.shape
-    p = np.exp(logits - logits.max(axis=-1, keepdims=True))
-    p = p / p.sum(axis=-1, keepdims=True)
-    p_y = p.reshape(-1, V)[np.arange(B * T), y.reshape(-1)]
-    return float(-np.log(p_y + 1e-9).mean())
+# === 学习契约（面向学生）===
+# 本节目标：PyTorch checkpoint：训练、保存与可验证恢复。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：step；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `make_batch() -> tuple[torch.Tensor, torch.Tensor]`：输入为签名中的参数；输出为 `tuple[torch.Tensor, torch.Tensor]`。用途：固定、可复现的映射：0→1、1→2，…，7→0。
+#   - `train_one_epoch(model: TinyNextTokenModel, inputs: torch.Tensor, targets: torch.Tensor, optimizer: torch.optim.Optimizer, loss_fn: nn.Module) -> float`：输入为签名中的参数；输出为 `float`。用途：按本节调用链完成对应处理
+#   - `save_checkpoint(model: TinyNextTokenModel, path: Path) -> None`：输入为签名中的参数；输出为 `None`。用途：保存权重和重建模型必需的配置；不要保存 API Key 或任意用户数据。
+#   - `load_checkpoint(path: Path) -> TinyNextTokenModel`：输入为签名中的参数；输出为 `TinyNextTokenModel`。用途：按本节调用链完成对应处理
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `TinyNextTokenModel`：承载本节状态/数据；重点方法：forward。
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。 本节还需要 ML 沙箱依赖（如 PyTorch/Transformers）。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
+from pathlib import Path
+
+import torch
+from torch import nn
 
 
-def make_data(vocab=16, n=160):
-    x = np.arange(n) % vocab
-    y = (x + 1) % vocab
-    return x.reshape(-1, 8), y.reshape(-1, 8)
+VOCAB_SIZE = 8
+HIDDEN_SIZE = 16
+ARTIFACT_PATH = Path("/workspace/tiny_next_token.pt")
 
 
-def split_data(x, y, ratio=0.8):
-    cut = int(len(x) * ratio)
-    return x[:cut], y[:cut], x[cut:], y[cut:]
+class TinyNextTokenModel(nn.Module):
+    """极小的下一 token 预测器：Embedding 后接线性分类器。"""
+
+    def __init__(self, vocab_size: int = VOCAB_SIZE, hidden_size: int = HIDDEN_SIZE) -> None:
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, hidden_size)
+        self.classifier = nn.Linear(hidden_size, vocab_size)
+
+    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        return self.classifier(self.embedding(token_ids))
 
 
-def numerical_grad(model, x, y, h=1e-4):
-    grads = {}
-    for name, w in model.params.items():
-        g = np.zeros_like(w)
-        for idx in np.ndindex(w.shape):
-            w[idx] += h
-            l1 = cross_entropy(model, x, y)
-            w[idx] -= 2 * h
-            g[idx] = (l1 - cross_entropy(model, x, y)) / (2 * h)
-            w[idx] += h
-        grads[name] = g
-    return grads
+def make_batch() -> tuple[torch.Tensor, torch.Tensor]:
+    """固定、可复现的映射：0→1、1→2，…，7→0。"""
+    inputs = torch.arange(VOCAB_SIZE, dtype=torch.long).repeat(16)
+    targets = (inputs + 1) % VOCAB_SIZE
+    return inputs, targets
 
 
-def update(model, grads, lr):
-    for name, w in model.params.items():
-        w -= lr * grads[name]
+def train_one_epoch(
+    model: TinyNextTokenModel,
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    optimizer: torch.optim.Optimizer,
+    loss_fn: nn.Module,
+) -> float:
+    # TODO: 按“清梯度 → 前向 → loss → backward → optimizer.step()”完成一次真实更新。
+    # 提示：optimizer.zero_grad(); logits = model(inputs); loss = loss_fn(logits, targets)
+    #       loss.backward(); optimizer.step(); return float(loss.item())
+    raise NotImplementedError("请完成一次 PyTorch 训练更新")
 
 
-def lr_warmup_cosine(step, total, warmup, peak):
-    if step < warmup:
-        return peak * (step + 1) / warmup
-    p = (step - warmup) / max(1, total - warmup)
-    return peak * 0.5 * (1.0 + np.cos(np.pi * p))
+def save_checkpoint(model: TinyNextTokenModel, path: Path) -> None:
+    """保存权重和重建模型必需的配置；不要保存 API Key 或任意用户数据。"""
+    torch.save(
+        {
+            "format": "tiny-next-token-v1",
+            "vocab_size": VOCAB_SIZE,
+            "hidden_size": HIDDEN_SIZE,
+            "model_state": model.state_dict(),
+        },
+        path,
+    )
 
 
-def clip_grads(grads, max_norm=0.3):
-    total = np.sqrt(sum(float((g * g).sum()) for g in grads.values()))
-    if total > max_norm:
-        scale = max_norm / (total + 1e-12)
-        for g in grads.values():
-            g *= scale
-    return total
-
-
-def save_checkpoint(model, path):
-    # TODO: 把 model.params 逐组转成 list,json.dump 写入 path
-    # 提示: payload = {name: w.tolist() for name, w in model.params.items()};with open(path, 'w', encoding='utf-8') as f: json.dump(payload, f)
-    raise NotImplementedError("t62-training-loop-s5 尚未实现:请按 TODO 提示保存 checkpoint")
-
-
-def load_checkpoint(model, path):
-    # TODO: json.load 读回,逐组 np.array 还原并写回 model.params
-    # 提示: with open(path, 'r', encoding='utf-8') as f: payload = json.load(f);for name, arr in payload.items(): model.params[name] = np.array(arr)
-    raise NotImplementedError("t62-training-loop-s5 尚未实现:请按 TODO 提示加载 checkpoint")
+def load_checkpoint(path: Path) -> TinyNextTokenModel:
+    payload = torch.load(path, map_location="cpu", weights_only=True)
+    if payload.get("format") != "tiny-next-token-v1":
+        raise ValueError("不是本课程生成的 checkpoint")
+    restored = TinyNextTokenModel(payload["vocab_size"], payload["hidden_size"])
+    restored.load_state_dict(payload["model_state"])
+    restored.eval()
+    return restored
 
 
 def main() -> None:
-    model = MiniGPT()
-    x, y = make_data()
-    xtr, ytr, xva, yva = split_data(x, y)
-    steps, peak, warmup, max_norm = 60, 1.0, 5, 0.3
-    his, n_clip = [], 0
-    for s in range(steps):
-        lr = lr_warmup_cosine(s, steps, warmup, peak)
-        grads = numerical_grad(model, xtr, ytr)
-        n_clip += int(clip_grads(grads, max_norm) > max_norm)
-        update(model, grads, lr)
-        his.append(cross_entropy(model, xtr, ytr))
-    print(f"裁剪次数: {n_clip}/{steps}")
-    print(f"训练损失 {his[0]:.4f} → {his[-1]:.4f}")
-    path = "mini_gpt_ckpt.json"
-    save_checkpoint(model, path)
-    fresh = MiniGPT()
-    load_checkpoint(fresh, path)
-    ok = abs(cross_entropy(model, xva, yva) - cross_entropy(fresh, xva, yva)) < 1e-9
-    print(f"checkpoint 校验:{'通过' if ok else '失败'}")
-    print(f"存档路径: {path},参数组数: {len(model.params)}")
+    torch.manual_seed(7)
+    model = TinyNextTokenModel()
+    inputs, targets = make_batch()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.08)
+    loss_fn = nn.CrossEntropyLoss()
+    losses = [train_one_epoch(model, inputs, targets, optimizer, loss_fn) for _ in range(40)]
+
+    model.eval()
+    with torch.no_grad():
+        before = model(inputs)
+    ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    save_checkpoint(model, ARTIFACT_PATH)
+    restored = load_checkpoint(ARTIFACT_PATH)
+    with torch.no_grad():
+        after = restored(inputs)
+
+    identical = torch.equal(before, after)
+    print(f"训练损失 {losses[0]:.4f} → {losses[-1]:.4f}")
+    print(f"checkpoint 行为校验:{'通过' if identical else '失败'}")
+    print(f"制品路径: {ARTIFACT_PATH.name},参数张量数: {len(model.state_dict())}")
 
 
 if __name__ == "__main__":

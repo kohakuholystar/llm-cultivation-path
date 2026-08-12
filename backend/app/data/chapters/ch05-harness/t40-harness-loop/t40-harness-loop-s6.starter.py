@@ -1,10 +1,30 @@
-"""乾坤圈 · s6:收官实战——完整演练与运行报告
+"""Agent 运行时底座 · s6:收官实战——完整演练与运行报告
 
-本步给乾坤圈加上运行轨迹 trail:每一步执行后都留下一张
+本步给Agent 运行时底座加上运行轨迹 trail:每一步执行后都留下一张
 「快照」,跑完再输出三段式报告——运行轨迹、统计、终止原因。
 至此,一个带状态机、生命周期、终止条件与观测能力的最小
 Agent 运行时全部成形。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：收官实战:完整演练与运行报告。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `get_time() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `list_meridians() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `run_tool(name: str) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `evaluate_stop(state: AgentState, max_steps: int=10) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `print_report(loop: AgentLoop) -> None`：输入为签名中的参数；输出为 `None`。用途：三段式报告:运行轨迹 / 统计 / 终止原因。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `AgentStatus`：承载本节状态/数据；重点方法：见类定义。
+#   - `StopReason`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentState`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentLoop`：承载本节状态/数据；重点方法：_record, run。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import time
 from dataclasses import dataclass, field
 
@@ -37,12 +57,12 @@ class AgentState:
 
 def get_time() -> str:
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 TOOLS = {"get_time": get_time, "list_meridians": list_meridians}
@@ -66,7 +86,7 @@ def evaluate_stop(state: AgentState, max_steps: int = 10) -> str:
 
 
 class AgentLoop:
-    """终极版乾坤圈:带运行轨迹的完整循环。"""
+    """终极版Agent 运行时底座:带运行轨迹的完整循环。"""
 
     def __init__(self, max_steps: int = 10):
         self.state = AgentState()
@@ -97,7 +117,7 @@ class AgentLoop:
             decision = script[i] if i < len(script) else "get_time"
             i += 1
             if decision == "reply":
-                state.reply = "乾坤圈: 时辰与经络俱明。"
+                state.reply = "Agent 运行时底座: 时间与工作流状态已汇总。"
                 state.status = AgentStatus.DONE
                 state.messages.append({"role": "assistant", "content": state.reply})
                 reason = evaluate_stop(state, self.max_steps)

@@ -1,4 +1,4 @@
-"""灵讯通 · t02-s5:组装完整 CLI —— REPL + 斜杠命令 + 异常隔离,正式上岗。"""
+"""星澈助手 · t02-s5:组装完整 CLI —— REPL + 斜杠命令 + 异常隔离,正式上岗。"""
 import os
 import sys
 from dataclasses import dataclass
@@ -7,10 +7,10 @@ from openai import OpenAI
 USE_MOCK = os.environ.get("MOCK_LLM") == "1"  # MOCK_LLM=1 用本地假回复演示
 
 if not USE_MOCK and not os.environ.get("OPENAI_API_KEY"):  # 无 Key 优雅退出
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。\n请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。\n请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
-DEFAULT_PERSONA = "你是灵讯通,一个简洁可靠的命令行智能助手,回答不超过三句话。"
+DEFAULT_PERSONA = "你是星澈助手,一个简洁可靠的命令行智能助手,回答不超过三句话。"
 
 
 @dataclass
@@ -83,35 +83,35 @@ class ChatSession:
 
 def repl(session: ChatSession) -> None:
     """交互主循环:斜杠命令分流,单轮异常隔离(一轮报错不拖垮会话)。"""
-    print("灵讯通已上线:/exit 退出,/history 历史,/tokens 用量,/reset 清记忆。")
+    print("星澈助手已上线:/exit 退出,/history 历史,/tokens 用量,/reset 清记忆。")
     while True:
         try:
             q = input("你: ").strip()
         except (EOFError, KeyboardInterrupt):  # 管道关闭或 Ctrl+C:优雅收摊
-            print("\n灵讯通: 再见!")
+            print("\n星澈助手: 再见!")
             return
         if not q:
             continue
         if q == "/exit":
-            print("灵讯通: 再见!")
+            print("星澈助手: 再见!")
             return
         if q == "/reset":
             session.history.clear()
-            print("灵讯通: 记忆已清空。")
+            print("星澈助手: 记忆已清空。")
         elif q == "/history":
             print("".join(f"  [{m['role']}] {m['content'][:40]}\n" for m in session.history) or "  (空)")
         elif q == "/tokens":
             print(f"  历史约 {session.history_tokens()} tokens(预算 {session.token_budget})")
         else:
             try:
-                print(f"灵讯通: {session.say(q)}")
+                print(f"星澈助手: {session.say(q)}")
             except Exception as exc:  # 单轮失败不拖垮会话,历史完好
-                print(f"灵讯通: 这轮出错了({type(exc).__name__}),请再试一次。")
+                print(f"星澈助手: 这轮出错了({type(exc).__name__}),请再试一次。")
 
 
 def demo(session: ChatSession) -> None:  # 非交互演示:脚本化对话 + 用量报告(沙箱/CI 可跑)
     for q in ["你好,我叫阿灵。", "给我讲讲滑动窗口。", "考考你:我叫什么名字?"]:
-        print(f"你: {q}\n灵讯通: {session.say(q)}")
+        print(f"你: {q}\n星澈助手: {session.say(q)}")
     print(f"[报告] 历史 {len(session.history)} 条,约 {session.history_tokens()} tokens")
 
 

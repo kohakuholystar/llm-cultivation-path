@@ -1,10 +1,32 @@
-"""乾坤圈 · s1:状态机基座
+"""Agent 运行时底座 · s1:状态机基座
 
-乾坤圈是神话里可大可小的法宝,也是本课程「通用 Agent 运行时」的心脏。
+Agent 运行时底座是本课程的 Agent 运行时组件,也是本课程「通用 Agent 运行时」的心脏。
 本步从零搭出最精简的循环骨架:状态(AgentStatus)、数据(AgentState)、
 循环(AgentLoop)三层分离;决策暂由剧本 scripted_decide 充当「模型大脑」,
 再装上一根 max_steps 保险丝,防止剧本失灵时无限空转。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：状态机基座:Agent 运行时底座的心脏开始跳动。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `get_time() -> str`：输入为签名中的参数；输出为 `str`。用途：返回当前时间段。
+#   - `list_meridians() -> str`：输入为签名中的参数；输出为 `str`。用途：列出工作流主要阶段。
+#   - `run_tool(name: str) -> str`：输入为签名中的参数；输出为 `str`。用途：工具分发器:按名字找到组件并执行。
+#   - `scripted_decide(state: AgentState, script: list) -> str`：输入为签名中的参数；输出为 `str`。用途：脚本决策器:按剧本顺序给动作,演完就退回 get_time 卡循环。
+#   - `demo_normal() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `demo_fuse() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `AgentStatus`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentState`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentLoop`：承载本节状态/数据；重点方法：_execute, run。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
+
+
+
 import time
 from dataclasses import dataclass, field
 
@@ -29,21 +51,21 @@ class AgentState:
     steps: int = 0
 
 
-# —— 乾坤圈的「法宝库」:两个时辰类小工具 ——
+# —— Agent 运行时底座的「工具注册表」:两个流程演示工具 ——
 def get_time() -> str:
-    """报当前时辰(十二时辰制)。"""
+    """返回当前时间段。"""
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    """列出十二经脉名。"""
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    """列出工作流主要阶段。"""
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 def run_tool(name: str) -> str:
-    """工具分发器:按名字找到法宝并执行。"""
+    """工具分发器:按名字找到组件并执行。"""
     tools = {"get_time": get_time, "list_meridians": list_meridians}
     if name not in tools:
         return f"[未知工具] {name}"
@@ -59,7 +81,7 @@ def scripted_decide(state: AgentState, script: list) -> str:
 
 
 class AgentLoop:
-    """乾坤圈主循环:决策 → 执行 → 判定,三步一轮。"""
+    """Agent 运行时底座主循环:决策 → 执行 → 判定,三步一轮。"""
 
     def __init__(self, max_steps: int = 10):
         self.state = AgentState()

@@ -140,8 +140,8 @@
       "id": "t31-agent-executor-s3",
       "taskId": "t31-agent-executor",
       "order": 3,
-      "title": "控制 Agent 行为与错误处理",
-      "instruction": "### 目标\n用 AgentExecutor 的参数控制 Agent 行为,处理工具异常。\n\n### 概念\n- `max_iterations`:最大循环次数,防止死循环。\n- `handle_tool_error=True`:工具出错时把错误返回给 Agent(而非崩溃)。\n- `early_stopping_method`:达到 max_iterations 时的处理方式。\n- `return_intermediate_steps`:返回中间步骤(调试用)。\n\n### 操作\n1. 创建一个会出错的工具(如除法,除以0时异常)\n2. AgentExecutor 设 max_iterations=3, handle_tool_error=True\n3. 问一个会触发错误的问题,观察 Agent 如何恢复",
+      "title": "控制 Agent 行为与错误淬炼",
+      "instruction": "### 目标\n用 AgentExecutor 的参数控制 Agent 行为,淬炼工具异常。\n\n### 概念\n- `max_iterations`:最大循环次数,防止死循环。\n- `handle_tool_error=True`:工具出错时把错误返回给 Agent(而非崩溃)。\n- `early_stopping_method`:达到 max_iterations 时的淬炼方式。\n- `return_intermediate_steps`:返回中间步骤(调试用)。\n\n### 操作\n1. 创建一个会出错的工具(如除法,除以0时异常)\n2. AgentExecutor 设 max_iterations=3, handle_tool_error=True\n3. 问一个会触发错误的问题,观察 Agent 如何恢复",
       "starterCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef divide(a: float, b: float) -> str:\n    \"\"\"计算 a 除以 b\"\"\"\n    return str(a / b)  # b=0 时会 ZeroDivisionError\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [divide]\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是助手。如果工具报错,向用户解释错误。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\n\n# 创建 executor, 设 max_iterations=3, handle_tool_error=True, return_intermediate_steps=True\nexecutor = AgentExecutor(agent=agent, tools=tools)\n\nresult = executor.invoke({\"input\": \"计算 10 除以 0\"})\nprint(\"输出:\", result[\"output\"])\n# TODO: 打印中间步骤数量(result[\"intermediate_steps\"])\n# 提示: print(\"输出:\", result[\"output\"])\n",
       "solutionCode": "import os\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.tools import tool\nfrom langchain.agents import create_tool_calling_agent, AgentExecutor\nfrom langchain_core.prompts import ChatPromptTemplate\n\n@tool\ndef divide(a: float, b: float) -> str:\n    \"\"\"计算 a 除以 b\"\"\"\n    return str(a / b)\n\nllm = ChatOpenAI(model=os.environ.get(\"MODEL_NAME\", \"deepseek-v4-pro\"), base_url=os.environ.get(\"OPENAI_BASE_URL\", \"https://api.deepseek.com\"), api_key=os.environ.get(\"OPENAI_API_KEY\", \"\"))\ntools = [divide]\nprompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"你是助手。如果工具报错,向用户解释错误。\"),\n    (\"human\", \"{input}\"),\n    (\"placeholder\", \"{agent_scratchpad}\"),\n])\nagent = create_tool_calling_agent(llm, tools, prompt)\n\nexecutor = AgentExecutor(\n    agent=agent,\n    tools=tools,\n    max_iterations=3,\n    handle_tool_error=True,\n    return_intermediate_steps=True,\n    verbose=True,\n)\n\nresult = executor.invoke({\"input\": \"计算 10 除以 0\"})\nprint(\"输出:\", result[\"output\"])\nprint(\"中间步骤数:\", len(result[\"intermediate_steps\"]))",
       "hints": [
@@ -162,7 +162,7 @@
         {
           "title": "AgentExecutor 关键参数",
           "language": "python",
-          "code": "executor = AgentExecutor(\n    agent=agent, tools=tools,\n    max_iterations=5,          # 最大循环\n    handle_tool_error=True,    # 工具出错不崩溃\n    return_intermediate_steps=True,  # 返回中间步骤\n    early_stopping_method='generate', # 超限时生成回复\n)"
+          "code": "executor = AgentExecutor(\n    agent=agent, tools=tools,\n    max_iterations=5,          # 最大循环\n    handle_tool_error=True,    # 工具出错不崩溃\n    return_intermediate_steps=True,  # 返回中间步骤\n    early_stopping_method='generate', # 超限时实现回复\n)"
         }
       ],
       "terms": [

@@ -3,6 +3,26 @@
 功能正确不等于可以上线。本步为检索建立性能基线:构造大规模
 知识库,反复计时取统计量,用 P95 与预算比较,输出达标结论。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：性能基线:P95 百分位与预算判定。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `dispatch_tool(name, args) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：白名单分派:只认 TOOL_TABLE 里的工具,calc 内部再查 _CALC。
+#   - `load_kb(text) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按 --- 分隔符把整份素材切成知识块列表。
+#   - `retrieve(query, kb, top_k=3) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按词频打分,返回最相关的 top_k 个知识块。
+#   - `format_answer(hits) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：把命中结果排版成可直接回复的答案文本。
+#   - `build_big_kb(n=200) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：构造 n 段同构知识块,模拟上规模的知识库。
+#   - `bench_retrieve(kb, query, rounds=30) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：对同一查询重复检索 rounds 轮,返回每轮耗时(秒)列表。
+#   - `p95(times) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：取耗时列表的 P95 分位,空列表返回 0.0。
+#   - `run_perf(kb) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：打印性能基线与预算达标结论。
+#   - `run_tests(work_dir) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：把 TEST_CODE 写成 test_qa.py,再用 pytest 实跑验收。
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import tempfile
 import time
@@ -21,10 +41,10 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    kb = ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"]
-    hits = retrieve("渡劫 飞升", kb, top_k=3)
+    kb = ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"]
+    hits = retrieve("上线验收 完成交付", kb, top_k=3)
     assert len(hits) == 2
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    assert hits[0][0] == "黑糖资料室需要故障演练"
     assert hits[0][1] == 2
 
 
@@ -45,7 +65,7 @@ def test_big_kb_size():
 def test_bench_length():
     # TODO: 断言 bench_retrieve 返回的耗时列表长度等于 rounds
     # 提示: kb = build_big_kb(50)
-    # 提示: times = bench_retrieve(kb, "渡劫 雷劫", rounds=10);assert len(times) == 10
+    # 提示: times = bench_retrieve(kb, "上线验收 故障", rounds=10);assert len(times) == 10
     raise NotImplementedError("t74-acceptance-s3 尚未实现:请按 TODO 提示补全 test_bench_length")
 
 
@@ -58,7 +78,7 @@ def test_p95_fixed():
 def test_perf_p95_within_budget():
     # TODO: 两百段知识库计时后,断言 p95 换算毫秒不超 PERF_BUDGET_MS
     # 提示: kb = build_big_kb(200)
-    # 提示: times = bench_retrieve(kb, "渡劫 雷劫", rounds=10)
+    # 提示: times = bench_retrieve(kb, "上线验收 故障", rounds=10)
     # 提示: assert p95(times) * 1000 <= PERF_BUDGET_MS
     raise NotImplementedError("t74-acceptance-s3 尚未实现:请按 TODO 提示补全 test_perf_p95_within_budget")
 """
@@ -109,7 +129,7 @@ def format_answer(hits):
 
 def build_big_kb(n=200):
     """构造 n 段同构知识块,模拟上规模的知识库。"""
-    return [f"第{i}段:渡劫之道,雷劫在前心劫在后,飞升者需护体法器。" for i in range(1, n + 1)]
+    return [f"第{i}段:上线验收之道,先验证故障恢复,再检查完成交付所需工具。" for i in range(1, n + 1)]
 
 
 def bench_retrieve(kb, query, rounds=30):
@@ -136,7 +156,7 @@ PERF_BUDGET_MS = 50.0
 def run_perf(kb):
     """打印性能基线与预算达标结论。"""
     # TODO: 耗时转毫秒,打印 min/p50/p95/max 与预算达标结论
-    # 提示: times = bench_retrieve(kb, "渡劫 雷劫");values = [t * 1000 for t in times]
+    # 提示: times = bench_retrieve(kb, "验收 故障");values = [t * 1000 for t in times]
     # 提示: ok = p95(values) <= PERF_BUDGET_MS
     # 提示: print(f"性能基线(ms):min={min(values):.2f} p50={sorted(values)[len(values) // 2]:.2f} p95={p95(values):.2f} max={max(values):.2f}")
     # 提示: print(f"达标={'是' if ok else '否'}(预算 {PERF_BUDGET_MS} ms)")
@@ -154,7 +174,7 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 性能基线 s3 ==")
+    print("== 黑糖资料室 · 性能基线 s3 ==")
     kb = build_big_kb(200)
     run_perf(kb)
     with tempfile.TemporaryDirectory() as d:

@@ -1,7 +1,21 @@
-"""渡劫飞升 · s6:收官部署,一键上线
+"""终期交付 · s6:收官部署,一键上线
 把前五步的产物收拢成一个部署包:四份文件一次写齐,体检、探针、上线报告
-一气呵成——这就是「渡劫飞升」毕业设计的交付形态。
+一气呵成——这就是「终期交付」毕业设计的交付形态。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：收官部署:一键上线报告。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `probe_health(status: dict) -> list[str]`：输入为签名中的参数；输出为 `list[str]`。用途：最小探针:存活 + 就绪,返回未通过的检查名列表。
+#   - `check_artifacts(files: dict[str, str]) -> list[str]`：输入为签名中的参数；输出为 `list[str]`。用途：对部署包四份文件做最终体检,返回问题清单。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Config`：承载本节状态/数据；重点方法：from_env。
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：需要在右上角 AI 配置填写自己的 DeepSeek API Key，并允许本节联网运行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import sys
 import yaml
@@ -13,10 +27,10 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
     sys.exit(0)
 
 # 生产版服务源码(s1 产物的精简复刻)
-SERVICE_PY = """# 渡劫飞升 · Agent 应用 HTTP 服务(生产版)。
+SERVICE_PY = """# 黑糖资料室 · Agent 应用 HTTP 服务(生产版)。
 from fastapi import FastAPI
 
-app = FastAPI(title="渡劫飞升", version="0.1.0")
+app = FastAPI(title="黑糖资料室", version="0.1.0")
 
 @app.get("/health")
 def health() -> dict:
@@ -28,7 +42,7 @@ def chat(req: dict) -> dict:
 """
 
 # 镜像说明书(s2 产物)
-DOCKERFILE = """# 渡劫飞升 · 服务镜像(由 s2 生成)。
+DOCKERFILE = """# 黑糖资料室 · 服务镜像(由 s2 生成)。
 FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
@@ -39,7 +53,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 """
 
 # 编排文件(s3 产物)
-COMPOSE = """# 渡劫飞升 · 编排(由 s3 生成)。
+COMPOSE = """# 黑糖资料室 · 编排(由 s3 生成)。
 services:
   app:
     build: .
@@ -57,7 +71,7 @@ services:
 """
 
 # 环境样例(s5 产物)
-ENV_EXAMPLE = """# 渡劫飞升 · 环境配置样例(由 s5 生成)。
+ENV_EXAMPLE = """# 黑糖资料室 · 环境配置样例(由 s5 生成)。
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
 MODEL_NAME=deepseek-v4-pro
 """
@@ -129,7 +143,7 @@ def main() -> None:
             f.write(text)
     problems = check_artifacts(files)
     failed = probe_health(STATUS_SAMPLE)
-    print("== 渡劫飞升 · 上线报告 ==")
+    print("== 黑糖资料室 · 上线报告 ==")
     print(f"  服务: {cfg.host}:{cfg.port}  模型: {cfg.model_name}")
     print(f"  部署包: {', '.join(files)}")
     if problems or failed:
@@ -141,7 +155,7 @@ def main() -> None:
     else:
         print("  代码审计: 通过")
         print("  健康探针: 通过")
-        print("  结论:满足上线条件,交付运维。渡劫飞升,圆满收官!")
+        print("  结论:满足上线条件,交付运维。黑糖资料室,圆满收官!")
 
 
 if __name__ == "__main__":

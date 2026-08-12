@@ -1,9 +1,30 @@
-"""乾坤圈 · s5:多轮会话——让运行时常住下来
+"""Agent 运行时底座 · s5:多轮会话——让运行时常住下来
 
 s4 的循环跑完一轮就散场。真实 Agent 要陪用户聊很多轮,
-本步给乾坤圈加上会话层:每轮输入都完整走一遍循环,
+本步给Agent 运行时底座加上会话层:每轮输入都完整走一遍循环,
 但消息历史跨轮保留——Agent 记得上一轮说过什么。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：多轮会话:让运行时常住下来。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：run；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `get_time() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `list_meridians() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `run_tool(name: str) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `evaluate_stop(state: AgentState, max_steps: int=10) -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `AgentStatus`：承载本节状态/数据；重点方法：见类定义。
+#   - `StopReason`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentState`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentLoop`：承载本节状态/数据；重点方法：run。
+#   - `TurnRecord`：承载本节状态/数据；重点方法：见类定义。
+#   - `AgentSession`：承载本节状态/数据；重点方法：run, report。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import time
 from dataclasses import dataclass, field
 
@@ -38,12 +59,12 @@ class AgentState:
 
 def get_time() -> str:
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 TOOLS = {"get_time": get_time, "list_meridians": list_meridians}
@@ -133,8 +154,8 @@ class AgentSession:
 def main() -> None:
     loop = AgentLoop(max_steps=10)
     session = AgentSession(loop)
-    session.run("现在是什么时辰?", ["get_time", "reply"])
-    session.run("十二经脉有哪些?", ["get_time", "reply"])
+    session.run("当前是什么时间段?", ["get_time", "reply"])
+    session.run("工作流有哪些主要阶段?", ["get_time", "reply"])
     session.run("我们改天再聊", ["reply"])
     session.report()
 

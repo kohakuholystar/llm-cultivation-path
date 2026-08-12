@@ -1,138 +1,42 @@
-"""天庭 · s5:天庭总装,完整项目协作闭环
+"""校园 AI 社 · s5：真实 CrewAI 团队项目收官。"""
 
-收官总装:五位神职、六道军令组成完整流水线,执行完毕把全部产出
-汇总成《天庭协作纪要》落盘,体验多 Agent 项目的完整生命周期。
-"""
+
+# === 学习契约（面向学生）===
+# 本节目标：对照原型：CrewAI 小型交付闭环。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：Path；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `build_llm() -> LLM`：输入为签名中的参数；输出为 `LLM`。用途：按本节调用链完成对应处理
+#   - `build_crew(llm: LLM) -> Crew`：输入为签名中的参数；输出为 `Crew`。用途：按本节调用链完成对应处理
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：需要在右上角 AI 配置填写自己的 DeepSeek API Key，并允许本节联网运行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import sys
+from pathlib import Path
 
-from dataclasses import dataclass
-
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-
-BASE_URL = "https://api.deepseek.com"
-MODEL = "deepseek-v4-pro"
-MOCK = os.environ.get("MOCK_LLM") == "1"  # 离线演示模式
-
-if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[天庭] 未检测到 OPENAI_API_KEY。")
-    print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
-    print("(本地离线演示可设 MOCK_LLM=1,用剧本模拟模型决策)")
-    sys.exit(0)
+from crewai import Agent, Crew, LLM, Process, Task
 
 
-@dataclass
-class Agent:
-    """角色卡:role 你是谁,goal 要达成什么,backstory 立场与专长。"""
-
-    role: str
-    goal: str
-    backstory: str
-
-
-def build_heaven() -> list[Agent]:
-    """天庭班子:四位执行神职 + 收官文官。"""
-    return [Agent("产品经理", "把用户诉求翻译成清晰需求", "凡间走一遭,最懂用户要什么。"),
-            Agent("后端工程师", "把需求落成可靠接口", "内务府执笔,契约先行,数据为王。"),
-            Agent("前端工程师", "把接口画成可用界面", "凌云殿画师,像素与交互皆精。"),
-            Agent("测试工程师", "把风险挡在上线之前", "雷部判官,专门挑刺。"),
-            Agent("收官文官", "汇总全部产出,撰写天庭协作纪要", "凌霄殿书记官。")]
+def build_llm() -> LLM:
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        print("请先在右上角 AI 配置填入 DeepSeek API Key，然后重新运行。")
+        sys.exit(2)
+    # TODO: 返回由用户 Key 驱动的 CrewAI LLM。
+    raise NotImplementedError("请创建 CrewAI LLM")
 
 
-@dataclass
-class Task:
-    """军令:干什么、验收标准、交给谁。"""
-
-    description: str
-    expected_output: str
-    role: str
-
-
-def build_full_plan() -> list[Task]:
-    """天庭总装图:六道军令,顺序即依赖顺序。"""
-    # TODO: 返回 6 个单行 Task,收官报告交给收官文官
-    # 提示: Task("描述", "验收标准", "角色"),按 需求分析→API 设计→后端实现→前端实现→测试验收→收官报告 排序
-    raise NotImplementedError("build_full_plan 尚未实现:请按 TODO 提示返回 6 个 Task(...) 组成的列表")
-
-
-def build_llm() -> ChatOpenAI:
-    """装配 DeepSeek 客户端(OpenAI 兼容协议)。"""
-    return ChatOpenAI(model=MODEL, api_key=os.environ["OPENAI_API_KEY"],
-                      base_url=BASE_URL, temperature=0)
-
-
-# 离线剧本:五位神职照剧本演完整出戏
-MOCK_OUTPUT = {
-    "产品经理": "【剧本】需求文档:已梳理用户诉求,列出核心功能清单。",
-    "后端工程师": "【剧本】后端服务:接口全部实现并通过自测。",
-    "前端工程师": "【剧本】界面:页面完成,已接入真实接口数据。",
-    "测试工程师": "【剧本】测试报告:核心用例全部通过,准予上线。",
-    "收官文官": "【剧本】协作纪要:六阶段产出已汇总成文。",
-}
-
-
-def mock_output(role: str) -> str:
-    """按角色取剧本台词。"""
-    return MOCK_OUTPUT[role]
-
-
-def ask_llm(llm: ChatOpenAI, agent: Agent, task: Task) -> str:
-    """派活:角色卡 + 军令 + 验收标准,拼成一次对话。"""
-    # TODO: 拼出 system 与 user 两条消息并调用模型
-    # 提示: system = f"你是{agent.role}。目标:{agent.goal}。背景:{agent.backstory}。请始终用中文作答。";
-    #       user = f"军令:{task.description}\n验收标准:{task.expected_output}";
-    #       llm.invoke([SystemMessage(content=system), HumanMessage(content=user)]).content
-    raise NotImplementedError("ask_llm 尚未实现:请按 TODO 提示拼出消息并调用模型")
-
-
-def write_report(results: list[str]) -> str:
-    """把各阶段产出汇总成天庭协作纪要,并落盘为 Markdown。"""
-    # TODO: 拼文档、落盘、返回纪要文本
-    # 提示: lines = ["# 天庭协作纪要", "", "> 由天庭多 Agent 协作产出", ""];
-    #       for i, output in enumerate(results, 1): 追加 f"## 阶段 {i}"、output、空行;
-    #       report = "\n".join(lines);with open("天庭协作纪要.md", "w", encoding="utf-8") as f: f.write(report);return report
-    raise NotImplementedError("write_report 尚未实现:请按 TODO 提示拼文档并落盘")
-
-
-class Crew:
-    """天庭施工队:按流程设定,把军令依次派给合适的神职。"""
-
-    def __init__(self, agents: list[Agent], tasks: list[Task],
-                 process: str = "sequential") -> None:
-        self.agents = agents
-        self.tasks = tasks
-        self.process = process
-
-    def _agent_for(self, role: str) -> Agent:
-        """按角色名找到执行者。"""
-        return next(a for a in self.agents if a.role == role)
-
-    def _run_one(self, agent: Agent, task: Task) -> str:
-        """执行一道军令:离线走剧本,在线走真模型。"""
-        if MOCK:
-            return mock_output(agent.role)
-        return ask_llm(build_llm(), agent, task)
-
-    def kickoff(self) -> list[str]:
-        """启动流程:逐令执行,收集各阶段产出。"""
-        assert self.process == "sequential", "本步只演示顺序流程"
-        results = []
-        for i, task in enumerate(self.tasks, 1):
-            agent = self._agent_for(task.role)
-            print(f"阶段 {i}/{len(self.tasks)} · {task.role}:{task.description}")
-            output = self._run_one(agent, task)
-            results.append(output)
-            print(f"  完成:{output[:36]}...")
-        return results
+def build_crew(llm: LLM) -> Crew:
+    # TODO: 创建产品、后端、测试 Agent；创建有 context 依赖的三个 Task；返回 Process.sequential 的 Crew。
+    raise NotImplementedError("请组装真实 CrewAI 项目")
 
 
 def main() -> None:
-    crew = Crew(agents=build_heaven(), tasks=build_full_plan(), process="sequential")
-    results = crew.kickoff()
-    report = write_report(results)
-    print(f"\n协作纪要已落盘(天庭协作纪要.md,共 {len(report)} 字符):")
-    print(report[:120] + " ...")
+    result = build_crew(build_llm()).kickoff()
+    # TODO: 将 result.raw 写入 Path("校园 AI 社协作纪要.md")，明确 encoding="utf-8"。
+    raise NotImplementedError("请落盘真实团队的交付")
 
 
 if __name__ == "__main__":

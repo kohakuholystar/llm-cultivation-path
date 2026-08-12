@@ -4,8 +4,8 @@
       "id": "t51-supervisor-s1",
       "taskId": "t51-supervisor",
       "order": 1,
-      "title": "天庭点将:任务契约与分派策略",
-      "instruction": "### 目标\n\n给天庭搭建「分派系统」的骨架:先定义两张任务契约——任务单 `AgentTask` 与完工汇报 `TaskResult`,再写一张关键词路由表 `SKILL_ROUTES`,把玉帝的诏书拆成一张张任务单,按标题关键词派给前端、后端、测试、文档四位仙官,最后由 `specialist_work` 模拟各仙官开工,产出完工汇报。\n\n### 原理\n\n多 Agent 协作的第一步不是写代码,而是**定协议**:谁产出什么数据结构、字段叫什么、谁填谁读,都要在动手前锁死。`AgentTask` 和 `TaskResult` 就是天庭的「协作契约」——分派方只写 `AgentTask`,执行方只读 `AgentTask`、只写 `TaskResult`,两边各自演进、互不踩脚。关键词路由是分派策略里最朴素的一种:维护一张「关键词 → 仙官」的路由表,用 `any(k in title for k in keywords)` 判断任务标题命中了哪一组关键词;它写死规则、零成本、可解释,适合任务类型稳定的小团队——到 s4 会换成模型分派,那时你能直观感受到「死规则」与「智能决策」的差别。`@dataclass` 让数据类自带 `__init__`、`__repr__` 与字段默认值,是声明契约的最小成本工具。\n\n### 操作\n\n1. 通读 `AgentTask` 与 `TaskResult` 的字段:编号、标题、负责人、载荷、成败、成果,先在心里画一张「谁填谁读」的表;\n2. 补全 `route_task`:遍历 `SKILL_ROUTES`,标题命中任一关键词就返回对应仙官名,遍历完没匹配就 `return \"后端仙官\"`;\n3. 补全 `specialist_work`:按 `task.assignee` 分四支,把模拟成果写进 `TaskResult(ok=True)`;\n4. 运行程序,观察四位仙官各就各位、各自交卷。\n\n### 常见坑\n\n- 仙官名必须与路由表里的 `assignee` **完全一致**:`\"前端仙官\"` 与 `\"前端仙官 \"`(多了空格)是两码事,`specialist_work` 的分支对不上时只会默默走 else,排查起来非常难受;\n- 路由表顺序有讲究:具体词(「测试」「文档」)要放在泛词(「接口」)之前,否则「测试接口」这类任务会被前面的组提前抢走;\n- `any(k in task.title for k in keywords)` 是子串匹配,单个关键词别写得太短(比如「口」),误伤率极高;\n- `TaskResult.ok` 现在恒为 True,到 s3/s5 它会作为重试与聚合的依据,别省这个字段。\n",
+      "title": "校园 AI 社任务分派:任务契约与分派策略",
+      "instruction": "### 目标\n\n给校园 AI 社搭建「分派系统」的骨架:先定义两张任务契约——任务单 `AgentTask` 与完工汇报 `TaskResult`,再写一张关键词路由表 `SKILL_ROUTES`,把社长的需求文档拆成一张张任务单,按标题关键词派给前端、后端、测试、文档四位社团成员,最后由 `specialist_work` 模拟各社团成员开工,产出完工汇报。\n\n### 原理\n\n多 Agent 协作的第一步不是写代码,而是**定协议**:谁产出什么数据结构、字段叫什么、谁填谁读,都要在动手前锁死。`AgentTask` 和 `TaskResult` 就是校园 AI 社的「协作契约」——分派方只写 `AgentTask`,执行方只读 `AgentTask`、只写 `TaskResult`,两边各自演进、互不踩脚。关键词路由是分派策略里最朴素的一种:维护一张「关键词 → 社团成员」的路由表,用 `any(k in title for k in keywords)` 判断任务标题命中了哪一组关键词;它写死规则、零成本、可解释,适合任务类型稳定的小团队——到 s4 会换成模型分派,那时你能直观感受到「死规则」与「智能决策」的差别。`@dataclass` 让数据类自带 `__init__`、`__repr__` 与字段默认值,是声明契约的最小成本工具。\n\n### 操作\n\n1. 通读 `AgentTask` 与 `TaskResult` 的字段:编号、标题、负责人、载荷、成败、成果,先在心里画一张「谁填谁读」的表;\n2. 补全 `route_task`:遍历 `SKILL_ROUTES`,标题命中任一关键词就返回对应社团成员名,遍历完没匹配就 `return \"后端同学\"`;\n3. 补全 `specialist_work`:按 `task.assignee` 分四支,把模拟成果写进 `TaskResult(ok=True)`;\n4. 运行程序,观察四位社团成员各就各位、各自交卷。\n\n### 常见坑\n\n- 社团成员名必须与路由表里的 `assignee` **完全一致**:`\"前端同学\"` 与 `\"前端同学 \"`(多了空格)是两码事,`specialist_work` 的分支对不上时只会默默走 else,排查起来非常难受;\n- 路由表顺序有讲究:具体词(「测试」「文档」)要放在泛词(「接口」)之前,否则「测试接口」这类任务会被前面的组提前抢走;\n- `any(k in task.title for k in keywords)` 是子串匹配,单个关键词别写得太短(比如「口」),误伤率极高;\n- `TaskResult.ok` 现在恒为 True,到 s3/s5 它会作为重试与聚合的依据,别省这个字段。\n",
       "hints": [
         {
           "order": 1,
@@ -13,7 +13,7 @@
         },
         {
           "order": 2,
-          "text": "路由循环:`for keywords, assignee in SKILL_ROUTES:` 内用 `if any(k in task.title for k in keywords): return assignee`;循环结束没返回就 `return \"后端仙官\"` 兜底。"
+          "text": "路由循环:`for keywords, assignee in SKILL_ROUTES:` 内用 `if any(k in task.title for k in keywords): return assignee`;循环结束没返回就 `return \"后端同学\"` 兜底。"
         },
         {
           "order": 3,
@@ -24,18 +24,18 @@
         {
           "title": "契约 -> 路由 -> 开工:三段式最小骨架",
           "language": "python",
-          "code": "from dataclasses import dataclass\n\n@dataclass\nclass AgentTask:\n    id: str\n    title: str\n    assignee: str = \"\"\n\n@dataclass\nclass TaskResult:\n    task_id: str\n    assignee: str\n    ok: bool\n    data: str = \"\"\n\n# 契约 -> 路由 -> 开工 三步走\ntask = AgentTask(id=\"t1\", title=\"前端页面设计\")\ntask.assignee = route_task(task)   # 按关键词路由\nresult = specialist_work(task)     # 仙官开工\nprint(result.data)                 # 已产出页面骨架: 前端页面设计",
+          "code": "from dataclasses import dataclass\n\n@dataclass\nclass AgentTask:\n    id: str\n    title: str\n    assignee: str = \"\"\n\n@dataclass\nclass TaskResult:\n    task_id: str\n    assignee: str\n    ok: bool\n    data: str = \"\"\n\n# 契约 -> 路由 -> 开工 三步走\ntask = AgentTask(id=\"t1\", title=\"前端页面设计\")\ntask.assignee = route_task(task)   # 按关键词路由\nresult = specialist_work(task)     # 社团成员开工\nprint(result.data)                 # 已产出页面骨架: 前端页面设计",
           "description": "数据结构契约先行:路由与执行都只面向 AgentTask/TaskResult 编程,互不耦合。"
         }
       ],
       "terms": [
         {
           "name": "任务单(AgentTask)",
-          "definition": "分派给仙官的任务契约:编号、标题、负责人、载荷;分派方只写它,执行方只读它。"
+          "definition": "分派给社团成员的任务契约:编号、标题、负责人、载荷;分派方只写它,执行方只读它。"
         },
         {
           "name": "完工汇报(TaskResult)",
-          "definition": "仙官交卷的成果契约:谁干的、干成没有、交出什么;执行方只写它,聚合方只读它。"
+          "definition": "社团成员交卷的成果契约:谁干的、干成没有、交出什么;执行方只写它,聚合方只读它。"
         },
         {
           "name": "关键词路由",
@@ -76,7 +76,7 @@
         },
         {
           "type": "ast_structure",
-          "message": "请实现 specialist_work 仙官开工函数。",
+          "message": "请实现 specialist_work 社团成员开工函数。",
           "astType": "function_def",
           "name": "specialist_work",
           "blocking": true
@@ -95,8 +95,8 @@
         },
         {
           "type": "sandbox_run",
-          "message": "程序应能独立运行并产出点将与开工汇报。",
-          "expectedStdout": "天庭点将[\\s\\S]*已产出页面骨架[\\s\\S]*已编写测试用例",
+          "message": "程序应能独立运行并产出任务分派与开工汇报。",
+          "expectedStdout": "校园 AI 社任务分派[\\s\\S]*已产出页面骨架[\\s\\S]*已编写测试用例",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -108,7 +108,7 @@
       "taskId": "t51-supervisor",
       "order": 2,
       "title": "手写迷你 StateGraph:节点与边",
-      "instruction": "### 目标\n\ns1 的路由表是「一杆子插到底」的直线分派;本步把它升级成可编排的图:手写一个约 60 行的迷你 `StateGraph`,让「拆需求 -> 派活 -> 汇报」变成图上的一串节点,并用条件边让「完工检查」决定是收工还是返工。写完跑通,你会对 LangGraph 的 StateGraph 概念有第一手体感。\n\n### 原理\n\n状态图的三个零件:(1) **节点(node)**:普通函数,输入共享状态 dict、返回增量 dict,用 `add_node` 注册;(2) **普通边(edge)**:`add_edge(src, dst)` 声明「src 跑完必然去 dst」;(3) **条件边(conditional edge)**:`add_conditional_edges(src, router, mapping)` 声明「下一站由 router(state) 的返回值说了算」——`mapping.get(router(state), END)` 查表选路,查不到默认走 END。共享状态(shared state)是图里传递数据的唯一通道:节点返回的 dict 被 `state.update` 合并,下游节点再读。`END` 是终点哨兵,`max_steps` 是防死循环的最后防线:只要 `current != END and steps < max_steps` 循环就继续,两个条件任何一个不满足都收工。这就是「图即编排」:流程结构声明出来,执行引擎与业务节点彻底解耦。\n\n### 操作\n\n1. 通读 `StateGraph` 五个注册方法与 `run` 的循环骨架,先理解「节点函数 -> 增量 dict -> state.update」这条数据通路;\n2. 补全 `add_conditional_edges`:把 `(router, mapping)` 存进 `self._conditional`,供 run 选路;\n3. 补全 `run` 的主循环:调用当前节点、合并返回值、按条件边或普通边选下一节点、计数;\n4. 运行程序,看天庭小图从 spot 到 work 再到 END,2 步收工。\n\n### 常见坑\n\n- 节点必须返回 dict(哪怕 `{}`):只 print 不返回,下游拿不到数据,`state[\"tasks\"]` 会直接 KeyError;\n- 条件边选路一定要带兜底:`mapping.get(router(state), END)` 里这个 `END` 不是摆设——router 返回值与 mapping 键不匹配时,没有兜底就会抛 KeyError;\n- `max_steps` 是最后的保险:图一旦有环而条件永远不满足,靠它保证循环终止,测试时别把它删掉;\n- `state.update(out)` 是浅合并:顶层 key 会被覆盖,列表类数据要自己在节点里 append(看 `rework_node`)。\n",
+      "instruction": "### 目标\n\ns1 的路由表是「一杆子插到底」的直线分派;本步把它升级成可编排的图:手写一个约 60 行的迷你 `StateGraph`,让「拆需求 -> 派活 -> 汇报」变成图上的一串节点,并用条件边让「完工检查」决定是收工还是返工。写完跑通,你会对 LangGraph 的 StateGraph 概念有第一手体感。\n\n### 原理\n\n状态图的三个零件:(1) **节点(node)**:普通函数,输入共享状态 dict、返回增量 dict,用 `add_node` 注册;(2) **普通边(edge)**:`add_edge(src, dst)` 声明「src 跑完必然去 dst」;(3) **条件边(conditional edge)**:`add_conditional_edges(src, router, mapping)` 声明「下一站由 router(state) 的返回值说了算」——`mapping.get(router(state), END)` 查表选路,查不到默认走 END。共享状态(shared state)是图里传递数据的唯一通道:节点返回的 dict 被 `state.update` 合并,下游节点再读。`END` 是终点哨兵,`max_steps` 是防死循环的最后防线:只要 `current != END and steps < max_steps` 循环就继续,两个条件任何一个不满足都收工。这就是「图即编排」:流程结构声明出来,执行引擎与业务节点彻底解耦。\n\n### 操作\n\n1. 通读 `StateGraph` 五个注册方法与 `run` 的循环骨架,先理解「节点函数 -> 增量 dict -> state.update」这条数据通路;\n2. 补全 `add_conditional_edges`:把 `(router, mapping)` 存进 `self._conditional`,供 run 选路;\n3. 补全 `run` 的主循环:调用当前节点、合并返回值、按条件边或普通边选下一节点、计数;\n4. 运行程序,看校园 AI 社小图从 spot 到 work 再到 END,2 步收工。\n\n### 常见坑\n\n- 节点必须返回 dict(哪怕 `{}`):只 print 不返回,下游拿不到数据,`state[\"tasks\"]` 会直接 KeyError;\n- 条件边选路一定要带兜底:`mapping.get(router(state), END)` 里这个 `END` 不是摆设——router 返回值与 mapping 键不匹配时,没有兜底就会抛 KeyError;\n- `max_steps` 是最后的保险:图一旦有环而条件永远不满足,靠它保证循环终止,测试时别把它删掉;\n- `state.update(out)` 是浅合并:顶层 key 会被覆盖,列表类数据要自己在节点里 append(看 `rework_node`)。\n",
       "hints": [
         {
           "order": 1,
@@ -198,8 +198,8 @@
         },
         {
           "type": "sandbox_run",
-          "message": "程序应能跑通天庭小图并输出两单完工汇报。",
-          "expectedStdout": "天庭小图流转 \\d+ 步后收工[\\s\\S]*已完成「前端页面」[\\s\\S]*已完成「测试用例」",
+          "message": "程序应能跑通校园 AI 社小图并输出两单完工汇报。",
+          "expectedStdout": "校园 AI 社小图流转 \\d+ 步后收工[\\s\\S]*已完成「前端页面」[\\s\\S]*已完成「测试用例」",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -210,8 +210,8 @@
       "id": "t51-supervisor-s3",
       "taskId": "t51-supervisor",
       "order": 3,
-      "title": "天庭工作流:分派、执行与返工",
-      "instruction": "### 目标\n\n把 s2 的迷你状态图拼成 Supervisor 编排的完整骨架:拆需求 -> 派活 -> 执行 -> 检查。用 `FAIL_ONCE` 模拟「t2 首跑必败」的偶发故障,补上返工节点与条件边,让整个流程执行两轮后收敛——第一轮 t2 失败,第二轮全员通过。这正是 Supervisor「编排 -> 发现失败 -> 修正 -> 再执行」的最小闭环。\n\n### 原理\n\nSupervisor 编排的三个要素:(1) **状态传递**:图跑几轮,共享状态 dict 贯穿始终,`split_node` 写的 `tasks` 被 `execute_node` 读,`execute_node` 写的 `results` 被 `router_after_execute` 读;(2) **条件路由**:把「要不要重试」变成一个函数 `router_after_execute`——读状态、返回决策(\"retry\"/\"END\"),图引擎按决策选路,业务节点完全不知道流程,流程也完全不知道业务;(3) **收敛**:有环的图必须收敛,这里靠两重保证——`FAIL_ONCE.clear()` 让故障只发生一次,第二轮必然全绿;`max_steps` 兜底,万一条件永远不满足,循环也必然终止。注意 `retry_node` 只清故障、不做别的事:execute_node 下一轮会用 `results = []` 覆盖式重建结果列表,这正是「幂等执行」——同一节点重复跑,结果正确可复现。\n\n### 操作\n\n1. 通读 `StateGraph`(与 s2 一致)与三个节点函数,先在纸上画出执行轨迹:split -> execute(失败) -> retry -> execute(全绿) -> END;\n2. 补全 `split_node`:按「和」拆需求,每张派给后端仙官;\n3. 补全 `router_after_execute`:`any(not r.ok for r in state[\"results\"])` 一行判断是否返工;\n4. 在 `main` 里给 execute 挂条件边,并把 retry -> execute 连成回路;\n5. 运行,确认输出带「(含返工)」,`_steps` 为 4。\n\n### 常见坑\n\n- **无条件重试 + 永败节点 = 死循环**:如果 router 永远返回 \"retry\" 且 retry 没有副作用,图会无限转圈,只能靠 `max_steps` 强行截断——故障标志要在 retry 节点里清掉,让状态单调向好;\n- **router 返回值必须与 mapping 键一致**:写 `\"retry\"` 却在 mapping 里配了别的键,`mapping.get` 查不到就直接 END,返工回路形同虚设且毫无报错;\n- results 列表是**覆盖式重建**而不是追加:execute_node 每轮 `results = []` 重来,否则第二轮会带着第一轮的失败记录,聚合时永远统计不对;\n- 别把清 `FAIL_ONCE` 的动作放进 execute_node:那等于把「故障」和「修故障」混在同一个节点,返工节点就失去了存在的意义。\n",
+      "title": "校园 AI 社工作流:分派、执行与返工",
+      "instruction": "### 目标\n\n把 s2 的迷你状态图拼成 Supervisor 编排的完整骨架:拆需求 -> 派活 -> 执行 -> 检查。用 `FAIL_ONCE` 模拟「t2 首跑必败」的偶发故障,补上返工节点与条件边,让整个流程执行两轮后收敛——第一轮 t2 失败,第二轮全员通过。这正是 Supervisor「编排 -> 发现失败 -> 修正 -> 再执行」的最小闭环。\n\n### 原理\n\nSupervisor 编排的三个要素:(1) **状态传递**:图跑几轮,共享状态 dict 贯穿始终,`split_node` 写的 `tasks` 被 `execute_node` 读,`execute_node` 写的 `results` 被 `router_after_execute` 读;(2) **条件路由**:把「要不要重试」变成一个函数 `router_after_execute`——读状态、返回决策(\"retry\"/\"END\"),图引擎按决策选路,业务节点完全不知道流程,流程也完全不知道业务;(3) **收敛**:有环的图必须收敛,这里靠两重保证——`FAIL_ONCE.clear()` 让故障只发生一次,第二轮必然全绿;`max_steps` 兜底,万一条件永远不满足,循环也必然终止。注意 `retry_node` 只清故障、不做别的事:execute_node 下一轮会用 `results = []` 覆盖式重建结果列表,这正是「幂等执行」——同一节点重复跑,结果正确可复现。\n\n### 操作\n\n1. 通读 `StateGraph`(与 s2 一致)与三个节点函数,先在纸上画出执行轨迹:split -> execute(失败) -> retry -> execute(全绿) -> END;\n2. 补全 `split_node`:按「和」拆需求,每张派给后端同学;\n3. 补全 `router_after_execute`:`any(not r.ok for r in state[\"results\"])` 一行判断是否返工;\n4. 在 `main` 里给 execute 挂条件边,并把 retry -> execute 连成回路;\n5. 运行,确认输出带「(含返工)」,`_steps` 为 4。\n\n### 常见坑\n\n- **无条件重试 + 永败节点 = 死循环**:如果 router 永远返回 \"retry\" 且 retry 没有副作用,图会无限转圈,只能靠 `max_steps` 强行截断——故障标志要在 retry 节点里清掉,让状态单调向好;\n- **router 返回值必须与 mapping 键一致**:写 `\"retry\"` 却在 mapping 里配了别的键,`mapping.get` 查不到就直接 END,返工回路形同虚设且毫无报错;\n- results 列表是**覆盖式重建**而不是追加:execute_node 每轮 `results = []` 重来,否则第二轮会带着第一轮的失败记录,聚合时永远统计不对;\n- 别把清 `FAIL_ONCE` 的动作放进 execute_node:那等于把「故障」和「修故障」混在同一个节点,返工节点就失去了存在的意义。\n",
       "hints": [
         {
           "order": 1,
@@ -302,7 +302,7 @@
         {
           "type": "sandbox_run",
           "message": "程序应演示首轮失败后经返工收敛为全部通过。",
-          "expectedStdout": "天庭流转 \\d+ 步\\(含返工\\)[\\s\\S]*后端接口已就绪[\\s\\S]*全部完工",
+          "expectedStdout": "校园 AI 社流转 \\d+ 步\\(含返工\\)[\\s\\S]*后端接口已就绪[\\s\\S]*全部完工",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -314,11 +314,11 @@
       "taskId": "t51-supervisor",
       "order": 4,
       "title": "接入 DeepSeek:Supervisor 智能分派",
-      "instruction": "### 目标\n\ns3 的关键词路由是写死的规则,换个说法就失配。本步把「拆需求」这个环节交给模型:用 `deepseek-v4-pro` 当玉帝的军师,读一段自然语言需求,输出 JSON 任务单(标题 + 仙官),Supervisor 图引擎拿到任务单后再进入执行节点——「智能分派 + 确定性执行」的分层就此成型。\n\n### 原理\n\n要点有三。(1) **输出即契约**:模型回复是自由文本,你要求它是什么形状它才是什么形状——`SUPERVISOR_PROMPT` 把契约钉死:只输出 JSON 数组、每项含 `title` 与 `assignee`、assignee 限定在四位仙官枚举内;Prompt 就是与模型签订的接口文档。(2) **严格提示 + 宽容解析 + 优雅降级**:模型常有小动作(``` 围栏、多余说明),所以解析端要剥围栏、容忍前后空白,解析失败绝不 raise,而是打印提示并回退单条兜底任务——对外表现为「拆不动就整体交给后端仙官」,流程永不中断。(3) **MOCK 隔离**:`MOCK_LLM=1` 时用剧本替代真实调用,让图引擎与执行节点在无网络、无密钥的环境里照样被验证——决策模型可替换,编排骨架不动。\n\n### 操作\n\n1. 通读 `SUPERVISOR_PROMPT` 与 `StateGraph`:本步图已简化成线性(拆 -> 执行),条件边暂时用不上;\n2. 补全 `parse_tasks`:剥围栏 -> `json.loads` -> 逐项 `AgentTask`,`except Exception` 一律 `return []`;\n3. 补全 `split_by_llm_node`:先写 MOCK 分支(剧本三单),再写真实分支(invoke + parse),空结果回退兜底单;\n4. 依次运行:`MOCK_LLM=1` 看剧本流程;配好 API Key 后直接运行,看模型拆出的任务单。\n\n### 常见坑\n\n- **不剥围栏必挂**:DeepSeek 常回 ```json 开头,`json.loads` 直接抛异常——先 `strip(\"`\")` 再掐掉开头 \"json\";\n- **assignee 必须落在枚举内**:`execute_node` 的 `fmt` 表按仙官名查文案,模型若输出表外名字(如 \"测试仙\"),`fmt[assignee]` 直接 KeyError——这就是「输出即契约」要在 prompt 里钉死枚举的原因;\n- 解析失败走降级而不是 raise:兜底任务保证流程跑完,错误信息留在 `print` 里供人观察;\n- MOCK 分支要在 `parse_tasks` 之外单独走,别让剧本也走 JSON 解析——剧本的意义就是把「模型决策」整段隔离,便于单测执行层。\n",
+      "instruction": "### 目标\n\ns3 的关键词路由是写死的规则,换个说法就失配。本步把「拆需求」这个环节交给模型:用 `deepseek-v4-pro` 当社长的军师,读一段自然语言需求,输出 JSON 任务单(标题 + 社团成员),Supervisor 图引擎拿到任务单后再进入执行节点——「智能分派 + 确定性执行」的分层就此成型。\n\n### 原理\n\n要点有三。(1) **输出即契约**:模型回复是自由文本,你要求它是什么形状它才是什么形状——`SUPERVISOR_PROMPT` 把契约钉死:只输出 JSON 数组、每项含 `title` 与 `assignee`、assignee 限定在四位社团成员枚举内;Prompt 就是与模型签订的接口文档。(2) **严格提示 + 宽容解析 + 优雅降级**:模型常有小动作(``` 围栏、多余说明),所以解析端要剥围栏、容忍前后空白,解析失败绝不 raise,而是打印提示并回退单条兜底任务——对外表现为「拆不动就整体交给后端同学」,流程永不中断。(3) **MOCK 隔离**:`MOCK_LLM=1` 时用剧本替代真实调用,让图引擎与执行节点在无网络、无密钥的环境里照样被验证——决策模型可替换,编排骨架不动。\n\n### 操作\n\n1. 通读 `SUPERVISOR_PROMPT` 与 `StateGraph`:本步图已简化成线性(拆 -> 执行),条件边暂时用不上;\n2. 补全 `parse_tasks`:剥围栏 -> `json.loads` -> 逐项 `AgentTask`,`except Exception` 一律 `return []`;\n3. 补全 `split_by_llm_node`:先写 MOCK 分支(剧本三单),再写真实分支(invoke + parse),空结果回退兜底单;\n4. 依次运行:`MOCK_LLM=1` 看剧本流程;配好 API Key 后直接运行,看模型拆出的任务单。\n\n### 常见坑\n\n- **不剥围栏必挂**:DeepSeek 常回 ```json 开头,`json.loads` 直接抛异常——先 `strip(\"`\")` 再掐掉开头 \"json\";\n- **assignee 必须落在枚举内**:`execute_node` 的 `fmt` 表按社团成员名查文案,模型若输出表外名字(如 \"测试项目\"),`fmt[assignee]` 直接 KeyError——这就是「输出即契约」要在 prompt 里钉死枚举的原因;\n- 解析失败走降级而不是 raise:兜底任务保证流程跑完,错误信息留在 `print` 里供人观察;\n- MOCK 分支要在 `parse_tasks` 之外单独走,别让剧本也走 JSON 解析——剧本的意义就是把「模型决策」整段隔离,便于单测执行层。\n",
       "hints": [
         {
           "order": 1,
-          "text": "输出即契约:prompt 里写清「只输出 JSON 数组,每项含 title 与 assignee,assignee 从四位仙官中选」,模型才会照着交作业。"
+          "text": "输出即契约:prompt 里写清「只输出 JSON 数组,每项含 title 与 assignee,assignee 从四位社团成员中选」,模型才会照着交作业。"
         },
         {
           "order": 2,
@@ -326,7 +326,7 @@
         },
         {
           "order": 3,
-          "text": "调用与降级:`reply = llm.invoke([HumanMessage(content=SUPERVISOR_PROMPT.format(request=state[\"request\"]))])`;`parse_tasks(reply.content)` 为空时打印提示并回退 `[AgentTask(id=\"t1\", title=state[\"request\"], assignee=\"后端仙官\")]`。"
+          "text": "调用与降级:`reply = llm.invoke([HumanMessage(content=SUPERVISOR_PROMPT.format(request=state[\"request\"]))])`;`parse_tasks(reply.content)` 为空时打印提示并回退 `[AgentTask(id=\"t1\", title=state[\"request\"], assignee=\"后端同学\")]`。"
         }
       ],
       "codeSamples": [
@@ -348,7 +348,7 @@
         },
         {
           "name": "优雅降级",
-          "definition": "模型输出无法解析时,不中断流程,回退兜底方案(如整体派给后端仙官)并保留日志。"
+          "definition": "模型输出无法解析时,不中断流程,回退兜底方案(如整体派给后端同学)并保留日志。"
         }
       ],
       "techStack": [
@@ -422,8 +422,8 @@
       "id": "t51-supervisor-s5",
       "taskId": "t51-supervisor",
       "order": 5,
-      "title": "结果聚合与天庭总装",
-      "instruction": "### 目标\n\n把整条天庭流水线总装收口:在 s4 的「拆 -> 执行」末端补一个聚合节点 `aggregate_node`,统计各仙官完工汇报的成败、组装一份交付报告并写回共享状态。跑通之后,「需求进、报告出」的 Supervisor 流水线就完整了——这正是 fan-out / fan-in 形态的收官一步。\n\n### 原理\n\n多 Agent 并行开工是**扇出(fan-out)**:一份需求被拆成 N 张任务单,分给 N 位仙官;收口是**扇入(fan-in)**:N 份完工汇报汇回一个聚合节点,压缩成一份报告。聚合节点做三件事:(1) **统计**:`sum(1 for r in results if r.ok)` 数出成功数,与总数对比得到成败概况;(2) **暴露失败**:报告里既有成功项也有失败项,失败看得见,后续环节(人工兜底或自动返工)才有决策依据;(3) **组装**:用 join 把多行结果拼成人类可读的交付报告。关键在**写回**:聚合节点必须 `return {\"report\": report}`,靠 run 的 `state.update` 把报告写回共享状态,main 里才能 `print(state['report'])`——这比直接 print 多一层价值:报告成为状态的一部分,可以继续作为后续图节点的输入(例如失败率超阈值时挂一条条件边导回返工)。\n\n### 操作\n\n1. 通读 `aggregate_node` 的占位:它读取 `state[\"results\"]`,产出 `report`,返回增量 dict;\n2. 补全 `aggregate_node`:统计成功数、join 结果行、组装报告、写回 state;\n3. 在 `main` 里把 execute -> aggregate 连上,并把结尾打印换成 `print(state['report'])`;\n4. 运行(MOCK 或真实 Key),观察「玉帝拆单 -> 仙官开工 -> 天庭交付报告」三段式输出。\n\n### 常见坑\n\n- 聚合结果必须 `return {\"report\": ...}` 写回 state:只 print 不返回,main 里 `state['report']` 直接 KeyError——「节点产出要进共享状态,而不是只进 stdout」;\n- 报告里要带成功数,失败项要显式列出:只有结果没有概况,下游无法判断要不要返工;\n- join 用 `\"\\n\".join(...)`,把多行结果拼起来,别把交付报告挤成一长串;\n- 序列化中文报告时记得 `ensure_ascii=False`,否则交付报告变成 `\\uXXXX` 转义,人和模型都不好读。\n",
+      "title": "结果聚合与校园 AI 社总装",
+      "instruction": "### 目标\n\n把整条校园 AI 社流水线总装收口:在 s4 的「拆 -> 执行」末端补一个聚合节点 `aggregate_node`,统计各社团成员完工汇报的成败、组装一份交付报告并写回共享状态。跑通之后,「需求进、报告出」的 Supervisor 流水线就完整了——这正是 fan-out / fan-in 形态的收官一步。\n\n### 原理\n\n多 Agent 并行开工是**扇出(fan-out)**:一份需求被拆成 N 张任务单,分给 N 位社团成员;收口是**扇入(fan-in)**:N 份完工汇报汇回一个聚合节点,压缩成一份报告。聚合节点做三件事:(1) **统计**:`sum(1 for r in results if r.ok)` 数出成功数,与总数对比得到成败概况;(2) **暴露失败**:报告里既有成功项也有失败项,失败看得见,后续环节(人工兜底或自动返工)才有决策依据;(3) **组装**:用 join 把多行结果拼成人类可读的交付报告。关键在**写回**:聚合节点必须 `return {\"report\": report}`,靠 run 的 `state.update` 把报告写回共享状态,main 里才能 `print(state['report'])`——这比直接 print 多一层价值:报告成为状态的一部分,可以继续作为后续图节点的输入(例如失败率超阈值时挂一条条件边导回返工)。\n\n### 操作\n\n1. 通读 `aggregate_node` 的占位:它读取 `state[\"results\"]`,产出 `report`,返回增量 dict;\n2. 补全 `aggregate_node`:统计成功数、join 结果行、组装报告、写回 state;\n3. 在 `main` 里把 execute -> aggregate 连上,并把结尾打印换成 `print(state['report'])`;\n4. 运行(MOCK 或真实 Key),观察「社长拆单 -> 社团成员开工 -> 校园 AI 社交付报告」三段式输出。\n\n### 常见坑\n\n- 聚合结果必须 `return {\"report\": ...}` 写回 state:只 print 不返回,main 里 `state['report']` 直接 KeyError——「节点产出要进共享状态,而不是只进 stdout」;\n- 报告里要带成功数,失败项要显式列出:只有结果没有概况,下游无法判断要不要返工;\n- join 用 `\"\\n\".join(...)`,把多行结果拼起来,别把交付报告挤成一长串;\n- 序列化中文报告时记得 `ensure_ascii=False`,否则交付报告变成 `\\uXXXX` 转义,人和模型都不好读。\n",
       "hints": [
         {
           "order": 1,
@@ -442,7 +442,7 @@
         {
           "title": "扇入聚合:数成功、拼正文、写回共享状态",
           "language": "python",
-          "code": "def aggregate_node(state: dict) -> dict:\n    results = state[\"results\"]\n    body = \"\\n\".join(f\"  · {r.assignee}: {r.data}\" for r in results)\n    report = f\"天庭交付报告(成功 {sum(1 for r in results if r.ok)}/{len(results)}):\\n{body}\"\n    return {\"report\": report}   # 写回 state,main 里才能 print(state['report'])",
+          "code": "def aggregate_node(state: dict) -> dict:\n    results = state[\"results\"]\n    body = \"\\n\".join(f\"  · {r.assignee}: {r.data}\" for r in results)\n    report = f\"校园 AI 社交付报告(成功 {sum(1 for r in results if r.ok)}/{len(results)}):\\n{body}\"\n    return {\"report\": report}   # 写回 state,main 里才能 print(state['report'])",
           "description": "聚合结果必须通过 return 写回共享状态,才能作为下游节点的输入。"
         }
       ],

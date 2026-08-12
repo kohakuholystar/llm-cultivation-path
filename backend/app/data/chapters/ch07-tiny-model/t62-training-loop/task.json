@@ -405,71 +405,66 @@
       "id": "t62-training-loop-s5",
       "taskId": "t62-training-loop",
       "order": 5,
-      "title": "checkpoint:训练成果的存档与恢复",
-      "instruction": "### 目标\n\n本步把训练成果「存档」:checkpoint。训练好的模型参数只存在内存里,程序一退出就没了。把每组参数写进文件,随时可以恢复、继续训练或部署加载——这是所有深度学习框架的标配能力。\n\n### 原理\n\n模型的所有知识都在 12 组参数里:9 个权重 wte/wpe/wq/wk/wv/wo/w1/w2/wout 与 3 个偏置 b1/b2/bout。存档就是把这些 numpy 数组序列化成可持久化的格式:先 w.tolist() 转成普通 Python 列表,再 json.dump 写进文件;恢复则反向操作——json.load 读回、np.array 还原成数组并写回 model.params。校验方式很直接:另起一个全新的 MiniGPT,把存档加载进去,比较它与原模型在验证集上的损失,差值为 0 说明存档无损。本项目用 JSON 便于肉眼观察;工业界多用 safetensors 或 .pt 这类二进制格式,原理一致,本步不引入。\n\n### 操作\n\n1. 补全 `save_checkpoint`:遍历 model.params,转成 list 后 json.dump 写入 path;\n2. 补全 `load_checkpoint`:json.load 读回,逐个 np.array 还原并写回 model.params;\n3. 运行观察「checkpoint 校验:通过」「存档路径: mini_gpt_ckpt.json,参数组数: 12」;\n4. 打开生成的 mini_gpt_ckpt.json,看看一组参数长什么样。\n\n### 常见坑\n\n- 忘记 w.tolist():numpy 数组不能直接 JSON 序列化,会抛 TypeError;\n- 加载时把数组赋给局部变量就完事:必须写回 model.params[name],否则恢复无效;\n- 校验时凭肉眼比数字:浮点序列化本身无损,应像本步一样比较「加载前后模型的验证损失」。\n",
+      "title": "PyTorch checkpoint：训练、保存与可验证恢复",
+      "instruction": "### 目标\n\n前四步用 NumPy 看清了训练原理；这一小步迁移到 PyTorch，亲手走一遍真实训练框架的闭环：`Tensor → Module → loss → backward → optimizer.step() → checkpoint`。最终产物是 `/workspace/tiny_next_token.pt`，其中保存的是完成训练后的 `state_dict` 与重建配置。\n\n它是一个固定字符映射的极小验证模型，不是预训练大模型，也不对生成质量作承诺。这里验证的是工程事实：训练确实让 loss 下降；恢复后的模型对同一输入输出完全相同。绝不能把随机初始化权重叫作训练产物。\n\n### 操作\n\n1. 在 `train_one_epoch` 按顺序完成 `zero_grad`、前向、`CrossEntropyLoss`、`backward` 和 `optimizer.step()`；\n2. 运行 40 次真实更新，确认训练损失下降；\n3. 阅读 `save_checkpoint`：`torch.save` 保存 `state_dict` 和模型配置；\n4. 阅读 `load_checkpoint`：新建同构模型、`load_state_dict`，再比较加载前后的 logits。\n\n### 常见坑\n\n- 忘记 `optimizer.zero_grad()`：梯度会跨轮累积，不再是本轮的更新；\n- 调用了 `loss.backward()` 却没调用 `optimizer.step()`：会计算梯度，但参数不会改变；\n- 只保存权重不保存重建所需配置：后续无法可靠地创建同构模型；\n- 把「输出相近」当作恢复校验：本步要求 `torch.equal`，也就是逐元素完全一致。\n",
       "todoItems": [
         {
-          "title": "补全 save_checkpoint:逐组 tolist 后 json.dump 写入文件",
-          "target": "save_checkpoint() 函数",
-          "code": "payload = {name: w.tolist() for name, w in model.params.items()}\nwith open(path, 'w', encoding='utf-8') as f:\n    json.dump(payload, f)",
-          "expect": "生成 mini_gpt_ckpt.json,含全部 12 组参数"
+          "title": "补全一次真实的 PyTorch 更新",
+          "target": "train_one_epoch() 函数",
+          "code": "optimizer.zero_grad()\nlogits = model(inputs)\nloss = loss_fn(logits, targets)\nloss.backward()\noptimizer.step()\nreturn float(loss.item())",
+          "expect": "训练损失下降，参数由 AdamW 实际更新"
         },
         {
-          "title": "补全 load_checkpoint:json.load 逐组 np.array 还原并写回",
-          "target": "load_checkpoint() 函数",
-          "code": "with open(path, 'r', encoding='utf-8') as f:\n    payload = json.load(f)\nfor name, arr in payload.items():\n    model.params[name] = np.array(arr)",
-          "expect": "新模型加载后与原模型参数完全一致"
-        },
-        {
-          "title": "运行 main,确认存档校验通过",
+          "title": "运行 main，确认制品可以恢复",
           "target": "main() 入口",
-          "expect": "打印「checkpoint 校验:通过」「存档路径: mini_gpt_ckpt.json,参数组数: 12」"
+          "expect": "打印训练损失下降、checkpoint 行为校验通过和 .pt 制品路径"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "保存:payload = {name: w.tolist() for name, w in model.params.items()},再 with open(path, 'w') 后 json.dump(payload, f)。"
+          "text": "按固定顺序写：先 `optimizer.zero_grad()`，再前向得到 logits，计算 loss，最后 `loss.backward()` 和 `optimizer.step()`。"
         },
         {
           "order": 2,
-          "text": "恢复:读回 payload 后,for name, arr in payload.items(): model.params[name] = np.array(arr)。"
+          "text": "`CrossEntropyLoss` 直接接收未做 softmax 的 logits 和整型 target；不要手动先 softmax。"
         },
         {
           "order": 3,
-          "text": "校验:比较原模型与恢复模型在验证集上的损失,差值 < 1e-9 即通过;这是「存档是否无损」的直接证据。"
+          "text": "checkpoint 代码已给出：保存 `state_dict` 和模型配置，恢复后用 `torch.equal(before, after)` 验证行为完全相同。"
         }
       ],
       "codeSamples": [
         {
-          "title": "checkpoint 保存与恢复",
+          "title": "一次真实的 PyTorch 优化更新",
           "language": "python",
-          "code": "def save_checkpoint(model, path):\n    payload = {name: w.tolist() for name, w in model.params.items()}\n    with open(path, \"w\", encoding=\"utf-8\") as f:\n        json.dump(payload, f)\n\n\ndef load_checkpoint(model, path):\n    with open(path, \"r\", encoding=\"utf-8\") as f:\n        payload = json.load(f)\n    for name, arr in payload.items():\n        model.params[name] = np.array(arr)",
-          "description": "保存时逐组转 list 序列化,恢复时逐组转回数组并写回模型。"
+          "code": "optimizer.zero_grad()\nlogits = model(inputs)\nloss = loss_fn(logits, targets)\nloss.backward()\noptimizer.step()\nreturn float(loss.item())",
+          "description": "这五步是 autograd 训练循环的最小闭环；checkpoint 保存的是这次训练之后的状态。"
         }
       ],
       "terms": [
         {
           "name": "checkpoint",
-          "definition": "训练过程中把模型参数等状态持久化到文件,便于中断恢复、继续训练或部署加载。"
+          "definition": "训练过程中把模型的 state_dict 与恢复所需配置持久化到文件，便于中断恢复、继续训练或部署加载。"
         },
         {
           "name": "序列化(Serialization)",
-          "definition": "把内存中的对象转成可存储、可传输的格式;numpy 数组需先 tolist() 才能 json.dump。"
+          "definition": "把内存中的对象转成可存储、可传输的格式；本步由 torch.save 写入权重张量与模型配置。"
         },
         {
           "name": "校验(Verification)",
-          "definition": "加载后与原模型比较行为(如验证损失),确认存档内容无损、恢复正确。"
+          "definition": "加载后比较原模型与恢复模型的 logits，确认制品内容无损、恢复正确。"
         }
       ],
+      "sandboxProfile": "ml",
       "techStack": [
         {
-          "name": "NumPy",
-          "role": "数值计算库",
-          "description": "全部张量运算与参数序列化基于 numpy 完成。",
-          "officialUrl": "https://numpy.org/",
+          "name": "PyTorch",
+          "role": "自动微分、优化器与 checkpoint",
+          "description": "本步使用真实 Tensor、Module、CrossEntropyLoss、AdamW、state_dict 与 torch.save/load。",
+          "officialUrl": "https://pytorch.org/docs/stable/",
           "category": "库",
-          "installHint": "pip install numpy"
+          "installHint": "仅 ml 教学镜像预装；本地可安装与镜像锁定版本一致的 torch"
         }
       ],
       "validation": [
@@ -481,27 +476,27 @@
         },
         {
           "type": "ast_structure",
-          "message": "请实现 save_checkpoint 存档函数。",
+          "message": "请实现真实的 PyTorch 训练函数。",
           "astType": "function_def",
-          "name": "save_checkpoint",
+          "name": "train_one_epoch",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "请用 json.dump 写出参数。",
-          "pattern": "json\\.dump\\(payload",
+          "message": "请在反向传播后调用优化器更新参数。",
+          "pattern": "optimizer\\.step\\(\\)",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "请用 json.load 读回参数。",
-          "pattern": "json\\.load\\(f\\)",
+          "message": "请用 backward 计算 autograd 梯度。",
+          "pattern": "loss\\.backward\\(\\)",
           "blocking": true
         },
         {
           "type": "sandbox_run",
-          "message": "运行应打印 checkpoint 校验结果与存档路径。",
-          "expectedStdout": "checkpoint 校验:通过[\\s\\S]*存档路径:",
+          "message": "运行应打印真实训练后的恢复校验与 .pt 制品路径。",
+          "expectedStdout": "训练损失 \\d\\.\\d+ → \\d\\.\\d+[\\s\\S]*checkpoint 行为校验:通过[\\s\\S]*tiny_next_token\\.pt",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true

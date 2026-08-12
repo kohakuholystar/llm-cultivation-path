@@ -1,4 +1,4 @@
-"""灵讯通 · s4:连接自测与重试
+"""星澈助手 · s4:连接自测与重试
 对话之前先探活:ping 失败按指数退避重试,把错误暴露在成本最低的时刻。
 """
 import os
@@ -9,7 +9,7 @@ from openai import OpenAI
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -83,7 +83,7 @@ def main() -> None:
     question = "用一句话解释什么是大语言模型。"
     print(f"你: {question}")
     reply = chat_once(client, question)
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
 
 
 if __name__ == "__main__":

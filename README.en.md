@@ -1,4 +1,4 @@
-# LLM Cultivation Path · LLM 修仙之路
+# LLM Cultivation Path · LLM Agent 工程师学习之路
 
 **A gamified, task-driven learning platform for the LLM stack — from your first API call to building a tiny model.**
 
@@ -58,7 +58,7 @@ pnpm dev:backend   # FastAPI on :4200
 pnpm dev           # Vite on :3200
 ```
 
-Open http://localhost:3200, click **开始修炼**, and clear your first task.
+Open http://localhost:3200, click **开始学习**, and clear your first task.
 
 **Optional — enable the code sandbox** (without it, tasks fall back to frontend validation):
 
@@ -109,12 +109,12 @@ GENERATOR_MODEL=deepseek-v4-pro
 
 | Chapter | Theme |
 | :--- | :--- |
-| 1 · 初入江湖 | LLM basics — DeepSeek setup, chat, streaming, structured output, token economics |
-| 2 · 拜入山门 | LangChain — LCEL pipes, prompt templates, output parsers, memory, routing |
-| 3 · 秘境探宝 | RAG — embeddings, vector stores, retrieval pipelines |
-| 4 · 御剑术 | Agent control — tools, structured calling, memory, human-in-the-loop |
-| 5 · 炼器 | Harness engineering — context windows, error resilience, observability, plugins |
-| 6 · 群侠论剑 | Multi-Agent — message bus, supervisor, debate patterns |
+| 1 · 项目起步 | LLM basics — DeepSeek setup, chat, streaming, structured output, token economics |
+| 2 · 进入项目组 | LangChain — LCEL pipes, prompt templates, output parsers, memory, routing |
+| 3 · 黑糖资料室 | RAG — embeddings, vector stores, retrieval pipelines |
+| 4 · 快速执行术 | Agent control — tools, structured calling, memory, human-in-the-loop |
+| 5 · 工具开发 | Harness engineering — context windows, error resilience, observability, plugins |
+| 6 · 协作评审 | Multi-Agent — message bus, supervisor, debate patterns |
 | 7 · 铸魂 | Build a tiny model — tokenizer, training loop, inference |
 | 8 · 出师 | Capstone — ship a complete LLM application |
 

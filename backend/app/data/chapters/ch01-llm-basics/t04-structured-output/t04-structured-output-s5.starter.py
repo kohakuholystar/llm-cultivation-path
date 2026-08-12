@@ -1,4 +1,10 @@
-"""灵讯通 · 结构化抽取 v5:封装成可复用的 TicketExtractor 工具类"""
+"""星澈助手 · 结构化抽取 v5:封装成可复用的 TicketExtractor 工具类"""
+# 学习契约
+# 目标：完成 t04-structured-output-s5 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 2 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：build_client() -> OpenAI; main() -> None。
+# 技术栈：json, os, sys, dataclasses, typing；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import json, os, sys
 from dataclasses import dataclass
 from typing import Literal
@@ -68,7 +74,7 @@ class TicketExtractor:
         return resp.choices[0].message.content
 
     def _messages(self, dialog: str) -> list[dict]:
-        head = "你是灵讯通客服质检助手。只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。"
+        head = "你是星澈助手客服质检助手。只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。"
         shots = [f"对话:{d} 输出:{json.dumps(a, ensure_ascii=False)}" for d, a in FEW_SHOT]
         return [{"role": "system", "content": "\n".join([head, "参考示例:"] + shots)}, {"role": "user", "content": dialog}]
 

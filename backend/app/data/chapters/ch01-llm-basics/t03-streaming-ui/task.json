@@ -5,7 +5,7 @@
       "taskId": "t03-streaming-ui",
       "order": 1,
       "title": "流式初体验:stream=True 打开增量之门",
-      "instruction": "### 目标\n为灵讯通实现 `stream_chat(client, config, question)`:用 `stream=True` 发起请求,逐个接收增量 chunk,拼出完整回复并统计块数。\n\n### 原理\n**非流式是“憋大招”。** 普通请求下,服务端要把整段回答全部生成完,才通过一个 HTTP 响应一次性返回。回答越长,用户盯着空白屏幕的时间越久——十秒的回答就是十秒的沉默。\n\n**流式是“边想边说”。** 加上 `stream=True` 后,服务端改用 SSE(Server-Sent Events)协议:每生成一小段 token,就立刻沿同一条 HTTP 连接推送一个 `data: {...}` 事件,直到生成结束才关闭。openai SDK 把这串事件封装成一个 Python 迭代器,`for chunk in stream` 即可逐块消费。\n\n**chunk 的结构变了。** 非流式的文本在 `choices[0].message.content`(全量);流式的文本在 `choices[0].delta.content`(增量)——每个 chunk 只携带“新增的那几个字”,拼起所有增量才是完整回复。注意:第一个 chunk 通常只带 `delta.role` 而没有文本,最后一个 chunk 带 `finish_reason` 标志结束,它们的 `content` 都是 None,累加前必须判空。\n\n### 操作\n1. 复用 t01 的 `APIConfig` 与 `create_client`(骨架已含)\n2. 实现 stream_chat:create 时加 `stream=True`,迭代收集非空 delta\n3. 返回 (拼接文本, 块数),main 打印对话与统计\n4. 配好 Key 运行;本地演示可设 MOCK_LLM=1 用内置假回复\n\n### 常见坑\n- 把流式 chunk 当非流式响应:`chunk.choices[0].message` 不存在,流式里只有 `delta`\n- `parts.append(delta)` 不判空:role 块与结束块的 content 是 None,最后 `\"\".join` 时直接 TypeError",
+      "instruction": "### 目标\n为星澈助手实现 `stream_chat(client, config, question)`:用 `stream=True` 发起请求,逐个接收增量 chunk,拼出完整回复并统计块数。\n\n### 原理\n**非流式是“憋大招”。** 普通请求下,服务端要把整段回答全部生成完,才通过一个 HTTP 响应一次性返回。回答越长,用户盯着空白屏幕的时间越久——十秒的回答就是十秒的沉默。\n\n**流式是“边想边说”。** 加上 `stream=True` 后,服务端改用 SSE(Server-Sent Events)协议:每生成一小段 token,就立刻沿同一条 HTTP 连接推送一个 `data: {...}` 事件,直到生成结束才关闭。openai SDK 把这串事件封装成一个 Python 迭代器,`for chunk in stream` 即可逐块消费。\n\n**chunk 的结构变了。** 非流式的文本在 `choices[0].message.content`(全量);流式的文本在 `choices[0].delta.content`(增量)——每个 chunk 只携带“新增的那几个字”,拼起所有增量才是完整回复。注意:第一个 chunk 通常只带 `delta.role` 而没有文本,最后一个 chunk 带 `finish_reason` 标志结束,它们的 `content` 都是 None,累加前必须判空。\n\n### 操作\n1. 复用 t01 的 `APIConfig` 与 `create_client`(骨架已含)\n2. 实现 stream_chat:create 时加 `stream=True`,迭代收集非空 delta\n3. 返回 (拼接文本, 块数),main 打印对话与统计\n4. 配好 Key 运行;本地演示可设 MOCK_LLM=1 用内置假回复\n\n### 常见坑\n- 把流式 chunk 当非流式响应:`chunk.choices[0].message` 不存在,流式里只有 `delta`\n- `parts.append(delta)` 不判空:role 块与结束块的 content 是 None,最后 `\"\".join` 时直接 TypeError",
       "todoItems": [
         {
           "title": "实现 stream_chat：create 加 stream=True 拿到流式迭代器",
@@ -125,7 +125,7 @@
       "id": "t03-streaming-ui-s2",
       "taskId": "t03-streaming-ui",
       "order": 2,
-      "title": "首 token 延迟:给灵讯通测量 TTFT",
+      "title": "首 token 延迟:给星澈助手测量 TTFT",
       "instruction": "### 目标\n把 s1 的流式函数升级为 `stream_with_stats`:在逐块接收的同时测量 **TTFT(首 token 延迟)**、总耗时与生成吞吐,返回回复文本和一份 `StreamStats` 计时报告。\n\n### 原理\n**为什么 TTFT 是流式时代的第一指标?** 一次 LLM 调用的总延迟可以拆成两段:第一段是网络往返、排队和**预填充(prefill)**——服务端读完你的整个 prompt,算出第一个 token;第二段是**逐 token 解码(decode)**——每生成一个 token 就推一次。非流式把两段全部藏起来,用户感知到的延迟 = 总时长;流式把第二段变成“阅读时间”,用户感知到的延迟 ≈ TTFT。**用户对“快”的判断,几乎完全由 TTFT 决定。**\n\n**怎么测才准?** 用 `time.perf_counter()` 打三个点:发起请求前(起点)、第一个**非空** delta 到达时(TTFT)、迭代结束(总耗时)。注意首块可能只是 role 块,content 为 None——把它当“首 token”会严重低估 TTFT,必须等第一个有文本的块。\n\n**吞吐也是体检指标。** 字符数 ÷ 总耗时 ≈ 解码速度。TTFT 高但吞吐正常,瓶颈在网络或排队;TTFT 低但吞吐慢,瓶颈在模型生成。\n\n### 操作\n1. 定义 `StreamStats` dataclass:ttft_ms / total_ms / chunk_count / char_count\n2. stream_with_stats 里 perf_counter 打三点,首个非空 delta 记 TTFT\n3. main 打印回复与计时报告(TTFT、总耗时、吞吐)\n\n### 常见坑\n- 用第一个 chunk(而不是第一个非空 delta)记 TTFT:role 块会让 TTFT 虚低,数据自欺欺人\n- 计时用 `time.time()`:系统校时会让时钟“跳变”,测间隔必须用 `perf_counter`",
       "todoItems": [
         {
@@ -232,7 +232,7 @@
       "taskId": "t03-streaming-ui",
       "order": 3,
       "title": "打字机界面:让回复逐字浮现",
-      "instruction": "### 目标\n实现 `typewriter_print`:把 s2 收到的增量文本**逐块渲染**到终端——不换行、立即冲刷,让灵讯通的回复像真人打字一样逐字浮现,并返回完整文本供后续使用。\n\n### 原理\n**为什么直接 print 看不到流式效果?** Python 的 stdout 默认是**行缓冲**的:数据先攒在缓冲区,遇到换行符才一次性刷到终端。如果你 `print(delta)` 逐块打印,每块自带换行,回复会一截一截竖着蹦出来;如果 `print(delta, end=\"\")`,缓冲不刷,终端上还是一片死寂,直到流结束——流式白开了。\n\n**三件套:`end=\"\"` + `flush=True` + 节奏。** `end=\"\"` 让多个增量落在同一行;`flush=True` 强制把缓冲区立刻推到终端,每个 chunk 到达的瞬间用户就能看见;`time.sleep(delay)` 则是可选的节奏器——真实模式下 API 推送速度天然形成节奏,MOCK 演示时人为放缓更有“人味”。\n\n**这就是 ChatGPT 式体验的全部秘密。** 打字机效果并不让答案更快生成,它只是把“等待”改写成“阅读”:TTFT 之后,用户的每一秒都有新内容可看。感知延迟因此被大幅压缩,这是所有对话产品的体验基石。\n\n### 操作\n1. iter_deltas 生成器已就绪:统一产出非空文本增量(真实/MOCK 两路)\n2. typewriter_print 里逐块 `print(delta, end=\"\", flush=True)`,delay>0 时 sleep\n3. 收集 parts 并在流结束后 `print()` 补换行,返回拼接文本\n\n### 常见坑\n- 忘记 `flush=True`:输出全憋在缓冲区,流式效果完全消失,像非流式一样“憋大招”\n- 逐块 `print(delta)` 不加 `end=\"\"`:每个增量占一行,回复被竖着撕碎",
+      "instruction": "### 目标\n实现 `typewriter_print`:把 s2 收到的增量文本**逐块渲染**到终端——不换行、立即冲刷,让星澈助手的回复像真人打字一样逐字浮现,并返回完整文本供后续使用。\n\n### 原理\n**为什么直接 print 看不到流式效果?** Python 的 stdout 默认是**行缓冲**的:数据先攒在缓冲区,遇到换行符才一次性刷到终端。如果你 `print(delta)` 逐块打印,每块自带换行,回复会一截一截竖着蹦出来;如果 `print(delta, end=\"\")`,缓冲不刷,终端上还是一片死寂,直到流结束——流式白开了。\n\n**三件套:`end=\"\"` + `flush=True` + 节奏。** `end=\"\"` 让多个增量落在同一行;`flush=True` 强制把缓冲区立刻推到终端,每个 chunk 到达的瞬间用户就能看见;`time.sleep(delay)` 则是可选的节奏器——真实模式下 API 推送速度天然形成节奏,MOCK 演示时人为放缓更有“人味”。\n\n**这就是主流对话产品流式体验的核心。** 打字机效果并不让答案更快生成,它只是把“等待”改写成“阅读”:TTFT 之后,用户的每一秒都有新内容可看。感知延迟因此被大幅压缩,这是所有对话产品的体验基石。\n\n### 操作\n1. iter_deltas 生成器已就绪:统一产出非空文本增量(真实/MOCK 两路)\n2. typewriter_print 里逐块 `print(delta, end=\"\", flush=True)`,delay>0 时 sleep\n3. 收集 parts 并在流结束后 `print()` 补换行,返回拼接文本\n\n### 常见坑\n- 忘记 `flush=True`:输出全憋在缓冲区,流式效果完全消失,像非流式一样“憋大招”\n- 逐块 `print(delta)` 不加 `end=\"\"`:每个增量占一行,回复被竖着撕碎",
       "todoItems": [
         {
           "title": "typewriter_print 逐块 print(delta, end=\"\", flush=True)",
@@ -459,7 +459,7 @@
       "taskId": "t03-streaming-ui",
       "order": 5,
       "title": "对照实验:流式 vs 非流式,用数据说话",
-      "instruction": "### 目标\n设计并执行一次对照实验:**同一问题、同一模型、同一客户端**,分别用非流式与流式各跑一次,测量“首字可见时间”与“总耗时”,打印对比报告并得出结论——灵讯通的体验优化从此有了数据依据。\n\n### 原理\n**对照实验的第一原则是只改一个变量。** 两次调用必须共享 prompt、model、temperature 等所有参数,唯一的差别是 `stream` 开关;否则差异可能来自问题本身或模型抖动,结论就站不住。严谨起见还应多次重复取平均(网络延迟本身有噪声),本任务为控制成本各跑一次,但要知道这是简化。\n\n**两个指标回答两个不同的问题。** “首字可见时间”(非流式 = 总耗时;流式 = TTFT)回答“用户多久开始看到内容”;“总耗时”回答“完整答案多久生成完”。实验的预期结论:**两者的总耗时几乎相同**——流式并不加速生成,服务端的工作量一模一样;但**首字可见时间相差数倍**,因为流式把漫长的解码阶段变成了用户的阅读时间。\n\n**这就是工程决策的标准姿势。** “流式体验更好”不该是一句玄学口号,而应该是一次可复现实验的输出:跑数据 → 出报告 → 下结论。以后评估任何优化(换模型、加缓存、调参数),都是同一套方法论。\n\n### 操作\n1. measure_blocking:非流式调用,first = total = 总耗时\n2. measure_streaming:流式调用,first = TTFT,total = 流结束\n3. run_experiment 汇总两次结果,打印对比与结论(首字提前倍数)\n\n### 常见坑\n- 两次实验换了问题或参数:变量没控制住,对比失去意义\n- 用一次实验的微小差异下大结论:网络延迟有噪声,生产评估要多次取平均",
+      "instruction": "### 目标\n设计并执行一次对照实验:**同一问题、同一模型、同一客户端**,分别用非流式与流式各跑一次,测量“首字可见时间”与“总耗时”,打印对比报告并得出结论——星澈助手的体验优化从此有了数据依据。\n\n### 原理\n**对照实验的第一原则是只改一个变量。** 两次调用必须共享 prompt、model、temperature 等所有参数,唯一的差别是 `stream` 开关;否则差异可能来自问题本身或模型抖动,结论就站不住。严谨起见还应多次重复取平均(网络延迟本身有噪声),本任务为控制成本各跑一次,但要知道这是简化。\n\n**两个指标回答两个不同的问题。** “首字可见时间”(非流式 = 总耗时;流式 = TTFT)回答“用户多久开始看到内容”;“总耗时”回答“完整答案多久生成完”。实验的预期结论:**两者的总耗时几乎相同**——流式并不加速生成,服务端的工作量一模一样;但**首字可见时间相差数倍**,因为流式把漫长的解码阶段变成了用户的阅读时间。\n\n**这就是工程决策的标准姿势。** “流式体验更好”不该是一句玄学口号,而应该是一次可复现实验的输出:跑数据 → 出报告 → 下结论。以后评估任何优化(换模型、加缓存、调参数),都是同一套方法论。\n\n### 操作\n1. measure_blocking:非流式调用,first = total = 总耗时\n2. measure_streaming:流式调用,first = TTFT,total = 流结束\n3. run_experiment 汇总两次结果,打印对比与结论(首字提前倍数)\n\n### 常见坑\n- 两次实验换了问题或参数:变量没控制住,对比失去意义\n- 用一次实验的微小差异下大结论:网络延迟有噪声,生产评估要多次取平均",
       "todoItems": [
         {
           "title": "实现 measure_blocking：非流式调用，first = total = 总耗时",

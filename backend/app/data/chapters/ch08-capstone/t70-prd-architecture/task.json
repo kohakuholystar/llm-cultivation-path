@@ -5,7 +5,7 @@
       "taskId": "t70-prd-architecture",
       "order": 1,
       "title": "PRD 骨架:项目定位与用户故事",
-      "instruction": "### 目标\n\n为章项目「渡劫飞升」撰写 PRD 的第一期内容:项目定位与用户故事。你要补全 `target_users` 与 `user_stories` 两个函数,把「给谁做、解决什么问题、典型用户怎么用」落成结构化数据,再由现成的渲染函数拼出 Markdown 文档,写入 `docs/prd_part1.md`。\n\n### 原理\n\nPRD(Product Requirements Document)是产品与研发之间的契约。它的第一使命不是写得华丽,而是把「一句话愿景」拆成可评审的条目:项目定位回答「这是什么、为什么做」;目标必须可量化,否则验收时无从对账;用户故事用「作为…,我想要…,以便…」的句式,把每个角色的诉求写成一个独立、可测试的验收单元。本步坚持「数据 + 渲染」分离:所有内容先组织成 Python 数据结构,再用极简的 Markdown 渲染器拼装——文档永远与代码同源,改一行数据即可重新生成,不会出现文档与实现脱节。\n\n### 操作\n\n1. 在 `target_users` 里返回 3 行用户,每行 `[用户, 身份, 核心诉求]`;\n2. 在 `user_stories` 里返回 3 条故事,按「作为…,我想要…,以便…」句式书写;\n3. 运行脚本,确认 `docs/prd_part1.md` 生成,正文包含两个章节与两张表格。\n\n### 常见坑\n\n- 用户故事必须以「作为…」开头并交代收益,否则无法验收;「系统应支持问答」这类空泛描述不是故事;\n- `md_table` 依赖二维数组,返回的行必须与表头列数一致,多一列少一列都会让表格错位。\n",
+      "instruction": "### 目标\n\n为章项目「黑糖资料室」撰写 PRD 的第一期内容:项目定位与用户故事。你要补全 `target_users` 与 `user_stories` 两个函数,把「给谁做、解决什么问题、典型用户怎么用」落成结构化数据,再由现成的渲染函数拼出 Markdown 文档,写入 `docs/prd_part1.md`。\n\n### 原理\n\nPRD(Product Requirements Document)是产品与研发之间的契约。它的第一使命不是写得华丽,而是把「一句话愿景」拆成可评审的条目:项目定位回答「这是什么、为什么做」;目标必须可量化,否则验收时无从对账;用户故事用「作为…,我想要…,以便…」的句式,把每个角色的诉求写成一个独立、可测试的验收单元。本步坚持「数据 + 渲染」分离:所有内容先组织成 Python 数据结构,再用极简的 Markdown 渲染器拼装——文档永远与代码同源,改一行数据即可重新生成,不会出现文档与实现脱节。\n\n### 操作\n\n1. 在 `target_users` 里返回 3 行用户,每行 `[用户, 身份, 核心诉求]`;\n2. 在 `user_stories` 里返回 3 条故事,按「作为…,我想要…,以便…」句式书写;\n3. 运行脚本,确认 `docs/prd_part1.md` 生成,正文包含两个章节与两张表格。\n\n### 常见坑\n\n- 用户故事必须以「作为…」开头并交代收益,否则无法验收;「系统应支持问答」这类空泛描述不是故事;\n- `md_table` 依赖二维数组,返回的行必须与表头列数一致,多一列少一列都会让表格错位。\n",
       "todoItems": [
         {
           "title": "补全 `target_users`,返回 3 行用户,每行 `[用户, 身份, 核心诉求]`",
@@ -43,7 +43,7 @@
         {
           "title": "生成的 PRD 第一章(节选)",
           "language": "text",
-          "code": "# 渡劫飞升 PRD\n\n## 一、项目定位\n\n- 项目名称:渡劫飞升\n\n### 目标\n\n1. 能对修行问题给出带出处的答案,答非所问率低于 5%\n\n## 二、目标用户与用户故事\n\n### 目标用户\n\n| 用户 | 身份 | 核心诉求 |\n| --- | --- | --- |\n| 入门散修 | 刚踏入修行界的新人 | 快速搞懂基础功法,少走弯路 |",
+          "code": "# 黑糖资料室 PRD\n\n## 一、项目定位\n\n- 项目名称:黑糖资料室\n\n### 目标\n\n1. 能对学习问题给出带出处的答案,答非所问率低于 5%\n\n## 二、目标用户与用户故事\n\n### 目标用户\n\n| 用户 | 身份 | 核心诉求 |\n| --- | --- | --- |\n| 入门自学者 | 刚踏入技术社区的新人 | 快速搞懂基础方法,少走弯路 |",
           "description": "数据 + 渲染的产物:同一份数据结构,重新运行即可再生成文档。"
         }
       ],
@@ -115,7 +115,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应生成 PRD 骨架并打印完成信息。",
-          "expectedStdout": "渡劫飞升 PRD[\\s\\S]*已写入 docs/prd_part1\\.md,正文共 \\d+ 字符",
+          "expectedStdout": "黑糖资料室 PRD[\\s\\S]*已写入 docs/prd_part1\\.md,正文共 \\d+ 字符",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -127,7 +127,7 @@
       "taskId": "t70-prd-architecture",
       "order": 2,
       "title": "系统架构:mermaid 架构图分层",
-      "instruction": "### 目标\n\n为「渡劫飞升」产出系统架构章节:用 mermaid 的 flowchart 语法画出五层架构图,并附一张技术选型表。你要补全 `arch_edges`(组件连线)与 `check_diagram`(架构图自检),让生成的 `docs/architecture.mmd` 既直观又可验证。\n\n### 原理\n\n架构图是 PRD 中最「图胜千言」的部分。mermaid 是纯文本的图表语法,可以直接写进 Markdown 文档,被 GitHub 等平台原生渲染。分层的价值在于约束依赖方向:展示层只能调用接入层,接入层只能调用业务层,业务层再往下触达能力层与存储层——依赖一旦反向,架构就开始腐烂。所以本步用 `subgraph` 把组件按层归组,再用 `a --> b` 连线表达数据流;`check_diagram` 用字符串计数做最朴素的体检:连线数、分组数、闭合数必须对得上,把「画得好看」变成「画得正确」。\n\n### 操作\n\n1. 在 `arch_edges` 里补全 8 条连线,串起 web→api→svc→agent 主干,再分出 rag、harness、vec、kb、mem 的分支;\n2. 在 `check_diagram` 里统计 `-->`、`subgraph`、`end` 的数量,断言分组数与闭合数一致;\n3. 运行脚本,确认输出「校验通过」且 `docs/architecture.mmd` 生成。\n\n### 常见坑\n\n- mermaid 节点文本里的特殊符号要用双引号包住,`node[\"文本\"]` 是标准写法,否则渲染会报错;\n- 统计 `end` 时,分组名与节点文本里不能出现 `end` 字样,否则闭合计数虚高,体检形同虚设。\n",
+      "instruction": "### 目标\n\n为「黑糖资料室」产出系统架构章节:用 mermaid 的 flowchart 语法画出五层架构图,并附一张技术选型表。你要补全 `arch_edges`(组件连线)与 `check_diagram`(架构图自检),让生成的 `docs/architecture.mmd` 既直观又可验证。\n\n### 原理\n\n架构图是 PRD 中最「图胜千言」的部分。mermaid 是纯文本的图表语法,可以直接写进 Markdown 文档,被 GitHub 等平台原生渲染。分层的价值在于约束依赖方向:展示层只能调用接入层,接入层只能调用业务层,业务层再往下触达能力层与存储层——依赖一旦反向,架构就开始腐烂。所以本步用 `subgraph` 把组件按层归组,再用 `a --> b` 连线表达数据流;`check_diagram` 用字符串计数做最朴素的体检:连线数、分组数、闭合数必须对得上,把「画得好看」变成「画得正确」。\n\n### 操作\n\n1. 在 `arch_edges` 里补全 8 条连线,串起 web→api→svc→agent 主干,再分出 rag、harness、vec、kb、mem 的分支;\n2. 在 `check_diagram` 里统计 `-->`、`subgraph`、`end` 的数量,断言分组数与闭合数一致;\n3. 运行脚本,确认输出「校验通过」且 `docs/architecture.mmd` 生成。\n\n### 常见坑\n\n- mermaid 节点文本里的特殊符号要用双引号包住,`node[\"文本\"]` 是标准写法,否则渲染会报错;\n- 统计 `end` 时,分组名与节点文本里不能出现 `end` 字样,否则闭合计数虚高,体检形同虚设。\n",
       "todoItems": [
         {
           "title": "补全 `arch_edges`,返回 8 条连线,串起 web→api→svc→agent 主干与 rag/harness/vec/kb/mem 分支",
@@ -249,7 +249,7 @@
       "taskId": "t70-prd-architecture",
       "order": 3,
       "title": "数据模型:Pydantic 契约先行",
-      "instruction": "### 目标\n\n为「渡劫飞升」定义数据契约:文档、切块、典籍库、检索请求、检索命中五份 Pydantic 模型。你要补全 `Chunk` 与 `RetrievalQuery` 的字段定义,让非法数据(空提问、越界的 top_k、超范围的相似度)在进入业务逻辑之前就被拦截,并把契约导出成 JSON Schema 供前端复用。\n\n### 原理\n\n数据模型是接口契约的源头:一份 `BaseModel` 同时决定了数据库表、API 入参和前端表单的形态。契约先行的好处是「把错误挡在最薄的门槛」——Pydantic 在构造对象时完成类型校验与约束检查,top_k=0 这类非法值连函数体都进不去。而 `model_json_schema()` 能把模型导出成标准 JSON Schema:前端用它自动生成表单与校验,后端用它生成 OpenAPI 文档,同一份定义全链路复用。字段上的 `Field(description=...)` 不只是注释,它会原样进入 JSON Schema,是写给调用方(包括模型)的说明书。\n\n### 操作\n\n1. 补全 `Chunk` 的 4 个字段:chunk_id、doc_id、content 均为字符串,order 为从 0 开始计数的整数;\n2. 补全 `RetrievalQuery` 的 3 个字段:text 限长 2-200、top_k 限定 1-20、threshold 限定 0-1 且默认 0.5;\n3. 运行脚本,确认 4 份契约导出到 `docs/data_models.json`,且 top_k=0 的请求被「拦截成功」。\n\n### 常见坑\n\n- 可变默认值必须用 `default_factory=list`,直接写 `default=[]` 会让所有实例共享同一个列表,Pydantic 会直接报错;\n- 约束要写在模型上而不是业务函数里:如果 top_k 的 `gt=0` 在业务里手工 if 判断,契约就名存实亡了。\n",
+      "instruction": "### 目标\n\n为「黑糖资料室」定义数据契约:文档、切块、知识库、检索请求、检索命中五份 Pydantic 模型。你要补全 `Chunk` 与 `RetrievalQuery` 的字段定义,让非法数据(空提问、越界的 top_k、超范围的相似度)在进入业务逻辑之前就被拦截,并把契约导出成 JSON Schema 供前端复用。\n\n### 原理\n\n数据模型是接口契约的源头:一份 `BaseModel` 同时决定了数据库表、API 入参和前端表单的形态。契约先行的好处是「把错误挡在最薄的门槛」——Pydantic 在构造对象时完成类型校验与约束检查,top_k=0 这类非法值连函数体都进不去。而 `model_json_schema()` 能把模型导出成标准 JSON Schema:前端用它自动生成表单与校验,后端用它生成 OpenAPI 文档,同一份定义全链路复用。字段上的 `Field(description=...)` 不只是注释,它会原样进入 JSON Schema,是写给调用方(包括模型)的说明书。\n\n### 操作\n\n1. 补全 `Chunk` 的 4 个字段:chunk_id、doc_id、content 均为字符串,order 为从 0 开始计数的整数;\n2. 补全 `RetrievalQuery` 的 3 个字段:text 限长 2-200、top_k 限定 1-20、threshold 限定 0-1 且默认 0.5;\n3. 运行脚本,确认 4 份契约导出到 `docs/data_models.json`,且 top_k=0 的请求被「拦截成功」。\n\n### 常见坑\n\n- 可变默认值必须用 `default_factory=list`,直接写 `default=[]` 会让所有实例共享同一个列表,Pydantic 会直接报错;\n- 约束要写在模型上而不是业务函数里:如果 top_k 的 `gt=0` 在业务里手工 if 判断,契约就名存实亡了。\n",
       "todoItems": [
         {
           "title": "补全 `Chunk` 的 4 个字段:chunk_id、doc_id、content 为字符串,order 为从 0 开始计数的整数",
@@ -363,7 +363,7 @@
       "taskId": "t70-prd-architecture",
       "order": 4,
       "title": "接口契约:OpenAPI 3.0 规格生成",
-      "instruction": "### 目标\n\n为「渡劫飞升」定义对外接口契约:用 `EndpointSpec` 声明建库、入库、检索、健康检查四个接口的入参出参,由 `build_openapi` 组装成 OpenAPI 3.0 文档并导出为 YAML。你要补全 `endpoints`(四个接口)与 `verify_contract`(读回校验),让前后端拿到同一份可验证的契约。\n\n### 原理\n\n接口契约的价值在于「先约定、后实现」:前端按契约联调,后端按契约实现,谁先做完都不耽误谁。OpenAPI 3.0 是接口描述的事实标准,一份 `openapi.yaml` 同时驱动文档站、Mock 服务与代码生成。本步把 Pydantic 模型当作契约源头:`model_json_schema()` 生成请求体的 JSON Schema,`EndpointSpec` 统一描述「方法 + 路径 + 摘要 + 请求体 + 响应体」,`build_openapi` 只做机械组装——业务模型一变,接口文档自动跟着变,不存在「文档忘了改」的经典事故。`verify_contract` 再读回 YAML 做闭环校验,保证落盘的文档与声明一致。\n\n### 操作\n\n1. 补全 `endpoints`,四个接口的请求体 Schema 用 `Document.model_json_schema()` 与 `RetrievalQuery.model_json_schema()` 生成,健康检查不设请求体;\n2. 补全 `verify_contract`,断言 4 条路径、4 个方法、且包含 `/api/retrieve`;\n3. 运行脚本,确认输出「契约校验通过」且 `docs/openapi.yaml` 生成。\n\n### 常见坑\n\n- `Optional[dict]` 字段的默认值必须是 `None`,用 `Field(default=None)` 而不是可变字典——可变默认值永远用 default;\n- YAML 导出要 `allow_unicode=True`,否则中文会被转义成 `\\uXXXX` 可读性全无;`sort_keys=False` 保证字段顺序与声明一致。\n",
+      "instruction": "### 目标\n\n为「黑糖资料室」定义对外接口契约:用 `EndpointSpec` 声明建库、入库、检索、健康检查四个接口的入参出参,由 `build_openapi` 组装成 OpenAPI 3.0 文档并导出为 YAML。你要补全 `endpoints`(四个接口)与 `verify_contract`(读回校验),让前后端拿到同一份可验证的契约。\n\n### 原理\n\n接口契约的价值在于「先约定、后实现」:前端按契约联调,后端按契约实现,谁先做完都不耽误谁。OpenAPI 3.0 是接口描述的事实标准,一份 `openapi.yaml` 同时驱动文档站、Mock 服务与代码生成。本步把 Pydantic 模型当作契约源头:`model_json_schema()` 生成请求体的 JSON Schema,`EndpointSpec` 统一描述「方法 + 路径 + 摘要 + 请求体 + 响应体」,`build_openapi` 只做机械组装——业务模型一变,接口文档自动跟着变,不存在「文档忘了改」的经典事故。`verify_contract` 再读回 YAML 做闭环校验,保证落盘的文档与声明一致。\n\n### 操作\n\n1. 补全 `endpoints`,四个接口的请求体 Schema 用 `Document.model_json_schema()` 与 `RetrievalQuery.model_json_schema()` 生成,健康检查不设请求体;\n2. 补全 `verify_contract`,断言 4 条路径、4 个方法、且包含 `/api/retrieve`;\n3. 运行脚本,确认输出「契约校验通过」且 `docs/openapi.yaml` 生成。\n\n### 常见坑\n\n- `Optional[dict]` 字段的默认值必须是 `None`,用 `Field(default=None)` 而不是可变字典——可变默认值永远用 default;\n- YAML 导出要 `allow_unicode=True`,否则中文会被转义成 `\\uXXXX` 可读性全无;`sort_keys=False` 保证字段顺序与声明一致。\n",
       "todoItems": [
         {
           "title": "补全 `endpoints`,声明建库、入库、检索、健康检查四个接口,请求体 Schema 用 `Document`/`RetrievalQuery` 的 `model_json_schema()` 生成",
@@ -401,7 +401,7 @@
         {
           "title": "生成的 openapi.yaml(节选)",
           "language": "text",
-          "code": "openapi: 3.0.3\ninfo:\n  title: 渡劫飞升 · 知识问答 API\n  version: 0.1.0\npaths:\n  /api/retrieve:\n    post:\n      summary: 检索典籍,返回带分值的命中",
+          "code": "openapi: 3.0.3\ninfo:\n  title: 黑糖资料室 · 知识问答 API\n  version: 0.1.0\npaths:\n  /api/retrieve:\n    post:\n      summary: 检索资料,返回带分值的命中",
           "description": "OpenAPI 3.0 根文档:info 描述服务,paths 描述每个接口的方法、摘要与出入参。"
         }
       ],
@@ -491,7 +491,7 @@
       "taskId": "t70-prd-architecture",
       "order": 5,
       "title": "PRD 总成:里程碑、验收与评审",
-      "instruction": "### 目标\n\n完成「渡劫飞升」的 PRD 总成:把 s1-s4 的定位、架构、数据、接口四块拼图汇成一份完整文档,补上里程碑计划与验收标准,渲染出 `docs/PRD.md`,并用 `review_prd` 做一次自动化评审。你要补全 `milestones`、`acceptance_criteria` 与 `assemble_prd` 的验收小节三个 TODO。\n\n### 原理\n\n一份能指导开发的 PRD,除了前四章的需求与设计,还必须有「怎么排期、怎么算完」:里程碑把长周期目标切成有明确产出的阶段节点,每个里程碑可独立验收;验收标准把「做得好不好」从主观感受变成可执行的断言——每条都以 AC 编号开头,写成一个可以测试的句子。最后用 `review_prd` 做自动化评审:逐章核对标题、核对关键要素(项目名、契约类、mermaid、openapi 版本)、核对正文篇幅,任何一项缺失都会在打印中暴露,评审从「靠经验」变成「跑脚本」。\n\n### 操作\n\n1. 补全 `milestones`,返回 4 个里程碑 M1-M4,每行 `[编号, 目标, 产出]`;\n2. 补全 `acceptance_criteria`,返回 5 条以「AC-N:」开头的可验证断言;\n3. 在 `assemble_prd` 的「六、验收标准」小节,用 `acceptance_criteria()` 渲染验收表并返回完整文档;\n4. 运行脚本,确认输出「评审全部通过」且 `docs/PRD.md` 生成。\n\n### 常见坑\n\n- 验收标准要可测试:「系统稳定」不是标准,「top_k 越界返回 400」才是;\n- `review_prd` 会把正文长度不足 500 字符也判为不通过,里程碑与验收表请写足内容,不要留空壳。\n",
+      "instruction": "### 目标\n\n完成「黑糖资料室」的 PRD 总成:把 s1-s4 的定位、架构、数据、接口四块拼图汇成一份完整文档,补上里程碑计划与验收标准,渲染出 `docs/PRD.md`,并用 `review_prd` 做一次自动化评审。你要补全 `milestones`、`acceptance_criteria` 与 `assemble_prd` 的验收小节三个 TODO。\n\n### 原理\n\n一份能指导开发的 PRD,除了前四章的需求与设计,还必须有「怎么排期、怎么算完」:里程碑把长周期目标切成有明确产出的阶段节点,每个里程碑可独立验收;验收标准把「做得好不好」从主观感受变成可执行的断言——每条都以 AC 编号开头,写成一个可以测试的句子。最后用 `review_prd` 做自动化评审:逐章核对标题、核对关键要素(项目名、契约类、mermaid、openapi 版本)、核对正文篇幅,任何一项缺失都会在打印中暴露,评审从「靠经验」变成「跑脚本」。\n\n### 操作\n\n1. 补全 `milestones`,返回 4 个里程碑 M1-M4,每行 `[编号, 目标, 产出]`;\n2. 补全 `acceptance_criteria`,返回 5 条以「AC-N:」开头的可验证断言;\n3. 在 `assemble_prd` 的「六、验收标准」小节,用 `acceptance_criteria()` 渲染验收表并返回完整文档;\n4. 运行脚本,确认输出「评审全部通过」且 `docs/PRD.md` 生成。\n\n### 常见坑\n\n- 验收标准要可测试:「系统稳定」不是标准,「top_k 越界返回 400」才是;\n- `review_prd` 会把正文长度不足 500 字符也判为不通过,里程碑与验收表请写足内容,不要留空壳。\n",
       "todoItems": [
         {
           "title": "补全 `milestones`,返回 4 个里程碑 M1-M4,每行 `[编号, 目标, 产出]`",

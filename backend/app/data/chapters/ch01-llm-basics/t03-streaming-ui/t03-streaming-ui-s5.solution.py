@@ -1,4 +1,4 @@
-"""灵讯通 · s5:对照实验 —— 同一问题只改 stream 开关,用数据回答流式快在哪。"""
+"""星澈助手 · s5:对照实验 —— 同一问题只改 stream 开关,用数据回答流式快在哪。"""
 import os
 import sys
 import time
@@ -8,7 +8,7 @@ from openai import OpenAI
 
 MOCK = bool(os.environ.get("MOCK_LLM"))
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地演示可设置 MOCK_LLM=1 使用内置假数据)")
     sys.exit(0)

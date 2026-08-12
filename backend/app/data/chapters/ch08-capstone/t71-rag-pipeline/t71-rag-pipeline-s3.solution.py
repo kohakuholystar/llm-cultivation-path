@@ -1,4 +1,4 @@
-"""渡劫飞升 · s3:倒排检索器
+"""终期交付 · s3:倒排检索器
 
 用「字符二元组」给中文文本建立倒排索引,查询时按命中 token 数打分,
 返回 top-k 个 (Chunk, 分数)。本步检索完全本地、完全确定,是整条
@@ -9,15 +9,15 @@ from collections import Counter, defaultdict
 
 RAW_DOCS = [
     ("需求分析.md",
-     "渡劫飞升是一款面向修仙者的 AI 助手应用。\n"
-     "核心功能:修炼咨询、丹药百科、宗门问答、渡劫指引。\n"
+     "黑糖资料室是一款面向学习者的 AI 助手应用。\n"
+     "核心功能:学习咨询、活动方案百科、项目组问答、上线验收指引。\n"
      "要求回答准确、引用出处、支持多轮追问。"),
     ("架构设计.md",
-     "渡劫飞升采用分层架构,共五层。\n"
+     "黑糖资料室采用分层架构,共五层。\n"
      "接入层用 FastAPI 提供 HTTP 接口;ingest 层负责加载切分入库。\n"
      "检索层把问题向量化后召回片段;生成层拼装提示词调用大模型。"),
     ("部署手册.md",
-     "渡劫飞升支持 Docker Compose 一键部署,服务暴露 8000 端口。\n"
+     "黑糖资料室支持 Docker Compose 一键部署,服务暴露 8000 端口。\n"
      "健康检查路径 /healthz 返回 ok 即部署成功。\n"
      "环境变量 LLM_API_KEY 指定大模型密钥,DATABASE_URL 指定向量库。"),
 ]
@@ -99,7 +99,7 @@ def main() -> None:
     for title, content in load_docs():
         retriever.add_chunks(chunk_document(title, content))
     print(f"检索器就绪:共 {len(retriever.chunks)} 个片段,索引 {len(retriever.index)} 个词")
-    query = "渡劫飞升的架构分为哪几层?"
+    query = "黑糖资料室的架构分为哪几层?"
     print(f"\n== 查询: {query} ==")
     for rank, (chunk, score) in enumerate(retriever.search(query), 1):
         print(f"#{rank} (score {score}) {chunk}")

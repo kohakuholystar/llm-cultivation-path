@@ -1,8 +1,20 @@
-"""乾坤观测台 · s5:总装,观测与业务合一
+"""运行时观测台 · s5:总装,观测与业务合一
 
 前面的砖块都齐了,本步把它们砌成一座可复用的观测台:
 一次回合有 span、有计数、有成败打点,收尾自动出报告——观测与业务合一。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：总装:观测与业务合一。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `QiankunObserver`：承载本节状态/数据；重点方法：log, info, warn, error, seen_events, start_span, end_span, inc, snapshot, generate_report, _report_span, save_report, run_agent_session。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
 import sys
 import time
@@ -102,7 +114,7 @@ class QiankunObserver:
 
 def main() -> None:
     # TODO: 创建观测者并跑一轮总装
-    # 提示: ob = QiankunObserver(stream=sys.stdout);ob.run_agent_session(["帮我查飞剑的行情", "炸"])
+    # 提示: ob = QiankunObserver(stream=sys.stdout);ob.run_agent_session(["帮我查展示素材的行情", "炸"])
     raise NotImplementedError("t43-observability-s5 尚未实现:请按 TODO 提示完成 main 演示")
 
 

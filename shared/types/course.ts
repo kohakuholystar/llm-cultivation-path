@@ -70,6 +70,15 @@ export interface Step {
   terms: Term[]
   techStack: TechStackItem[]
   validation: ValidationRule[] // 全部通过才算通关
+  /** 真实框架最小示例的特例行数阈值；低于 40 时必须附说明。 */
+  minimumSolutionLines?: number
+  compactSolutionRationale?: string
+  /** 是否需要真实网络运行；未设置时继承 task.needsNetwork。 */
+  needsNetwork?: boolean
+  /** 步骤级沙箱超时（秒）；仅用于明确标注的多轮真实调用，最高 120 秒。 */
+  sandboxTimeout?: number
+  /** 选择普通或模型课程沙箱；未设置时使用 core。 */
+  sandboxProfile?: 'core' | 'ml'
 }
 
 export interface Hint {

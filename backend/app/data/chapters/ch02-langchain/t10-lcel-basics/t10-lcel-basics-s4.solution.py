@@ -1,4 +1,4 @@
-"""铸剑台 · 第四步:批量开炉 —— chain.batch 并发锻造与串行 invoke 的对比实验。"""
+"""黑糖资料室 · LCEL 处理管道 · s4：用 LangChain 完成可验证的学习任务。"""
 import os
 import sys
 import time
@@ -11,8 +11,8 @@ from langchain_openai import ChatOpenAI
 MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 
-# 今日订单:六块材料,逐一命名
-ORDERS = ["天外陨铁", "千年寒玉", "深海玄铜", "雷击桃木", "昆仑冰晶", "大漠金沙"]
+# 今日订单:六块素材,逐一命名
+ORDERS = ["活动素材", "校园照片", "社团徽标", "活动插画", "冷色渐变", "暖色纹理"]
 
 
 def use_mock() -> bool:
@@ -33,16 +33,16 @@ def build_llm():
     if use_mock():
         # 假模型回答循环使用,六份订单正好轮一轮
         return FakeListChatModel(responses=[
-            "剑名「青霜」", "剑名「寒玥」", "剑名「玄鲸」",
-            "剑名「惊雷」", "剑名「凝冰」", "剑名「流砂」",
+            "方案名称「晨光」", "方案名称「寒玥」", "方案名称「玄鲸」",
+            "方案名称「惊雷」", "方案名称「凝冰」", "方案名称「流砂」",
         ])
     return ChatOpenAI(model=MODEL_NAME, base_url=BASE_URL, temperature=0.7, timeout=30)
 
 
 def build_chain(llm):
-    """只输出剑名的极简配方,便于对齐对比。"""
+    """只输出方案名的极简配方,便于对齐对比。"""
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑师,只输出剑名,格式:剑名「X」。"),
+        ("system", "你是内容策划助手,只输出方案名称,格式:方案名称「X」。"),
         ("human", "材料:{material}"),
     ])
     return prompt | llm | StrOutputParser()
@@ -73,14 +73,14 @@ def timed(fn, *args):
 def main() -> None:
     check_api_key()
     chain = build_chain(build_llm())
-    print(f"今日订单 {len(ORDERS)} 份,开炉 [{MODEL_NAME}]")
+    print(f"今日订单 {len(ORDERS)} 份,开始处理 [{MODEL_NAME}]")
     t1, seq = timed(forge_sequential, chain, ORDERS)
     t2, bat = timed(forge_batch, chain, ORDERS)
     assert len(seq) == len(bat) == len(ORDERS), "批量与串行结果数量必须一致"
     for material, name in zip(ORDERS, bat):      # batch 保序,放心 zip
         print(f"【{material}】{name.strip()}")
     print(f"串行耗时 {t1:.2f}s / 批量耗时 {t2:.2f}s")
-    print("批量开炉,效率立现。")
+    print("批量开始处理,效率立现。")
 
 
 if __name__ == "__main__":

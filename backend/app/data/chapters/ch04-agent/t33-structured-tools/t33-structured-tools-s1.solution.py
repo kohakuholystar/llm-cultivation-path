@@ -1,6 +1,6 @@
-"""百宝囊 · s1:多参数法宝与 args_schema 校验
+"""社团工具箱 · s1:多参数工具与 args_schema 校验
 
-百宝囊是 Agent 随身的法器袋。本步打造第一件法宝「炼器炉」:
+社团工具箱是 Agent 随身的工具袋。本步打造第一件工具「构建器」:
 一个接收 4 个参数的计算工具,用 Pydantic BaseModel 声明参数契约,
 让 LangChain 在执行函数体之前自动完成类型校验与 coercion。
 """
@@ -11,36 +11,36 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 class RefineInput(BaseModel):
-    """炼器炉的入参契约:每个字段都是写给模型看的说明书。"""
+    """构建器的入参契约:每个字段都是写给模型看的说明书。"""
 
-    item_name: str = Field(description="要炼制的法器名称,如「飞剑」")
-    quantity: int = Field(gt=0, le=99, description="炼制数量,1-99 件")
-    unit_cost: float = Field(ge=0, description="单件材料成本(灵石)")
-    rarity: Literal["凡品", "精品", "仙品"] = Field(
-        default="凡品", description="品质档位,决定加成系数"
+    item_name: str = Field(description="要生成的工具名称,如「演示设备」")
+    quantity: int = Field(gt=0, le=99, description="生成数量,1-99 件")
+    unit_cost: float = Field(ge=0, description="单件材料成本(预算点)")
+    rarity: Literal["基础", "标准", "高级"] = Field(
+        default="基础", description="品质档位,决定加成系数"
     )
 
 
-# 品质加成系数表:仙品法器耗费的炉火更旺
-RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "仙品": 3.0}
+# 品质加成系数表:高级工具耗费的运行资源更旺
+RARITY_BONUS = {"基础": 1.0, "标准": 1.5, "高级": 3.0}
 
 
 @tool(args_schema=RefineInput)
-def refine_calc(item_name: str, quantity: int, unit_cost: float, rarity: str = "凡品") -> str:
-    """估算炼制法器的总灵石成本,含品质加成。"""
+def refine_calc(item_name: str, quantity: int, unit_cost: float, rarity: str = "基础") -> str:
+    """估算生成工具的总预算点成本,含品质加成。"""
     bonus = RARITY_BONUS[rarity]
     total = quantity * unit_cost * bonus
     return (
-        f"【炼器炉】{rarity}·{item_name} x{quantity}:"
-        f"材料 {quantity * unit_cost:.1f} 灵石,品质加成 x{bonus},"
-        f"共需 {total:.1f} 灵石"
+        f"【构建器】{rarity}·{item_name} x{quantity}:"
+        f"材料 {quantity * unit_cost:.1f} 预算点,品质加成 x{bonus},"
+        f"共需 {total:.1f} 预算点"
     )
 
 
 def show_schema() -> None:
-    """打印法宝的参数契约——这份 JSON Schema 最终会随请求发给模型。"""
+    """打印工具的参数契约——这份 JSON Schema 最终会随请求发给模型。"""
     schema = RefineInput.model_json_schema()
-    print("== 法宝参数契约(args_schema)==")
+    print("== 工具参数契约(args_schema)==")
     for name, prop in schema["properties"].items():
         print(f"  - {name}: {prop.get('description', '')}")
     print(f"  必填字段: {schema['required']}")
@@ -49,14 +49,14 @@ def show_schema() -> None:
 def demo_invoke() -> None:
     """演示三种调用:正常传参、自动类型转换、校验失败被拦截。"""
     print("\n== 正常调用 ==")
-    print(refine_calc.invoke({"item_name": "飞剑", "quantity": 3, "unit_cost": 120.0, "rarity": "精品"}))
+    print(refine_calc.invoke({"item_name": "演示设备", "quantity": 3, "unit_cost": 120.0, "rarity": "标准"}))
 
     print("\n== 宽松转换:字符串数字被自动 coerce ==")
-    print(refine_calc.invoke({"item_name": "丹炉", "quantity": "2", "unit_cost": 80}))
+    print(refine_calc.invoke({"item_name": "构建器", "quantity": "2", "unit_cost": 80}))
 
     print("\n== 校验失败:数量为 0 被 args_schema 挡在门口 ==")
     try:
-        refine_calc.invoke({"item_name": "飞剑", "quantity": 0, "unit_cost": 120.0})
+        refine_calc.invoke({"item_name": "演示设备", "quantity": 0, "unit_cost": 120.0})
     except ValidationError as exc:
         # 参数还没进入函数体,就被参数契约拦下了
         err = exc.errors()[0]

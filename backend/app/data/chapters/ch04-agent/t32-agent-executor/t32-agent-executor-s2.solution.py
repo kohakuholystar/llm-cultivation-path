@@ -1,101 +1,36 @@
-"""百宝囊 · 第2关: 请出执行官 AgentExecutor
-新增宝器「度量衡」, 用 AgentExecutor.invoke 替换 t31 手写的 while 循环。
-"""
+"""社团工具箱：让模型根据工具 schema 填写多个参数。"""
 import os
-import sys
 
-from langchain_classic.agents import AgentExecutor, create_react_agent
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.language_models.fake_chat_models import FakeListChatModel
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
-MOCK = os.environ.get("MOCK_LLM") == "1"
-
-# 没有 Key 就给出引导并优雅退出, 不让学习者面对 traceback
-if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[百宝囊] 未检测到 OPENAI_API_KEY。")
-    print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
-    sys.exit(0)
-
-
-def build_llm(script: list) -> BaseChatModel:
-    """联网模式返回 DeepSeek 客户端; MOCK 模式返回循环念台词的假模型。"""
-
-    if MOCK:
-        return FakeListChatModel(responses=script)  # 官方假模型, 台词念完自动从头再来
-    return ChatOpenAI(
-        model=os.environ.get("MODEL_NAME", "deepseek-v4-pro"),
-        base_url=os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com"),
-        api_key=os.environ["OPENAI_API_KEY"],
-        temperature=0,  # Agent 场景要稳定, 不要发散
-    )
-
 
 @tool
-def shenji_suanpan(expression: str) -> str:
-    """神机算盘: 计算数学表达式, 输入如 "3 * (4 + 5)"。"""
-
-    try:
-        # 关死 builtins 只许算术, 防止表达式注入
-        return str(eval(expression, {"__builtins__": {}}, {}))
-    except Exception as exc:
-        # 报错信息也是给模型看的"回报", 写清楚它才知道怎么改
-        return f"算盘打不出: {exc}"
-
-
-@tool
-def qianli_yan(city: str) -> str:
-    """千里眼: 查询城市天气, 输入城市名, 如 "杭州"。"""
-
-    observed = {"杭州": "晴 26°C", "北京": "多云 18°C", "长安": "小雨 15°C"}
-    return observed.get(city, f"{city}: 晴 22°C(百宝囊内置观测)")
-
-
-@tool
-def duliangheng(query: str) -> str:
-    """度量衡: 长度换算。输入格式 "数值 源单位 目标单位", 如 "3 里 米", 支持 里/丈/尺/米。"""
-
-    to_meter = {"里": 500.0, "丈": 10 / 3, "尺": 1 / 3, "米": 1.0}
-    try:
-        value_s, src, dst = query.split()
-        # 先折成米, 再折成目标单位
-        return f"{query} = {float(value_s) * to_meter[src] / to_meter[dst]:g} {dst}"
-    except (ValueError, KeyError) as exc:
-        return f"换算失败({exc}), 请用格式: 数值 源单位 目标单位"
-
-
-REACT_PROMPT = ChatPromptTemplate.from_template(
-    "你是「百宝囊」, 一座会思考的工具箱, 回答尽量借助宝器(工具)。\n"
-    "可用宝器:\n{tools}\n宝器名录(只能从中选): {tool_names}\n"
-    "严格按此格式行动(可重复多轮):\n"
-    "Thought: 你的思考\nAction: 宝器名\nAction Input: 给宝器的输入\nObservation: 宝器的回报\n"
-    "Thought: 我现在知道最终答案了\nFinal Answer: 给用户的最终答复\n"
-    "问题: {input}\n{agent_scratchpad}"
-)
-
-
-MOCK_SCRIPT = [
-    "Thought: 先算数\nAction: shenji_suanpan\nAction Input: 3*(4+5)",
-    "Thought: 我现在知道最终答案了\nFinal Answer: 3*(4+5)=27;杭州晴 26°C;3 里 = 1500 米",
-]
-
-
-def build_executor(tools: list, script: list) -> AgentExecutor:
-    """组装执行官: agent(决策) + tools(手脚) -> AgentExecutor(运行时)。"""
-
-    agent = create_react_agent(build_llm(script), tools, REACT_PROMPT)
-    return AgentExecutor(agent=agent, tools=tools)
+def convert_temperature(value: float, target_unit: str) -> str:
+    """把摄氏温度转换为 C 或 F。value 是摄氏数值，target_unit 只能是 C 或 F。"""
+    if target_unit.upper() == "C":
+        return f"{value:g} °C"
+    if target_unit.upper() == "F":
+        return f"{value * 9 / 5 + 32:g} °F"
+    return "参数错误：target_unit 只能是 C 或 F"
 
 
 def main() -> None:
-    tools = [shenji_suanpan, qianli_yan, duliangheng]
-    executor = build_executor(tools, MOCK_SCRIPT)
-    print("== 百宝囊 · 三件宝器已上架 ==\n")
-    for q in ["3*(4+5) 等于多少?", "杭州天气如何?另外 3 里是多少米?"]:
-        ans = executor.invoke({"input": q})  # 一行替换 t31 的整个手写 while 循环
-        print(f"问: {q}\n答: {ans['output']}\n")
+    model = ChatOpenAI(
+        model=os.environ.get("MODEL_NAME", "deepseek-v4-pro"),
+        base_url=os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com"),
+        api_key=os.environ["OPENAI_API_KEY"], temperature=0,
+    )
+    agent = create_agent(
+        model=model, tools=[convert_temperature],
+        system_prompt="你是单位助手。温度换算必须调用工具，不要猜测工具结果。",
+    )
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "把 20 摄氏度换成华氏度"}]},
+        config={"recursion_limit": 8},
+    )
+    print(result["messages"][-1].content)
 
 
 if __name__ == "__main__":

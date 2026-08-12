@@ -1,4 +1,4 @@
-"""灵讯通 · 结构化抽取 v3:解析失败自动重试,把错误反馈给模型"""
+"""星澈助手 · 结构化抽取 v3:解析失败自动重试,把错误反馈给模型"""
 import json
 import os
 import sys
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 MAX_RETRIES = 2
 
-DEMO_DIALOG = """客服:您好,这里是灵讯通,请问有什么可以帮您?
+DEMO_DIALOG = """客服:您好,这里是星澈助手,请问有什么可以帮您?
 用户:我昨天充值的会员到现在还没到账,订单号 88231。
 客服:非常抱歉,我马上帮您核实订单状态。
 用户:麻烦尽快处理,我今晚等着用。"""
@@ -86,7 +86,7 @@ def main() -> None:
     client = build_client()
     messages = [
         {"role": "system", "content": (
-            "你是灵讯通客服质检助手。请从对话中抽取关键信息,"
+            "你是星澈助手客服质检助手。请从对话中抽取关键信息,"
             "只输出一个 JSON 对象,包含 issue、order_id、emotion 三个字段。"
         )},
         {"role": "user", "content": DEMO_DIALOG},
@@ -94,9 +94,9 @@ def main() -> None:
     try:
         ticket, attempts = extract_with_retry(client, messages)
     except RuntimeError as exc:
-        print(f"[灵讯通] {exc}")
+        print(f"[星澈助手] {exc}")
         sys.exit(1)
-    print(f"[灵讯通] 第 {attempts} 次尝试后抽取成功:")
+    print(f"[星澈助手] 第 {attempts} 次尝试后抽取成功:")
     print(ticket.model_dump_json(indent=2))
 
 

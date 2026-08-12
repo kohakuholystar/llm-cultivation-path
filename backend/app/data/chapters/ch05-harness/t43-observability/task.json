@@ -2,48 +2,50 @@
   "steps": [
     {
       "id": "t43-observability-s1",
+      "minimumSolutionLines": 31,
+      "compactSolutionRationale": "标准库 logging 加 JSON formatter 已完整覆盖事件字段、渲染和输出，额外包装会掩盖日志管线。",
       "taskId": "t43-observability",
       "order": 1,
-      "title": "结构化日志:JSON Lines 记心法",
-      "instruction": "### 目标\n\n为章项目「乾坤观测台」打造第一块基石——观测者 `QiankunObserver`。它把散乱的 `print` 升级为结构化日志:每一条事件都是一行 JSON,写入 `records` 列表备查,同时实时落到标准输出。用 `json.dumps(record, ensure_ascii=False)` 保证中文不被转义成 `\\uXXXX`,日志机器可读、可检索、可回放。\n\n### 原理\n\n日志要承担「事后复盘」的职责,就必须先解决两个问题:**谁来记**与**记成什么样**。谁来记:我们写一个观测者类,所有业务代码只调用 `info`/`warn`/`error` 三个方法,事件的收集、序列化、输出都收口到 `log` 一个方法里——这就是「埋点统一」。记成什么样:JSON Lines 格式,一行一条完整事件,`level` 表示级别、`event` 表示事件名,其余字段用 `**fields` 按需携带。为什么用 JSON 而不是人类可读的拼串?因为日志不止给人看:监控系统、检索工具、回放脚本都要解析它,结构化数据才能被机器消费。`ensure_ascii=False` 保证中文字面输出,日志文件里不再是 `\\uXXXX` 的转义海洋。\n\n### 操作\n\n1. 实现 `log`:先构造 `record = {\"level\": level, \"event\": event}`,再 `record.update(fields)` 并入附加字段,追加到 `self.records`,最后用 `json.dumps(record, ensure_ascii=False)` 序列化并补换行符写入 `self.stream`;\n2. `info`/`warn`/`error` 只是 `log` 的三档薄封装,事件名用点号分层,如 `agent.start`、`llm.error`;\n3. 在 `main` 里记录一条启动事件、一条缓慢告警、一条模型错误,然后回放 `self.records`;\n4. 运行程序,对照输出观察 JSON Lines 的长相,以及 `seen_events`/`level_distribution` 的统计结果。\n\n### 常见坑\n\n- 漏写 `ensure_ascii=False`:中文被转义成 `\\uXXXX`,日志文件人类不可读,中文检索也失败;\n- 每行日志末尾漏掉换行符,多行事件会粘连成一行,破坏「一行一事件」的约定;\n- `record.update(fields)` 忘写,`model` 这类附加字段全部丢失,事件只剩空壳。\n",
+      "title": "结构化日志:用 logging 输出 JSON Lines",
+      "instruction": "### 目标\n\n直接使用 Python 标准库 `logging` 输出 JSON Lines。你会实现一个 `logging.Formatter`，把标准 `LogRecord` 与 `extra` 中的字段编码成结构化日志；不再把生产日志能力包装成自造的观测类。\n\n### 原理\n\n`logging` 负责日志等级、handler 与传播策略；Formatter 只负责将一条 LogRecord 渲染成文本。结构化字段应通过 `extra` 附加，而不是拼进字符串，这样日志系统仍能按级别处理事件。日志里绝不能记录 API Key、完整用户提示词或模型原文输出。\n\n### 操作\n\n1. 在 `JsonLineFormatter.format` 中读取 `record.event_fields`，补入 `level` 与 `event`，用 `json.dumps(..., ensure_ascii=False)` 返回一行 JSON。\n2. 在 `configure_logger` 中为独立 logger 配置 `StreamHandler` 和 Formatter，并关闭向根 logger 传播。\n3. 在 `log_event` 中用 `logger.log(..., extra={\"event_fields\": fields})` 写入事件。\n4. 在 main 记录启动、慢调用与限流错误三类事件；字段只放可安全观测的模型名、请求标识、耗时和错误类别。\n\n### 常见坑\n\n- 调根 logger 会被别处重复配置；练习中必须使用独立命名 logger 并关闭 propagate。\n- 把敏感内容作为 span/log 属性会把它送入日志后端，必须只记录允许采集的字段。\n- 不要把结构化字段预先 json.dumps 成字符串，交给 Formatter 统一编码。\n",
       "todoItems": [
         {
-          "title": "实现 log:把事件整理成一行 JSON Lines",
-          "target": "QiankunObserver.log",
-          "code": "record = {\"level\": level, \"event\": event}\nrecord.update(fields)\nself.records.append(record)\nself.stream.write(json.dumps(record, ensure_ascii=False) + \"\\n\")",
-          "expect": "每次调用产生一条带 level/event/附加字段的 JSON 行并写入 stream"
+          "title": "实现 JsonLineFormatter.format",
+          "target": "JsonLineFormatter.format",
+          "code": "fields = getattr(record, \"event_fields\", {})\npayload = {\"level\": record.levelname.lower(), \"event\": record.msg, **fields}\nreturn json.dumps(payload, ensure_ascii=False, sort_keys=True)",
+          "expect": "每条 LogRecord 被格式化为带 level、event 和安全字段的一行 JSON"
         },
         {
-          "title": "实现 seen_events:返回去重的事件名列表",
-          "target": "QiankunObserver.seen_events",
-          "code": "seen = set()\nfor r in self.records:\n    seen.add(r[\"event\"])\nreturn list(seen)",
-          "expect": "返回出现过的事件名(无重复)"
+          "title": "配置独立 logger",
+          "target": "configure_logger",
+          "code": "logger = logging.getLogger(\"harness.lesson\")\nlogger.handlers.clear()\nlogger.propagate = False\nhandler = logging.StreamHandler(stream)",
+          "expect": "日志仅由练习 handler 输出，不污染或重复写入根 logger"
         },
         {
-          "title": "实现 level_distribution:统计各级别次数",
-          "target": "QiankunObserver.level_distribution",
-          "code": "dist = {}\nfor r in self.records:\n    dist[r[\"level\"]] = dist.get(r[\"level\"], 0) + 1\nreturn dist",
-          "expect": "返回 {\"info\": 1, \"error\": 1, ...} 的级别分布"
+          "title": "通过 extra 传递结构化字段",
+          "target": "log_event",
+          "code": "logger.log(level, event, extra={\"event_fields\": fields})",
+          "expect": "级别仍受 logging 管理，Formatter 收到字段后统一 JSON 编码"
         },
         {
-          "title": "在 main 里记录启动/缓慢/错误事件并回放统计",
+          "title": "记录安全的运行事件",
           "target": "main()",
-          "code": "ob.info(\"agent.start\", model=\"deepseek-v4-pro\", rounds=1)\nob.warn(\"llm.slow\", model=\"deepseek-v4-pro\", latency_ms=3452)\nob.error(\"llm.error\", model=\"deepseek-v4-pro\", kind=\"RateLimit\", retryable=True)",
-          "expect": "输出 JSON Lines 原始日志、事件回放、事件种类与级别分布,末尾「结构化日志就绪」"
+          "code": "log_event(logger, logging.INFO, \"agent.start\", model=\"deepseek-v4-pro\", request_id=\"demo-1\")\nlog_event(logger, logging.WARNING, \"llm.slow\", latency_ms=3452)\nlog_event(logger, logging.ERROR, \"llm.error\", error_kind=\"RateLimit\", retryable=True)",
+          "expect": "输出三条 JSON Lines 事件，且不包含 Key、完整提示词或模型输出"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "事件字典用一行构造:record = {\"level\": level, \"event\": event},再 record.update(fields) 并入附加字段。"
+          "text": "Formatter 读取 record.event_fields：fields = getattr(record, \"event_fields\", {})，然后把 level、event 与 fields 合成 payload。"
         },
         {
           "order": 2,
-          "text": "写入两步:先 append 进 self.records,再 self.stream.write(json.dumps(record, ensure_ascii=False) + 换行符)。"
+          "text": "结构化字段通过 logging 的 extra 传入：logger.log(level, event, extra={\"event_fields\": fields})。"
         },
         {
           "order": 3,
-          "text": "main 里先 ob.info(\"agent.start\", model=\"deepseek-v4-pro\", rounds=1),再 ob.error(\"llm.error\", model=\"deepseek-v4-pro\", kind=\"RateLimit\"),最后回放 records、打印统计并输出 \"结构化日志就绪\"。"
+          "text": "logger.handlers.clear() 与 logger.propagate = False 让本练习重复运行时不出现重复日志。"
         }
       ],
       "codeSamples": [
@@ -78,12 +80,12 @@
           "installHint": "无需安装,按格式输出即可"
         },
         {
-          "name": "structlog",
-          "role": "结构化日志库",
-          "description": "Python 结构化日志库,提供链式上下文与多输出渲染;本任务用标准库 json 手工实现同样思路。",
-          "officialUrl": "https://www.structlog.org",
-          "category": "库",
-          "installHint": "pip install structlog"
+          "name": "Python logging",
+          "role": "标准日志框架",
+          "description": "负责日志级别、logger、handler 与 formatter；本步使用它输出 JSON Lines。",
+          "officialUrl": "https://docs.python.org/3/library/logging.html",
+          "category": "标准库",
+          "installHint": "无需安装，Python 自带"
         }
       ],
       "validation": [
@@ -95,34 +97,34 @@
         },
         {
           "type": "ast_structure",
-          "message": "请定义观测者类 QiankunObserver。",
+          "message": "请定义 JsonLineFormatter。",
           "astType": "class_def",
-          "name": "QiankunObserver",
+          "name": "JsonLineFormatter",
           "blocking": true
         },
         {
           "type": "ast_structure",
-          "message": "请实现 log 结构化日志核心方法。",
+          "message": "请实现 log_event 结构化日志入口。",
           "astType": "function_def",
-          "name": "log",
+          "name": "log_event",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "请用 json.dumps(record, ensure_ascii=False) 序列化日志。",
-          "pattern": "json\\.dumps\\(record, ensure_ascii=False\\)",
+          "message": "请用 logging 的 extra 传递结构化字段。",
+          "pattern": "extra=\\{[\\\"']event_fields[\\\"']:",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "每条事件都要追加进 records 列表。",
-          "pattern": "self\\.records\\.append\\(record\\)",
+          "message": "请用 json.dumps 保留中文日志。",
+          "pattern": "json\\.dumps\\(payload, ensure_ascii=False",
           "blocking": true
         },
         {
           "type": "sandbox_run",
-          "message": "运行应输出 JSON Lines 事件与回放结果。",
-          "expectedStdout": "\"event\": \"agent\\.start\"[\\s\\S]*\"event\": \"llm\\.error\"[\\s\\S]*结构化日志就绪",
+          "message": "运行应输出 JSON Lines 事件。",
+          "expectedStdout": "\"event\": \"agent\\.start\"[\\s\\S]*\"event\": \"llm\\.error\"[\\s\\S]*结构化日志就绪：使用 logging",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -131,56 +133,58 @@
     },
     {
       "id": "t43-observability-s2",
+      "minimumSolutionLines": 25,
+      "compactSolutionRationale": "OpenTelemetry 的最小可运行链路由 provider、exporter 与嵌套 span 组成；保持紧凑才能展示标准 API 的原貌。",
       "taskId": "t43-observability",
       "order": 2,
-      "title": "链路追踪:span 树里见因果",
-      "instruction": "### 目标\n让 QiankunObserver 长出「链路追踪」:一次回合里,start_span 打开跨度、end_span 结算耗时,事件按父子关系串成 span 树,最后渲染成调用链树并回放事件。\n\n### 原理\n可观测性讲究「讲因果」:日志回答发生了什么,链路回答为什么慢、慢在哪。实现上用一个栈(代码里即 self.current 指针)管理嵌套调用——打开新 span 时把父 span 记进 span[\"parent\"],结束时 current 回退为 parent;这样一来工具调用天然挂在 agent.turn 之下,层级即调用层次。计时用 time.perf_counter(),它专为高频计时设计,比 time.time 更稳。\n\n### 操作\n1) start_span(name):读 self.current 作父节点;新建 span 字典(name/children/started_at)挂进 roots 或父节点的 children;写回 span[\"parent\"] 后把 current 指向新 span,并打一条 span.start 事件。\n2) end_span():用 perf_counter 差算出 duration_ms(保留两位小数),打 span.end 事件,current 回退为 parent。\n3) run_turn(prompt):依次 start agent.turn、tool.query_stock、tool.appraise,每个工具调用后记一条 tool.invoke 事件再 end_span,最后收尾 agent.turn。\n4) main 里渲染链路树:递归打印节点名与耗时,缩进即层级;再回放事件清单。\n\n### 常见坑\n- 忘记 span[\"parent\"] = parent,end_span 后就无法回退,current 会一直陷在最深一层。\n- 用 time.time() 计时:它有系统时间校准,可能回跳,极短调用会算出负耗时,务必用 perf_counter。\n- span.start 只在打开时打点,结算信息要落在 span.end 事件里,别把两个事件揉成一条。",
+      "title": "链路追踪:使用 OpenTelemetry 创建真实 Span",
+      "instruction": "### 目标\n\n使用 OpenTelemetry SDK 创建一次 Agent 回合的真实 Trace，而不是手写 span 树。你会配置 `TracerProvider` 与 `ConsoleSpanExporter`，再用 `start_as_current_span` 自动建立父子关系。\n\n### 原理\n\nTrace 是一次请求的完整因果链，Span 是链中的一个工作单元。当前 span 会被 OpenTelemetry 上下文自动传播，所以在 `agent.turn` 的 with 块中创建的 `llm.call` 和 `tool.weather` 天然成为子 span；不需要自己维护 parent 指针或计时器。Console exporter 仅用于本地观察，生产环境一般替换为 OTLP exporter 并交给观测后端。\n\n### 操作\n\n1. 创建 `TracerProvider`，添加 `SimpleSpanProcessor(ConsoleSpanExporter())` 后注册到 `trace`。\n2. 使用 `trace.get_tracer(\"harness.lesson\")` 得到 tracer。\n3. 用嵌套的 `with tracer.start_as_current_span(...)` 创建 `agent.turn`、`llm.call` 和 `tool.weather`。\n4. 只添加低基数、安全的属性，例如 request.id、模型名和工具名；不要写入 Key、完整提示词或模型输出。\n\n### 常见坑\n\n- 只安装 opentelemetry-api 不够，实际导出还需要 opentelemetry-sdk。\n- 手动维护 parent_id 容易串链；在 current span 的上下文中创建子 span。\n- 高基数字段（完整 prompt、回答、用户标识）会增加成本并可能泄露数据，不能作为 span 属性。",
       "todoItems": [
         {
-          "title": "实现 start_span:新建 span 挂进树并打点",
-          "target": "QiankunObserver.start_span",
-          "code": "parent = self.current\nspan = {\"name\": name, \"children\": [], \"started_at\": time.perf_counter()}\n(self.roots if parent is None else parent[\"children\"]).append(span)\nspan[\"parent\"] = parent\nself.current = span\nself.log(\"info\", \"span.start\", span=name)",
-          "expect": "打开 span 并打印 span.start 事件,current 指向新 span"
+          "title": "配置 OpenTelemetry TracerProvider",
+          "target": "configure_tracer",
+          "code": "provider = TracerProvider()\nprovider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))\ntrace.set_tracer_provider(provider)\nreturn trace.get_tracer(\"harness.lesson\")",
+          "expect": "本地 Console exporter 能导出真实 trace 数据"
         },
         {
-          "title": "实现 end_span:结算耗时并回退 current",
-          "target": "QiankunObserver.end_span",
-          "code": "span = self.current\nspan[\"duration_ms\"] = round((time.perf_counter() - span[\"started_at\"]) * 1000, 2)\nself.log(\"info\", \"span.end\", span=span[\"name\"], duration_ms=span[\"duration_ms\"])\nself.current = span[\"parent\"]",
-          "expect": "span.end 事件携带 duration_ms,current 回到父 span"
+          "title": "创建入口与子 Span",
+          "target": "run_turn",
+          "code": "with tracer.start_as_current_span(\"agent.turn\") as turn:\n    turn.set_attribute(\"request.id\", request_id)\n    with tracer.start_as_current_span(\"llm.call\"):\n        pass\n    with tracer.start_as_current_span(\"tool.weather\"):\n        pass",
+          "expect": "OpenTelemetry 自动建立 agent.turn -> llm.call/tool.weather 的父子关系"
         },
         {
-          "title": "实现 run_turn:组织一次完整回合的链路",
-          "target": "QiankunObserver.run_turn",
-          "code": "self.start_span(\"agent.turn\")\nself.info(\"llm.request\", model=\"deepseek-v4-pro\", prompt=prompt)\nself.start_span(\"tool.query_stock\")\nself.info(\"tool.invoke\", name=\"query_stock\", args={\"keyword\": \"剑\"})\nself.end_span()\nself.start_span(\"tool.appraise\")\nself.info(\"tool.invoke\", name=\"appraise\", args={\"item_name\": \"飞剑\"})\nself.end_span()\nself.end_span()",
-          "expect": "工具调用挂在 agent.turn 之下,链路树层级清晰"
+          "title": "写入安全的 span 属性",
+          "target": "run_turn",
+          "code": "turn.set_attribute(\"request.id\", request_id)\nturn.set_attribute(\"llm.model\", \"deepseek-v4-pro\")\ntool_span.set_attribute(\"tool.name\", \"weather\")",
+          "expect": "链路可关联请求和组件，但不采集密钥、完整提示词或模型输出"
         },
         {
-          "title": "在 main 里渲染链路树并回放事件",
+          "title": "在 main 导出本地 Trace",
           "target": "main()",
-          "code": "ob.run_turn(\"帮我查飞剑的行情\")\nprint(\"== 链路树 ==\")\nob.render_tree(ob.roots)\nprint(\"== 事件回放 ==\")",
-          "expect": "输出 span 树与事件回放,末尾「链路追踪就绪」"
+          "code": "tracer = configure_tracer()\nrun_turn(tracer, \"demo-1\")",
+          "expect": "Console exporter 输出三个 span，末尾「链路追踪就绪」"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "span 是树上的节点,新建时带上 name、children 和 started_at,父引用存进 span[\"parent\"]。"
+          "text": "先创建 provider 并添加 ConsoleSpanExporter；这一步让 span 在退出 with 块时有可见输出。"
         },
         {
           "order": 2,
-          "text": "挂载规则:self.current 为空就追加进 self.roots,否则追加进 parent[\"children\"],然后把 self.current 指向新 span。"
+          "text": "在 agent.turn 的 with 块内创建 llm.call，OpenTelemetry 会自动从上下文继承 parent。"
         },
         {
           "order": 3,
-          "text": "end_span 用 perf_counter 差结算耗时:round((now - started_at) * 1000, 2) 写入 duration_ms,补一条 span.end 事件,current 回退为 parent。"
+          "text": "属性只放 request.id、模型名、工具名等允许采集的字段，绝不放 Key、完整 prompt 或回答。"
         }
       ],
       "codeSamples": [
         {
-          "title": "一棵调用链树",
+          "title": "OpenTelemetry 嵌套 Span",
           "language": "python",
-          "code": "# parent 把前后 span 连成祖先链,树上每个节点都是这么一颗\nspan = {\"name\": \"tool.query_stock\", \"children\": [], \"started_at\": time.perf_counter()}\nspan[\"parent\"] = current\nspan[\"duration_ms\"] = round((time.perf_counter() - span[\"started_at\"]) * 1000, 2)\n# 树形渲染:递归降深度,前导空格即层级\ndef show(spans, indent=\"\"):\n    for s in spans:\n        print(f\"{indent}{s['name']} {s.get('duration_ms', 0)}ms\")\n        show(s[\"children\"], indent + \"  \")",
-          "description": "span 节点的结构、parent 指针与树形渲染的递归姿势。"
+          "code": "with tracer.start_as_current_span(\"agent.turn\") as turn:\n    turn.set_attribute(\"request.id\", request_id)\n    with tracer.start_as_current_span(\"llm.call\"):\n        pass\n    with tracer.start_as_current_span(\"tool.weather\"):\n        pass",
+          "description": "嵌套上下文会自动创建正确的 TraceId 与 ParentSpanId。"
         }
       ],
       "terms": [
@@ -201,10 +205,10 @@
         {
           "name": "OpenTelemetry",
           "role": "链路追踪标准",
-          "description": "可观测性领域事实标准,定义 Trace/Span 等数据模型与本任务的 span 树同源;此处用标准库手工演示。",
+          "description": "可观测性领域的开放标准；本步直接使用其 Python SDK 创建并导出 span。",
           "officialUrl": "https://opentelemetry.io",
           "category": "标准",
-          "installHint": "pip install opentelemetry-api"
+          "installHint": "pip install opentelemetry-api opentelemetry-sdk"
         }
       ],
       "validation": [
@@ -216,34 +220,34 @@
         },
         {
           "type": "ast_structure",
-          "message": "请实现 start_span 新建并挂载 span。",
+          "message": "请实现 configure_tracer。",
           "astType": "function_def",
-          "name": "start_span",
+          "name": "configure_tracer",
           "blocking": true
         },
         {
           "type": "ast_structure",
-          "message": "请实现 end_span 结算耗时并出栈。",
+          "message": "请实现 run_turn。",
           "astType": "function_def",
-          "name": "end_span",
+          "name": "run_turn",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "打开新 span 时要打 span.start 事件。",
-          "pattern": "span\\.start",
+          "message": "请用 start_as_current_span 创建 span。",
+          "pattern": "start_as_current_span",
           "blocking": true
         },
         {
           "type": "regex_in_code",
-          "message": "用 time.perf_counter() 计时更精准。",
-          "pattern": "perf_counter\\(\\)",
+          "message": "请配置 ConsoleSpanExporter 以便本地验证。",
+          "pattern": "ConsoleSpanExporter",
           "blocking": true
         },
         {
           "type": "sandbox_run",
-          "message": "运行应输出 span 树与回放结果。",
-          "expectedStdout": "\"span\": \"agent\\.turn\"[\\s\\S]*链路树[\\s\\S]*tool\\.query_stock",
+          "message": "运行应导出真实 OpenTelemetry span。",
+          "expectedStdout": "llm\\.call[\\s\\S]*tool\\.weather[\\s\\S]*agent\\.turn[\\s\\S]*链路追踪就绪",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true

@@ -1,10 +1,4 @@
-"""铸剑台 · 模板工程 第 3 步:模板组合与复用。
-
-模板像乐高:人设块、格式块、示例块、需求块各自独立定义、独立测试,
-再用 from_messages 一次拼成主模板。from_messages 的列表元素可以直接
-放子模板对象,组装时按声明顺序展开,变量自动求并集。
-在第 2 步基础上重构:内容不变,结构组件化。
-"""
+"""黑糖资料室 · 提示词模板工程 · s3：用 LangChain 完成可验证的学习任务。"""
 
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -13,27 +7,27 @@ from langchain_core.prompts import (
 from langchain_core.messages import BaseMessage
 
 FORGE_EXAMPLES = [
-    {"request": "轻巧短剑,适合贴身暗卫",
-     "recipe": "《鱼肠》双刃短剑|长一尺二寸|重一斤|淬火:寒潭水|特性:藏锋"},
+    {"request": "轻巧短视频脚本,适合贴身移动端展示",
+     "recipe": "《鱼肠》双刃短视频脚本|长一尺二寸|重一斤|优化细节:冷色滤镜|特性:藏锋"},
     {"request": "马上用的长刀,要劈砍有力",
-     "recipe": "《破阵》环首长刀|长四尺|重八斤|淬火:桐油|特性:势沉"},
+     "recipe": "《破阵》环首长刀|长四尺|重八斤|优化细节:桐油|特性:势沉"},
 ]
 
 
 def build_persona_block() -> ChatPromptTemplate:
-    """可复用部件 1:铸剑师人设(只需 sect 变量)。"""
+    """可复用部件 1:内容设计师人设(只需 sect 变量)。"""
     return ChatPromptTemplate.from_messages(
-        [("system", "你是铸剑台的总铸剑师,出身门派「{sect}」,铸剑六十年。")]
+        [("system", "你是提示词工作台的提示词负责人,出身团队「{sect}」,内容制作六十年。")]
     )
 
 
 def build_format_block() -> ChatPromptTemplate:
     """可复用部件 2:输出格式要求(只需 format_spec 变量)。
 
-    独立成块后,这套格式要求可以原样插进鉴剑台、淬火炉等其他模板。
+    独立成块后,这套格式要求可以原样插进质量评审台、优化细节流程等其他模板。
     """
     return ChatPromptTemplate.from_messages(
-        [("system", "剑谱必须遵循以下格式:{format_spec}")]
+        [("system", "输出模板必须遵循以下格式:{format_spec}")]
     )
 
 
@@ -50,7 +44,7 @@ def build_fewshot_block(examples: list[dict]) -> FewShotChatMessagePromptTemplat
 
 
 def build_request_block() -> ChatPromptTemplate:
-    """可复用部件 4:当前铸剑需求。"""
+    """可复用部件 4:当前制作需求。"""
     return ChatPromptTemplate.from_messages([("human", "{request}")])
 
 
@@ -85,9 +79,9 @@ def main() -> None:
     render_and_show(
         prompt,
         {
-            "sect": "玄铁阁",
-            "format_spec": "《剑名》类型|尺寸|重量|淬火|特性",
-            "request": "一柄走江湖的佩剑,主材百炼钢",
+            "sect": "素材组",
+            "format_spec": "《方案名称》类型|尺寸|重量|优化细节|特性",
+            "request": "一份走技术社区的活动主视觉,主材百炼钢",
         },
     )
 

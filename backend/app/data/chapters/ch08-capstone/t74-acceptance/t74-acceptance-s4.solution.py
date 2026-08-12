@@ -26,10 +26,10 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    kb = ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"]
-    hits = retrieve("渡劫 飞升", kb, top_k=3)
+    kb = ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"]
+    hits = retrieve("上线验收 完成交付", kb, top_k=3)
     assert len(hits) == 2
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    assert hits[0][0] == "黑糖资料室需要故障演练"
     assert hits[0][1] == 2
 
 
@@ -39,7 +39,7 @@ def test_p95_fixed():
 
 def test_perf_p95_within_budget():
     kb = build_big_kb(200)
-    times = bench_retrieve(kb, "渡劫 雷劫", rounds=10)
+    times = bench_retrieve(kb, "上线验收 故障", rounds=10)
     assert p95(times) * 1000 <= PERF_BUDGET_MS
 
 
@@ -95,7 +95,7 @@ def retrieve(query, kb, top_k=3):
 
 def build_big_kb(n=200):
     """构造 n 段同构知识块,模拟上规模的知识库。"""
-    return [f"第{i}段:渡劫之道,雷劫在前心劫在后,飞升者需护体法器。" for i in range(1, n + 1)]
+    return [f"第{i}段:上线验收之道,先验证故障恢复,再检查完成交付所需工具。" for i in range(1, n + 1)]
 
 
 def bench_retrieve(kb, query, rounds=30):
@@ -127,15 +127,15 @@ def run_checks(kb, backup_path):
         if name == "知识库可加载":
             ok = len(kb) > 0
         elif name == "检索可用":
-            ok = len(retrieve("渡劫", kb)) > 0
+            ok = len(retrieve("上线验收", kb)) > 0
         elif name == "性能达标":
-            ok = p95(bench_retrieve(kb, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+            ok = p95(bench_retrieve(kb, "上线验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
         elif name == "工具就绪":
             ok = "calc" in TOOL_TABLE and "echo" in TOOL_TABLE
         elif name == "备份存在":
             ok = Path(backup_path).exists()
         else:
-            ok = p95(bench_retrieve(kb, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+            ok = p95(bench_retrieve(kb, "上线验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
         results.append({"name": name, "ok": ok, "desc": item["desc"]})
     return results
 
@@ -151,10 +151,10 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 上线清单 s4 ==")
+    print("== 黑糖资料室 · 上线清单 s4 ==")
     backup = os.path.join(tempfile.gettempdir(), "kb_backup.json")
     with open(backup, "w", encoding="utf-8") as f:
-        f.write('{"kb": "渡劫飞升知识库备份"}')
+        f.write('{"kb": "黑糖资料室知识库备份"}')
     results = run_checks(build_big_kb(200), backup)
     passed = sum(1 for r in results if r["ok"])
     print(f"上线清单:{len(results)} 项,通过 {passed} 项")

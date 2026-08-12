@@ -6,6 +6,7 @@
     python scripts/verify_solutions.py --chapter ch01   # 只查某章（按章 id 前缀匹配）
     python scripts/verify_solutions.py --static-only    # 只做静态检查，不跑沙箱
     python scripts/verify_solutions.py --workers 6      # 沙箱并发数（默认 4）
+    python scripts/verify_solutions.py --network        # 使用 .env.example 中的 Key 跑联网步骤
 
 静态检查（每个 step）:
     - instruction ≥300 字；solutionCode 非空行 40~120（<40 fail，>120 warn）
@@ -17,7 +18,7 @@
     - validation 规则与 solutionCode 对齐：
         api_call_exists / regex_in_code / ast_structure（用真 ast 解析）
 
-沙箱实跑（needsNetwork 任务的 step 跳过，仅静态检查）:
+沙箱实跑（默认跳过联网步骤；--network 时使用本地环境文件中的 Key）:
     - docker run llmquest-sandbox:latest，要求 exitCode == 0、30s 内完成
     - 复核 sandbox_run / output_contains / output_matches / output_equals 规则
 """
@@ -35,7 +36,9 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CURRICULUM_PATH = _PROJECT_ROOT / "backend" / "app" / "data" / "curriculum.json"
 SANDBOX_IMAGE = "llmquest-sandbox:latest"
+ML_SANDBOX_IMAGE = "llmquest-sandbox-ml:latest"
 RUN_TIMEOUT = 30
+NETWORK_RUN_TIMEOUT = 180
 
 GPT_RESIDUE = re.compile(r"gpt-?[34]|api\.openai\.com|chatgpt", re.IGNORECASE)
 
@@ -97,15 +100,25 @@ def name_match(candidates: list[str], want: str) -> bool:
 def check_static(step: dict, rep: StepReport) -> None:
     sid = step["id"]
     instruction = step.get("instruction", "")
+    # 提示和术语也是学习者在界面上直接可见的教学文本；计入完整性评估，不要为了同一行指令重复激增。
+    instruction_context = instruction + "\n" + "\n".join(
+        hint.get("text", "") for hint in step.get("hints", [])
+    ) + "\n" + "\n".join(
+        term.get("definition", "") for term in step.get("terms", [])
+    )
     starter = step.get("starterCode", "")
     solution = step.get("solutionCode", "")
 
-    if len(instruction) < 300:
-        rep.fail(f"instruction 仅 {len(instruction)} 字（要求 ≥300）")
+    if len(instruction_context) < 300:
+        rep.fail(f"学习说明仅 {len(instruction_context)} 字（要求 ≥300）")
 
     sol_lines = [l for l in solution.splitlines() if l.strip()]
-    if len(sol_lines) < 40:
-        rep.fail(f"solutionCode 仅 {len(sol_lines)} 非空行（要求 ≥40，目标 50-100）")
+    # 真实框架 API 有时可以用很少的行数说清楚。仅允许课程数据显式标注理由后下调阈值，避免为了满足行数而填充无关代码。
+    min_solution_lines = step.get("minimumSolutionLines", 40)
+    if min_solution_lines < 40 and not step.get("compactSolutionRationale"):
+        rep.fail("solutionCode 下调行数阈值时必须说明 compactSolutionRationale")
+    if len(sol_lines) < min_solution_lines:
+        rep.fail(f"solutionCode 仅 {len(sol_lines)} 非空行（要求 ≥{min_solution_lines}）")
     elif len(sol_lines) > 120:
         rep.warn(f"solutionCode {len(sol_lines)} 行，偏长（目标 50-100）")
 
@@ -116,7 +129,10 @@ def check_static(step: dict, rep: StepReport) -> None:
 
     if len(step.get("hints", [])) < 2:
         rep.fail("hints 少于 2 条")
-    if not step.get("codeSamples"):
+    code_samples = step.get("codeSamples") or [
+        item for item in step.get("todoItems", []) if item.get("code")
+    ]
+    if not code_samples:
         rep.fail("缺少 codeSamples")
     if len(step.get("terms", [])) < 2:
         rep.fail("terms 少于 2 个")
@@ -179,23 +195,55 @@ def _flags(flags: str | None) -> int:
 
 # ---------- 沙箱实跑 ----------
 
-def docker_available() -> bool:
+def docker_available(image: str) -> bool:
     try:
-        subprocess.run(["docker", "image", "inspect", SANDBOX_IMAGE],
+        subprocess.run(["docker", "image", "inspect", image],
                        capture_output=True, timeout=10, check=True)
         return True
     except Exception:
         return False
 
 
-def run_in_sandbox(code: str, timeout: int = RUN_TIMEOUT) -> dict:
+def read_local_llm_env() -> dict[str, str]:
+    """Read only the required local runtime settings without echoing secrets."""
+    env_file = _PROJECT_ROOT / ".env.example"
+    if not env_file.exists():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key in {"OPENAI_API_KEY", "OPENAI_BASE_URL", "GENERATOR_MODEL"}:
+            values[key] = value.strip().strip('"').strip("'")
+    return values
+
+
+def run_in_sandbox(
+    code: str,
+    *,
+    needs_network: bool,
+    sandbox_profile: str,
+    env: dict[str, str],
+    timeout: int = RUN_TIMEOUT,
+) -> dict:
+    image = ML_SANDBOX_IMAGE if sandbox_profile == "ml" else SANDBOX_IMAGE
     cmd = [
         "docker", "run", "--rm", "-i",
-        "--network=none", "--memory=256m", "--cpus=0.5",
-        "--read-only", "--tmpfs=/tmp:rw,size=10m",
-        SANDBOX_IMAGE,
-        "python", "-c", "import sys; exec(sys.stdin.read())",
+        "--network=" + ("default" if needs_network else "none"), "--memory=256m", "--cpus=0.5",
+        "--read-only", "--tmpfs=/tmp:rw,size=32m",
+        "--tmpfs=/workspace:rw,size=32m,mode=1777", "--workdir=/workspace",
+        "-e", "HOME=/workspace", "-e", "XDG_CACHE_HOME=/tmp", "-e", "XDG_CONFIG_HOME=/tmp",
     ]
+    if needs_network:
+        for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "GENERATOR_MODEL"):
+            value = env.get(key, "")
+            if value:
+                # Lessons consistently use MODEL_NAME in the sandbox contract.
+                target = "MODEL_NAME" if key == "GENERATOR_MODEL" else key
+                cmd.extend(["-e", f"{target}={value}"])
+    cmd.extend([image, "python", "-c", "import sys; exec(sys.stdin.read())"])
     try:
         p = subprocess.run(cmd, input=code.encode("utf-8"), capture_output=True, timeout=timeout)
         return {"stdout": p.stdout.decode("utf-8", "replace"), "stderr": p.stderr.decode("utf-8", "replace"),
@@ -206,10 +254,17 @@ def run_in_sandbox(code: str, timeout: int = RUN_TIMEOUT) -> dict:
         return {"stdout": "", "stderr": str(e), "exitCode": -1, "timedOut": False}
 
 
-def check_run(step: dict, rep: StepReport) -> None:
-    out = run_in_sandbox(step["solutionCode"])
+def check_run(step: dict, rep: StepReport, *, needs_network: bool, env: dict[str, str]) -> None:
+    timeout = step.get("sandboxTimeout") or (NETWORK_RUN_TIMEOUT if needs_network else RUN_TIMEOUT)
+    out = run_in_sandbox(
+        step["solutionCode"],
+        needs_network=needs_network,
+        sandbox_profile=step.get("sandboxProfile") or "core",
+        env=env,
+        timeout=timeout,
+    )
     if out["timedOut"]:
-        rep.fail(f"沙箱执行超时（>{RUN_TIMEOUT}s）")
+        rep.fail(f"沙箱执行超时（>{timeout}s）")
         return
     if out["exitCode"] != 0:
         tail = "\n".join(out["stderr"].splitlines()[-5:])
@@ -275,6 +330,7 @@ def main() -> int:
     ap.add_argument("--chapter", help="只检查某章（前缀匹配，如 ch01）")
     ap.add_argument("--static-only", action="store_true", help="不跑沙箱")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--network", action="store_true", help="运行联网步骤；从项目 .env.example 读取 Key，且绝不输出")
     ap.add_argument("--file", default=str(CURRICULUM_PATH), help="curriculum.json 路径")
     args = ap.parse_args()
 
@@ -284,9 +340,15 @@ def main() -> int:
         print("没有匹配的 step")
         return 1
 
-    can_run = not args.static_only and docker_available()
-    if not args.static_only and not can_run:
+    core_ready = docker_available(SANDBOX_IMAGE)
+    ml_ready = docker_available(ML_SANDBOX_IMAGE)
+    can_run = not args.static_only and core_ready
+    if not args.static_only and not core_ready:
         print("警告: 沙箱镜像不可用，降级为仅静态检查（先 docker info / pnpm build:sandbox）")
+    local_env = read_local_llm_env() if args.network else {}
+    if args.network and not local_env.get("OPENAI_API_KEY"):
+        print("错误: --network 需要 .env.example 中有效的 OPENAI_API_KEY")
+        return 2
 
     reports: list[StepReport] = []
 
@@ -295,10 +357,16 @@ def main() -> int:
         rep = StepReport(step["id"])
         check_static(step, rep)
         if can_run:
-            if task.get("needsNetwork"):
-                rep.skipped_run = True  # 联网步不消耗 key，仅静态检查
+            needs_network = step.get("needsNetwork")
+            if needs_network is None:
+                needs_network = bool(task.get("needsNetwork"))
+            profile = step.get("sandboxProfile") or "core"
+            if profile == "ml" and not ml_ready:
+                rep.fail("ML 沙箱镜像不可用：请先构建 llmquest-sandbox-ml:latest")
+            elif needs_network and not args.network:
+                rep.skipped_run = True
             else:
-                check_run(step, rep)
+                check_run(step, rep, needs_network=bool(needs_network), env=local_env)
         return rep
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:

@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -i ${PIP_INDEX_URL} \
     langchain>=0.1 \
     langchain-community \
     langchain-openai \
+    langgraph \
+    crewai \
     chromadb \
     faiss-cpu \
     pydantic \
@@ -16,6 +18,8 @@ RUN pip install --no-cache-dir -i ${PIP_INDEX_URL} \
     beautifulsoup4 \
     lxml \
     python-dotenv \
+    opentelemetry-api \
+    opentelemetry-sdk \
     pytest \
     numpy \
     pandas \

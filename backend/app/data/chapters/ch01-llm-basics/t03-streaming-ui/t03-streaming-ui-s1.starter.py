@@ -1,4 +1,10 @@
-"""灵讯通 · s1:流式初体验 —— 用 stream=True 接收增量 chunk。"""
+"""星澈助手 · s1:流式初体验 —— 用 stream=True 接收增量 chunk。"""
+# 学习契约
+# 目标：完成 t03-streaming-ui-s1 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 2 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client(c) -> OpenAI; stream_chat(client, config, question) -> 未标注; main() -> None。
+# 技术栈：os, sys, dataclasses, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 from dataclasses import dataclass
@@ -48,7 +54,7 @@ def main() -> None:
     question = "用一句话夸夸流式输出。"
     print(f"你: {question}")
     reply, n = stream_chat(client, config, question)
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
     print(f"[统计] 共收到 {n} 个增量块,拼接后 {len(reply)} 字")
 
 

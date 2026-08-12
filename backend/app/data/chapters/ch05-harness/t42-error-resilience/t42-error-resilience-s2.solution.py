@@ -1,4 +1,4 @@
-"""乾坤圈 · s2:降级链 FallbackChain
+"""Agent 运行时底座 · s2:降级链 FallbackChain
 
 主路失败走备路,备路失败落兜底。本步实现降级链 FallbackChain:
 按优先级逐个尝试策略,任一环节成功即返回,全部失败才抛出异常。
@@ -51,7 +51,7 @@ class FallbackChain:
 
 
 def main():
-    print("== 乾坤圈 · s2:降级链 FallbackChain ==")
+    print("== Agent 运行时底座 · s2:降级链 FallbackChain ==")
 
     def primary_llm(text):
         raise TimeoutError("旗舰模型上游超时")

@@ -1,4 +1,4 @@
-"""渡劫飞升 · s4:接口契约——OpenAPI 3.0 规格生成
+"""终期交付 · s4:接口契约——OpenAPI 3.0 规格生成
 
 把 s3 的 Pydantic 模型提升为对外 API:用 EndpointSpec 声明四个
 接口的入参出参,再由 build_openapi 组装成 OpenAPI 3.0 规格,
@@ -12,11 +12,11 @@ from pydantic import BaseModel, Field
 
 
 class Document(BaseModel):
-    """一篇典籍原文(浓缩自 s3)。"""
+    """一篇资料原文(浓缩自 s3)。"""
 
     doc_id: str = Field(description="唯一文档 ID")
-    title: str = Field(description="典籍标题")
-    text: str = Field(description="典籍正文")
+    title: str = Field(description="资料标题")
+    text: str = Field(description="资料正文")
 
 
 class RetrievalQuery(BaseModel):
@@ -48,19 +48,19 @@ def endpoints() -> list:
     return [
         EndpointSpec(
             method="POST", path="/api/kb",
-            summary="创建典籍库",
+            summary="创建知识库",
             request_schema=Document.model_json_schema(),
             response_schema={"message": "ok"},
         ),
         EndpointSpec(
             method="POST", path="/api/kb/documents",
-            summary="导入一篇典籍并切块",
+            summary="导入一篇资料并切块",
             request_schema=Document.model_json_schema(),
             response_schema={"doc_id": "kb-0001"},
         ),
         EndpointSpec(
             method="POST", path="/api/retrieve",
-            summary="检索典籍,返回带分值的命中",
+            summary="检索资料,返回带分值的命中",
             request_schema=RetrievalQuery.model_json_schema(),
             response_schema={"hits": [RetrievalHit.model_json_schema()]},
         ),
@@ -75,7 +75,7 @@ def endpoints() -> list:
 
 def build_openapi(specs: list) -> dict:
     """把接口清单组装成 OpenAPI 3.0 根文档。"""
-    info = {"title": "渡劫飞升 · 知识问答 API", "version": "0.1.0"}
+    info = {"title": "黑糖资料室 · 知识问答 API", "version": "0.1.0"}
     paths = {}
     for ep in specs:
         body = None if ep.request_schema is None else {

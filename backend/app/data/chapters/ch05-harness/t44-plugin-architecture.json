@@ -5,7 +5,7 @@
       "taskId": "t44-plugin-architecture",
       "order": 1,
       "title": "插件基座:Plugin 协议与注册表入圈",
-      "instruction": "### 目标\n\n给「乾坤圈」运行时装上插件化的地基:定义插件协议 `Plugin`(继承 `ABC`,`run` 加 `@abstractmethod` 强制契约),再实现 `PluginRegistry` 注册表,完成注册、注销、按名查询、清单与计数。跑通 `main`:注册回声与大写两个插件、列出清单、试运行两行、注销 echo 并尝试注销不存在的 ghost。\n\n### 原理\n\n开闭原则(Open-Closed Principle)是插件化的第一性原理:对扩展开放,对修改关闭。运行时只认 `Plugin` 协议,新增能力就新增一个插件类,老代码一行不用改。协议用抽象基类表达:`@abstractmethod` 让「忘了实现 run」在实例化时就报错,而不是运行到一半才炸。注册表则是「集中管理、统一入口」:插件不互相点名,都通过注册表登记,运行时只跟注册表打交道。`on_install` 是生命周期回调的雏形——注册不是简单存个引用,而是给插件一个「上场仪式」,这也是后续步骤状态机与钩子的引子。\n\n### 操作\n\n1. 完成 `PluginRegistry.register`:按协议把插件存入 `self._plugins`(以 `plugin.name` 为键),再调用 `plugin.on_install()`;\n2. 完成 `PluginRegistry.unregister`:存在则删除并打印 `  [name] 已注销`;不存在则打印 `  [registry] 未找到插件 name`;\n3. 通读 `main`:注册两个插件 → 列清单(◆ 名称 v版本:描述)→ 试运行两行 → 注销 echo 与 ghost → 打印剩余插件。\n\n### 常见坑\n\n- 忘加 `@abstractmethod` 或忘了继承 `ABC`,`Plugin` 就能被直接实例化,协议形同虚设;\n- `on_install` 必须在登记之后调用,顺序反了插件自我介绍时会查不到自己;\n- 注销不存在的插件不能抛异常——打印提示后继续,才是注册表该有的容错姿态。\n",
+      "instruction": "### 目标\n\n给「Agent 运行时底座」运行时装上插件化的地基:定义插件协议 `Plugin`(继承 `ABC`,`run` 加 `@abstractmethod` 强制契约),再实现 `PluginRegistry` 注册表,完成注册、注销、按名查询、清单与计数。跑通 `main`:注册回声与大写两个插件、列出清单、试运行两行、注销 echo 并尝试注销不存在的 ghost。\n\n### 原理\n\n开闭原则(Open-Closed Principle)是插件化的第一性原理:对扩展开放,对修改关闭。运行时只认 `Plugin` 协议,新增能力就新增一个插件类,老代码一行不用改。协议用抽象基类表达:`@abstractmethod` 让「忘了实现 run」在实例化时就报错,而不是运行到一半才炸。注册表则是「集中管理、统一入口」:插件不互相点名,都通过注册表登记,运行时只跟注册表打交道。`on_install` 是生命周期回调的雏形——注册不是简单存个引用,而是给插件一个「上场仪式」,这也是后续步骤状态机与钩子的引子。\n\n### 操作\n\n1. 完成 `PluginRegistry.register`:按协议把插件存入 `self._plugins`(以 `plugin.name` 为键),再调用 `plugin.on_install()`;\n2. 完成 `PluginRegistry.unregister`:存在则删除并打印 `  [name] 已注销`;不存在则打印 `  [registry] 未找到插件 name`;\n3. 通读 `main`:注册两个插件 → 列清单(◆ 名称 v版本:描述)→ 试运行两行 → 注销 echo 与 ghost → 打印剩余插件。\n\n### 常见坑\n\n- 忘加 `@abstractmethod` 或忘了继承 `ABC`,`Plugin` 就能被直接实例化,协议形同虚设;\n- `on_install` 必须在登记之后调用,顺序反了插件自我介绍时会查不到自己;\n- 注销不存在的插件不能抛异常——打印提示后继续,才是注册表该有的容错姿态。\n",
       "hints": [
         {
           "order": 1,
@@ -398,8 +398,8 @@
       "id": "t44-plugin-architecture-s5",
       "taskId": "t44-plugin-architecture",
       "order": 5,
-      "title": "总装成军:乾坤圈插件化运行时",
-      "instruction": "### 目标\n\n把前四步的注册表、状态机、钩子、热加载装进同一个运行时 `QiankunRuntime`,完成「乾坤圈」插件的总装:安装即订阅、激活即上线、指纹热更新、事件链流转。跑通 `main` 的完整演示:装两个插件 → 激活 → 热更新前缀 → 正常请求 → 违禁请求被否决。\n\n### 原理\n\n组合优于继承:前四步的能力不是层层继承堆出来的,而是 `QiankunRuntime` 把注册表、状态机、事件总线、配置仓库组合在一起,对外只暴露 `install` / `activate` / `handle` / `hot_reload` 四个门面方法——调用方不必知道内部四件套如何协作。安装即订阅:插件 `install` 时按钩子表订阅事件,能力与订阅天然绑定,不会出现「装了但听不到」的幽灵插件。事件链(Event Chain)串起整条流水线:`request_in` 事件沿订阅链流动,任何一个钩子否决,分发终止,运行时打印拒绝并返回——请求处理从「写死的 if/else」升级为「插件可编程的管道」。配置通道走同样的指纹 + 校验套路,热更新只对活跃插件生效。\n\n### 操作\n\n1. 补全 `activate`:状态不是 `installed` 就 `raise ValueError`,否则置为 `active` 并打印 `  [manager] name active`;\n2. 补全 `hot_reload`:指纹相同返回 `False`,否则更新指纹并对所有活跃插件调用 `on_config_changed`;\n3. 运行 `main`,核对输出:两个插件 installed/active、前缀热更新 raw→v2、正常请求三次、违禁请求被 guard 否决并终止分发。\n\n### 常见坑\n\n- `install` 里必须先登记再订阅——回调若在登记前触发会查不到插件;\n- `hot_reload` 更新指纹必须在成功读取之后,指纹用文件原文而非解析后的对象;\n- 事件否决用 `is False` 判断,`None`(放行)与 `False`(否决)语义不能混;热更新只对 active 插件生效,别把未激活插件也刷一遍。\n",
+      "title": "总装成军:Agent 运行时底座插件化运行时",
+      "instruction": "### 目标\n\n把前四步的注册表、状态机、钩子、热加载装进同一个运行时 `QiankunRuntime`,完成「Agent 运行时底座」插件的总装:安装即订阅、激活即上线、指纹热更新、事件链流转。跑通 `main` 的完整演示:装两个插件 → 激活 → 热更新前缀 → 正常请求 → 违禁请求被否决。\n\n### 原理\n\n组合优于继承:前四步的能力不是层层继承堆出来的,而是 `QiankunRuntime` 把注册表、状态机、事件总线、配置仓库组合在一起,对外只暴露 `install` / `activate` / `handle` / `hot_reload` 四个门面方法——调用方不必知道内部四件套如何协作。安装即订阅:插件 `install` 时按钩子表订阅事件,能力与订阅天然绑定,不会出现「装了但听不到」的幽灵插件。事件链(Event Chain)串起整条流水线:`request_in` 事件沿订阅链流动,任何一个钩子否决,分发终止,运行时打印拒绝并返回——请求处理从「写死的 if/else」升级为「插件可编程的管道」。配置通道走同样的指纹 + 校验套路,热更新只对活跃插件生效。\n\n### 操作\n\n1. 补全 `activate`:状态不是 `installed` 就 `raise ValueError`,否则置为 `active` 并打印 `  [manager] name active`;\n2. 补全 `hot_reload`:指纹相同返回 `False`,否则更新指纹并对所有活跃插件调用 `on_config_changed`;\n3. 运行 `main`,核对输出:两个插件 installed/active、前缀热更新 raw→v2、正常请求三次、违禁请求被 guard 否决并终止分发。\n\n### 常见坑\n\n- `install` 里必须先登记再订阅——回调若在登记前触发会查不到插件;\n- `hot_reload` 更新指纹必须在成功读取之后,指纹用文件原文而非解析后的对象;\n- 事件否决用 `is False` 判断,`None`(放行)与 `False`(否决)语义不能混;热更新只对 active 插件生效,别把未激活插件也刷一遍。\n",
       "hints": [
         {
           "order": 1,
@@ -419,7 +419,7 @@
           "title": "门面方法封装内部四件套",
           "language": "python",
           "code": "def handle(self, text):\n    if not self.bus.publish('request_in', text):\n        print('  [runtime] 请求被否决,分发终止')\n        return\n    self.bus.publish('request_out', text)\n\n# 调用方只看到 install/activate/handle/hot_reload 四个门面,\n# 注册表、状态机、事件总线、配置仓库的协作细节被完全隐藏。",
-          "description": "门面(Facade)把内部组合的复杂度收敛成少数公开方法,是「乾坤圈」对外的稳定接口。"
+          "description": "门面(Facade)把内部组合的复杂度收敛成少数公开方法,是「Agent 运行时底座」对外的稳定接口。"
         }
       ],
       "terms": [
@@ -490,7 +490,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应展示插件安装、热更新与否决终止的完整链路。",
-          "expectedStdout": "\\[manager\\] echo installed[\\s\\S]*\\[manager\\] guard active[\\s\\S]*前缀热更新为 raw[\\s\\S]*\\[echo/raw\\] 你好,乾坤圈[\\s\\S]*热更新检测: True[\\s\\S]*\\[echo/v2\\] 你好,乾坤圈[\\s\\S]*\\[echo/v2\\] 禁止飞行[\\s\\S]*否决事件 request_in[\\s\\S]*请求被否决,分发终止\\s*$",
+          "expectedStdout": "\\[manager\\] echo installed[\\s\\S]*\\[manager\\] guard active[\\s\\S]*前缀热更新为 raw[\\s\\S]*\\[echo/raw\\] 你好,Agent 运行时底座[\\s\\S]*热更新检测: True[\\s\\S]*\\[echo/v2\\] 你好,Agent 运行时底座[\\s\\S]*\\[echo/v2\\] 禁止飞行[\\s\\S]*否决事件 request_in[\\s\\S]*请求被否决,分发终止\\s*$",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true

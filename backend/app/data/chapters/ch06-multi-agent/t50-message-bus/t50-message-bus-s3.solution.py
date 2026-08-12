@@ -1,4 +1,4 @@
-"""天庭 · s3:通配符订阅 —— 一个模式,收下一整类消息。"""
+"""校园 AI 社 · s3:通配符订阅 —— 一个模式,收下一整类消息。"""
 import itertools
 import time
 from dataclasses import dataclass, field

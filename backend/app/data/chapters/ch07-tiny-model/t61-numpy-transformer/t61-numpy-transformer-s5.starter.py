@@ -1,7 +1,26 @@
 """微缩 GPT · s5:组装 TinyGPT,输出 logits,预测下一个字"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：组装 TinyGPT:logits 与「下一个字」预测。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：TransformerBlock；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `text_to_ids(text) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `TokenEmbedding`：承载本节状态/数据；重点方法：forward。
+#   - `SinusoidalPositionalEncoding`：承载本节状态/数据；重点方法：forward。
+#   - `ScaledDotProductAttention`：承载本节状态/数据；重点方法：_softmax, forward。
+#   - `MultiHeadAttention`：承载本节状态/数据；重点方法：forward。
+#   - `LayerNorm`：承载本节状态/数据；重点方法：forward。
+#   - `FeedForward`：承载本节状态/数据；重点方法：forward。
+#   - `TransformerBlock`：承载本节状态/数据；重点方法：forward。
+#   - `TinyGPT`：承载本节状态/数据；重点方法：forward, predict。
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import numpy as np
 
-VOCAB = list("日月星辰山河风雷水火天地剑器灵气道术")
+VOCAB = list("日月星辰山河风雷水火天地方案器运行资源道术")
 EMBED_DIM = 32
 MAX_SEQ = 16
 NUM_HEADS = 4

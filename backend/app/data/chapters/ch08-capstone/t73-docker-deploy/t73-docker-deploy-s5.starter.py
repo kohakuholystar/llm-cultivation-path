@@ -1,7 +1,20 @@
-"""渡劫飞升 · s5:配置注入与密钥守卫
+"""终期交付 · s5:配置注入与密钥守卫
 部署的灵魂是「配置不进镜像」。本步把所有可变项收进环境变量,
 并为密钥上一道守卫:缺 key 时给出引导文案,而不是甩出堆栈 traceback。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：配置注入与密钥守卫。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `audit_compose(text: str) -> list[str]`：输入为签名中的参数；输出为 `list[str]`。用途：解析 compose 文本,校验服务、端口、环境与健康检查,返回问题清单。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Config`：承载本节状态/数据；重点方法：from_env。
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：需要在右上角 AI 配置填写自己的 DeepSeek API Key，并允许本节联网运行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import sys
 import yaml
@@ -13,7 +26,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
     sys.exit(0)
 
 # 编排文件(s3 产物,原样复用;密钥经 environment 注入)
-COMPOSE = """# 渡劫飞升 · 编排(由 s3 生成)。
+COMPOSE = """# 黑糖资料室 · 编排(由 s3 生成)。
 services:
   app:
     build: .
@@ -55,7 +68,7 @@ def audit_compose(text: str) -> list[str]:
 
 
 # 环境配置样例:复制为 .env 后按需修改,密钥本体绝不允许进仓库
-ENV_EXAMPLE = """# 渡劫飞升 · 环境配置样例(由 s5 生成)。
+ENV_EXAMPLE = """# 黑糖资料室 · 环境配置样例(由 s5 生成)。
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
 MODEL_NAME=deepseek-v4-pro
 PORT=8000

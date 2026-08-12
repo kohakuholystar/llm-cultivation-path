@@ -1,6 +1,6 @@
-"""乾坤圈 · s3:终止条件——四种方式叫停循环
+"""Agent 运行时底座 · s3:终止条件——四种方式叫停循环
 
-s1 的保险丝只看步数,过于粗暴。本步把「何时停」提炼成
+s1 的保险丝只看步数,过于粗暴。本步把「何时停」提完成
 evaluate_stop 判定器:正常完成、步数超限、计划为空、动作重复,
 四种终止原因统一用 StopReason 枚举表达,循环只负责转,判定交给专职函数。
 """
@@ -42,8 +42,8 @@ class AgentState:
 
 def get_time() -> str:
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def run_tool(name: str) -> str:
@@ -68,7 +68,7 @@ def evaluate_stop(state: AgentState, plan: list, max_steps: int, repeat_limit: i
 
 
 class AgentLoop:
-    """乾坤圈主循环:决策、执行、判定三分,终止原因留痕。"""
+    """Agent 运行时底座主循环:决策、执行、判定三分,终止原因留痕。"""
 
     def __init__(self, max_steps: int = 10):
         self.state = AgentState()
@@ -91,7 +91,7 @@ class AgentLoop:
         state = self.state
         state.steps += 1
         if decision == "reply":
-            state.reply = "巳时三刻,气血行至手阳明大肠经。"
+            state.reply = "当前为上午时段,工作流已完成工具执行。"
             state.status = AgentStatus.DONE
             return state.reply
         result = run_tool(decision)

@@ -1,4 +1,4 @@
-"""渡劫飞升 · s4:健康检查与就绪判定
+"""终期交付 · s4:健康检查与就绪判定
 compose 里的 healthcheck 是容器级探针,本步实现应用级探针:
 读取服务上报的状态快照,按存活(liveness)与就绪(readiness)两组规则
 逐项判定,把 /health 从「进程还活着」升级为「能干活」。
@@ -6,7 +6,7 @@ compose 里的 healthcheck 是容器级探针,本步实现应用级探针:
 import yaml
 
 # 编排文件(s3 产物,原样复用;其中的 healthcheck 就是容器级探针)
-COMPOSE = """# 渡劫飞升 · 编排(由 s3 生成)。
+COMPOSE = """# 黑糖资料室 · 编排(由 s3 生成)。
 services:
   app:
     build: .

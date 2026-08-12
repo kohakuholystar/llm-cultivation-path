@@ -1,8 +1,8 @@
-"""百宝囊 v0.1 —— 手写 @tool 装饰器,打下工具型 Agent 的地基。"""
+"""社团工具箱 v0.1 —— 手写 @tool 装饰器,打下工具型 Agent 的地基。"""
 import random
 from datetime import datetime
 
-TOOLBOX = {}  # 工具注册表:工具名 -> 函数,Agent 靠它发现法宝
+TOOLBOX = {}  # 工具注册表:工具名 -> 函数,Agent 靠它发现工具
 
 
 def tool(func):
@@ -26,27 +26,27 @@ def roll_dice(sides: int = 6) -> str:
 
 
 def _secret_sauce() -> str:
-    """内部函数:没贴 @tool,不会被登记进百宝囊。"""
+    """内部函数:没贴 @tool,不会被登记进社团工具箱。"""
     return "我是内部实现细节,不对外开放"
 
 
 def make_tool_by_hand():
     """对照实验:手动做一遍装饰器做的事,理解 @tool 只是语法糖。"""
     def hello() -> str:
-        """打个招呼。用户想测试百宝囊是否工作时使用。"""
-        return "你好,我是手动登记的法宝"
+        """打个招呼。用户想测试社团工具箱是否工作时使用。"""
+        return "你好,我是手动登记的工具"
     return tool(hello)  # 等价于在 hello 定义上方写 @tool
 
 
 def show_toolbox() -> None:
-    """打印百宝囊清单:名称 + 描述,检查装饰器登记了哪些法宝。"""
-    print(f"百宝囊中共有 {len(TOOLBOX)} 件法宝:")
+    """打印社团工具箱清单:名称 + 描述,检查装饰器登记了哪些工具。"""
+    print(f"社团工具箱中共有 {len(TOOLBOX)} 件工具:")
     for name, func in TOOLBOX.items():
         print(f"  - {name}: {func.tool_description}")
 
 
 def find_tool(name: str):
-    """按名字从百宝囊取工具;找不到时打印提示并返回 None。"""
+    """按名字从社团工具箱取工具;找不到时打印提示并返回 None。"""
     if name not in TOOLBOX:
         print(f"未找到工具: {name}")
         return None
@@ -54,7 +54,7 @@ def find_tool(name: str):
 
 
 def main() -> None:
-    make_tool_by_hand()  # 手动登记第三件法宝,验证 @tool 就是语法糖
+    make_tool_by_hand()  # 手动登记第三件工具,验证 @tool 就是语法糖
     show_toolbox()
     # 装饰器不改变函数本身,仍可照常直接调用
     print("直接调用:", system_time())

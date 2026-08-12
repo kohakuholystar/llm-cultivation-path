@@ -1,4 +1,4 @@
-"""灵讯通 · 结构化抽取 v2:用 Pydantic schema 给抽取结果上“类型保险”"""
+"""星澈助手 · 结构化抽取 v2:用 Pydantic schema 给抽取结果上“类型保险”"""
 import json
 import os
 import sys
@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 
-DEMO_DIALOG = """客服:您好,这里是灵讯通,请问有什么可以帮您?
+DEMO_DIALOG = """客服:您好,这里是星澈助手,请问有什么可以帮您?
 用户:我昨天充值的会员到现在还没到账,订单号 88231。
 客服:非常抱歉,我马上帮您核实订单状态。
 用户:麻烦尽快处理,我今晚等着用。"""
@@ -59,7 +59,7 @@ def main() -> None:
     client = build_client()
     messages = [
         {"role": "system", "content": (
-            "你是灵讯通客服质检助手。请从对话中抽取关键信息,"
+            "你是星澈助手客服质检助手。请从对话中抽取关键信息,"
             "只输出一个 JSON 对象,包含 issue、order_id、emotion 三个字段。"
         )},
         {"role": "user", "content": DEMO_DIALOG},
@@ -68,15 +68,15 @@ def main() -> None:
     try:
         ticket = parse_ticket(raw)
     except json.JSONDecodeError:
-        print("[灵讯通] 输出不是合法 JSON,原文如下:")
+        print("[星澈助手] 输出不是合法 JSON,原文如下:")
         print(raw)
         sys.exit(1)
     except ValidationError as exc:
         # Pydantic 会给出精确到字段的错误报告
-        print("[灵讯通] 字段校验未通过:")
+        print("[星澈助手] 字段校验未通过:")
         print(exc)
         sys.exit(1)
-    print("[灵讯通] 校验通过的工单:")
+    print("[星澈助手] 校验通过的工单:")
     print(ticket.model_dump_json(indent=2))
     print(f"摘要: 订单 {ticket.order_id} | 情绪 {ticket.emotion} | {ticket.issue}")
 

@@ -5,7 +5,7 @@
       "taskId": "t21-embedding-store",
       "order": 1,
       "title": "手写 TF-IDF 嵌入器(numpy)",
-      "instruction": "### 目标\n为「藏经阁」数字化工程打造第一块基石:一个零依赖、纯 numpy 的 TF-IDF 嵌入器,把秘籍经文变成可计算相似度的向量,并验证\"刚猛的内功心法\"能命中《降龙十八掌》。\n\n### 原理\n**为什么不用 sentence-transformers?** 生产环境的首选是 `SentenceTransformer(\"BAAI/bge-small-zh\")` 这类语义模型:它把文本编码成稠密向量,能理解\"掌法刚猛\"与\"拳势威猛\"字面不同但语义相近。但它要下载几百 MB 模型权重,本沙箱无网、也没有 torch。工程上正确的做法不是放弃,而是**把嵌入器抽象成统一接口**(fit/encode):先用 TF-IDF 顶住,联网后只换一个类,上层入库与检索代码一行不改。这就是\"接口先行、实现可换\"的分层思想。\n\n**TF-IDF 的本质**:一个词对文档的代表性 = 词频(TF,出现越多越重要) × 逆文档频率(IDF,越罕见越能区分文档)。本步骤用平滑版公式 `idf = log((1+N)/(1+df)) + 1`,避免除零,也保证高频词权重不为零。\n\n**中文分词难题**:没有 jieba 时,字符二元组(bigram)是最稳的兜底——\"九阳神功\"切成 九阳/阳神/神功,不依赖词典,对古文和武侠术语都鲁棒。\n\n**为什么 L2 归一化**:归一化之后,向量点积就等于余弦相似度,省去每次开方;这也是 ChromaDB cosine 空间的标准前置处理。\n\n### 操作\n1. 通读 `char_ngrams` 与 `TfidfEmbedder.fit`,理解词表与 IDF 如何建立\n2. 补全 `encode`:TF×IDF 加权、零范数保护、L2 归一化\n3. 补全 `main` 里的相似度计算与 TOP1 打印\n4. 运行,确认输出词表大小与 TOP1《降龙十八掌》\n\n### 常见坑\n- **零向量除零**:查询词在词表里一个都不命中时整行是 0,直接除会得 nan——必须把 0 范数替换成 1.0。\n- **查询绝不能单独 fit**:fit 会重建词表,查询和文档就落在两个毫不相干的向量空间里,相似度毫无意义。查询必须走建库时同一个 embedder 的 encode。\n- **未登录词要跳过**:encode 遇到词表外的 token 应忽略,强行写入会 IndexError。",
+      "instruction": "### 目标\n为「黑糖资料室」数字化工程打造第一块基石:一个零依赖、纯 numpy 的 TF-IDF 嵌入器,把技术文档变成可计算相似度的向量,并验证\"稳定的错误恢复\"能命中《故障恢复指南》。\n\n### 原理\n**为什么不用 sentence-transformers?** 生产环境的首选是 `SentenceTransformer(\"BAAI/bge-small-zh\")` 这类语义模型:它把文本编码成稠密向量,能理解\"错误恢复\"与\"故障处理\"字面不同但语义相近。但它要下载几百 MB 模型权重,本沙箱无网、也没有 torch。工程上正确的做法不是放弃,而是**把嵌入器抽象成统一接口**(fit/encode):先用 TF-IDF 顶住,联网后只换一个类,上层入库与检索代码一行不改。这就是\"接口先行、实现可换\"的分层思想。\n\n**TF-IDF 的本质**:一个词对文档的代表性 = 词频(TF,出现越多越重要) × 逆文档频率(IDF,越罕见越能区分文档)。本步骤用平滑版公式 `idf = log((1+N)/(1+df)) + 1`,避免除零,也保证高频词权重不为零。\n\n**中文分词难题**:没有 jieba 时,字符二元组(bigram)是最稳的兜底——\"检索基础指南\"切成 检索/索基/基础,不依赖词典,对技术文档和校园创作术语都鲁棒。\n\n**为什么 L2 归一化**:归一化之后,向量点积就等于余弦相似度,省去每次开方;这也是 ChromaDB cosine 空间的标准前置处理。\n\n### 操作\n1. 通读 `char_ngrams` 与 `TfidfEmbedder.fit`,理解词表与 IDF 如何建立\n2. 补全 `encode`:TF×IDF 加权、零范数保护、L2 归一化\n3. 补全 `main` 里的相似度计算与 TOP1 打印\n4. 运行,确认输出词表大小与 TOP1《故障恢复指南》\n\n### 常见坑\n- **零向量除零**:查询词在词表里一个都不命中时整行是 0,直接除会得 nan——必须把 0 范数替换成 1.0。\n- **查询绝不能单独 fit**:fit 会重建词表,查询和文档就落在两个毫不相干的向量空间里,相似度毫无意义。查询必须走建库时同一个 embedder 的 encode。\n- **未登录词要跳过**:encode 遇到词表外的 token 应忽略,强行写入会 IndexError。",
       "todoItems": [
         {
           "title": "补全 encode:TF×IDF 加权 + 零范数保护 + L2 归一化",
@@ -17,7 +17,7 @@
           "title": "补全 main:计算文档与查询的余弦相似度并打印 TOP3",
           "target": "main()",
           "code": "sims = (doc_vecs @ q_vec.T).ravel();top = np.argsort(-sims)[:3]",
-          "expect": "TOP1 是《降龙十八掌》,输出相似度分数"
+          "expect": "TOP1 是《故障恢复指南》,输出相似度分数"
         }
       ],
       "hints": [
@@ -109,7 +109,7 @@
       "taskId": "t21-embedding-store",
       "order": 2,
       "title": "创建 ChromaDB 集合并写入向量",
-      "instruction": "### 目标\n把第 1 步算出的 TF-IDF 向量正式存入向量数据库:创建 ChromaDB 集合 `cangjingge`,显式传入 embeddings 完成首次写入,并抽查确认数据落库。\n\n### 原理\n**Collection 是什么**:ChromaDB 的集合(collection)相当于关系库里的一张表,每行由四元组构成——`ids`(主键)、`embeddings`(向量)、`documents`(原文)、`metadatas`(结构化标签)。RAG 检索时返回的就是这四样的组合,所以入库时就要想清楚每一项放什么。\n\n**为什么显式传 embeddings=**:ChromaDB 的 `add()` 如果不传向量,会调用集合绑定的 embedding function 自动计算——默认实现是 onnx 版 MiniLM,**首次运行要联网下载模型**,沙箱里必然失败。我们已经在第 1 步算好了向量,显式传入即可完全绕开默认 embedding function。这也正是换 sentence-transformers 时的推荐姿势:向量在外部算好,ChromaDB 只负责存和查。\n\n**EphemeralClient vs PersistentClient**:沙箱用 `EphemeralClient()` 纯内存模式,进程结束数据消失,适合实验;生产环境换 `PersistentClient(path=\"./db\")` 落盘,API 完全一致。\n\n**距离度量**:建集合时 `metadata={\"hnsw:space\": \"cosine\"}` 指定余弦距离,与我们 L2 归一化的向量配套;注意这个设置**只能在创建时定**,事后改不了。\n\n### 操作\n1. 复用第 1 步的 TfidfEmbedder,对八本秘籍 fit + encode\n2. 补全 `get_or_create_collection`,指定 cosine 空间\n3. 补全 `collection.add`,注意 numpy 矩阵要 `.tolist()`\n4. 运行,确认\"已写入: 8 条秘籍\"与 metadata 抽查结果\n\n### 常见坑\n- **numpy 数组直接传给 add 会报序列化错误**:ChromaDB 接受 list[list[float]],必须先 `.tolist()`。\n- **ids/embeddings/documents/metadatas 四个列表必须等长且顺序对应**,错位一条,metadata 就张冠李戴。\n- **集合名有规范**:3-512 个字符,仅限字母数字、`._-`,且首尾必须是字母数字——中文名会报 InvalidArgumentError。",
+      "instruction": "### 目标\n把第 1 步算出的 TF-IDF 向量正式存入向量数据库:创建 ChromaDB 集合 `cangjingge`,显式传入 embeddings 完成首次写入,并抽查确认数据落库。\n\n### 原理\n**Collection 是什么**:ChromaDB 的集合(collection)相当于关系库里的一张表,每行由四元组构成——`ids`(主键)、`embeddings`(向量)、`documents`(原文)、`metadatas`(结构化标签)。RAG 检索时返回的就是这四样的组合,所以入库时就要想清楚每一项放什么。\n\n**为什么显式传 embeddings=**:ChromaDB 的 `add()` 如果不传向量,会调用集合绑定的 embedding function 自动计算——默认实现是 onnx 版 MiniLM,**首次运行要联网下载模型**,沙箱里必然失败。我们已经在第 1 步算好了向量,显式传入即可完全绕开默认 embedding function。这也正是换 sentence-transformers 时的推荐姿势:向量在外部算好,ChromaDB 只负责存和查。\n\n**EphemeralClient vs PersistentClient**:沙箱用 `EphemeralClient()` 纯内存模式,进程结束数据消失,适合实验;生产环境换 `PersistentClient(path=\"./db\")` 落盘,API 完全一致。\n\n**距离度量**:建集合时 `metadata={\"hnsw:space\": \"cosine\"}` 指定余弦距离,与我们 L2 归一化的向量配套;注意这个设置**只能在创建时定**,事后改不了。\n\n### 操作\n1. 复用第 1 步的 TfidfEmbedder,对八本操作指南 fit + encode\n2. 补全 `get_or_create_collection`,指定 cosine 空间\n3. 补全 `collection.add`,注意 numpy 矩阵要 `.tolist()`\n4. 运行,确认\"已写入: 8 条操作指南\"与 metadata 抽查结果\n\n### 常见坑\n- **numpy 数组直接传给 add 会报序列化错误**:ChromaDB 接受 list[list[float]],必须先 `.tolist()`。\n- **ids/embeddings/documents/metadatas 四个列表必须等长且顺序对应**,错位一条,metadata 就张冠李戴。\n- **集合名有规范**:3-512 个字符,仅限字母数字、`._-`,且首尾必须是字母数字——中文名会报 InvalidArgumentError。",
       "todoItems": [
         {
           "title": "补全 get_or_create_collection:创建 cosine 空间集合",
@@ -121,7 +121,7 @@
           "title": "补全 collection.add:向量转 list 一次性写入",
           "target": "collection.add()",
           "code": "collection.add(ids=ids, embeddings=doc_vecs.tolist(), documents=corpus, metadatas=metadatas)",
-          "expect": "输出「已写入: 8 条秘籍」,metadata 抽查正确"
+          "expect": "输出「已写入: 8 条操作指南」,metadata 抽查正确"
         }
       ],
       "hints": [
@@ -187,8 +187,8 @@
         },
         {
           "type": "sandbox_run",
-          "message": "运行应输出已写入 8 条秘籍",
-          "expectedStdout": "已写入: 8 条秘籍",
+          "message": "运行应输出已写入 8 条操作指南",
+          "expectedStdout": "已写入: 8 条操作指南",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -286,7 +286,7 @@
       "taskId": "t21-embedding-store",
       "order": 4,
       "title": "增量更新与内容哈希去重",
-      "instruction": "### 目标\n藏经阁送来第二批扫描件:一份重复、一份修订版、一份新发现。实现 `sync_documents` 增量同步——用**内容哈希做 ID**,自动区分\"新增/更新/跳过\",让入库操作幂等。\n\n### 原理\n**内容寻址 ID**:不用 `js-001` 这种顺序号,而是用 `sha1(经文)[:12]` 做 ID。同一段文本永远算出同一个 ID——这就是**幂等性**的来源:同一批数据同步十遍,结果和同步一遍完全一样,重跑、断点续传、多机并发都安全。git 用 commit 哈希、Docker 用镜像哈希,都是同一个思想。\n\n**三态判定**:对每条待入库文档——\n1. **同 ID 已在库** → 内容一字未变,**跳过**(连向量都不用重算,省算力);\n2. **同书名、不同哈希** → 修订版,先 `delete` 旧条目再 `upsert` 新版,记为**更新**;不删旧版会导致同一本书新旧两版并存,检索时被召回两次;\n3. **都没有** → **新增**。\n\n**upsert vs add**:`upsert` 是\"存在即更新、不存在即插入\",配合内容哈希 ID 让写入路径完全幂等;而 `add` 对重复 ID 要么报错要么静默忽略(版本而异),都不适合增量场景。\n\n**metadata 里存 content_hash**:把哈希一并写入 metadata,后续可以用它做变更审计、跨库对账,是值得养成的习惯。\n\n### 操作\n1. 补全 `doc_id`:sha1 哈希截断 12 位\n2. 补全 `sync_documents` 的三态判定与 upsert\n3. 运行:首次同步新增 8 条;二次同步应输出 新增['神照经']、更新['太极剑']、跳过两份《九阳神功》,最终库藏 9 条\n\n### 常见坑\n- **修订版只 upsert 不删旧版**:新哈希 = 新 ID,旧条目还在库里,同一本书召回两遍——必须先按书名删掉旧条目。\n- **哈希前不做归一化**:一个全角/半角空格差异就会算出不同哈希,把\"同文不同格式\"误判为修订;生产中应先统一清洗再哈希。\n- **fit 语料没覆盖新词**:embedder 的词表来自 fit 语料,新文档的独有词会被忽略——本步骤 fit 时把两批语料都喂进去了,生产中要定期重 fit 或换预训练模型。",
+      "instruction": "### 目标\n黑糖资料室送来第二批扫描件:一份重复、一份修订版、一份新发现。实现 `sync_documents` 增量同步——用**内容哈希做 ID**,自动区分\"新增/更新/跳过\",让入库操作幂等。\n\n### 原理\n**内容寻址 ID**:不用 `js-001` 这种顺序号,而是用 `sha1(经文)[:12]` 做 ID。同一段文本永远算出同一个 ID——这就是**幂等性**的来源:同一批数据同步十遍,结果和同步一遍完全一样,重跑、断点续传、多机并发都安全。git 用 commit 哈希、Docker 用镜像哈希,都是同一个思想。\n\n**三态判定**:对每条待入库文档——\n1. **同 ID 已在库** → 内容一字未变,**跳过**(连向量都不用重算,省算力);\n2. **同书名、不同哈希** → 修订版,先 `delete` 旧条目再 `upsert` 新版,记为**更新**;不删旧版会导致同一本书新旧两版并存,检索时被召回两次;\n3. **都没有** → **新增**。\n\n**upsert vs add**:`upsert` 是\"存在即更新、不存在即插入\",配合内容哈希 ID 让写入路径完全幂等;而 `add` 对重复 ID 要么报错要么静默忽略(版本而异),都不适合增量场景。\n\n**metadata 里存 content_hash**:把哈希一并写入 metadata,后续可以用它做变更审计、跨库对账,是值得养成的习惯。\n\n### 操作\n1. 补全 `doc_id`:sha1 哈希截断 12 位\n2. 补全 `sync_documents` 的三态判定与 upsert\n3. 运行:首次同步新增 8 条;二次同步应输出 新增['神照经']、更新['引用规范']、跳过两份《检索基础指南》,最终库藏 9 条\n\n### 常见坑\n- **修订版只 upsert 不删旧版**:新哈希 = 新 ID,旧条目还在库里,同一本书召回两遍——必须先按书名删掉旧条目。\n- **哈希前不做归一化**:一个全角/半角空格差异就会算出不同哈希,把\"同文不同格式\"误判为修订;生产中应先统一清洗再哈希。\n- **fit 语料没覆盖新词**:embedder 的词表来自 fit 语料,新文档的独有词会被忽略——本步骤 fit 时把两批语料都喂进去了,生产中要定期重 fit 或换预训练模型。",
       "todoItems": [
         {
           "title": "补全 doc_id:sha1 摘要截断 12 位",
@@ -298,7 +298,7 @@
           "title": "补全 sync_documents 三态判定与 upsert",
           "target": "sync_documents()",
           "code": "同 ID 存在记\"跳过\";同标题不同哈希先删旧版再 upsert 记\"更新\";否则 upsert 记\"新增\"",
-          "expect": "首次同步新增 8 条;二次同步输出新增['神照经']、更新['太极剑']、跳过两份《九阳神功》,库藏 9 条"
+          "expect": "首次同步新增 8 条;二次同步输出新增['神照经']、更新['引用规范']、跳过两份《检索基础指南》,库藏 9 条"
         }
       ],
       "hints": [
@@ -319,7 +319,7 @@
         {
           "title": "内容哈希 ID:git 同款思想",
           "language": "python",
-          "code": "import hashlib\n\ndef doc_id(text: str) -> str:\n    # 同一段文本永远得到同一个 ID -> 写入天然幂等\n    # 12 位截断对百万级语料碰撞概率可忽略(生日界约 2^24 条)\n    return hashlib.sha1(text.encode(\"utf-8\")).hexdigest()[:12]\n\nprint(doc_id(\"九阳神功。他强由他强\"))  # 任何机器、任何时刻,结果一致",
+          "code": "import hashlib\n\ndef doc_id(text: str) -> str:\n    # 同一段文本永远得到同一个 ID -> 写入天然幂等\n    # 12 位截断对百万级语料碰撞概率可忽略(生日界约 2^24 条)\n    return hashlib.sha1(text.encode(\"utf-8\")).hexdigest()[:12]\n\nprint(doc_id(\"检索基础指南。他强由他强\"))  # 任何机器、任何时刻,结果一致",
           "description": "内容寻址让入库操作幂等:重复执行不会产生重复数据,这是增量同步的地基。"
         }
       ],
@@ -390,13 +390,13 @@
       "taskId": "t21-embedding-store",
       "order": 5,
       "title": "语义检索:Top-K 与元数据过滤",
-      "instruction": "### 目标\n让藏经阁真正\"可查\":实现 `search`——查询向量化、Top-K 相似度召回、`where` 元数据过滤,并把距离换算成人类可读的相似度分数。\n\n### 原理\n**检索与入库必须共用同一个嵌入器**:向量空间由 fit 时的词表与 IDF 决定,查询若用另一个 embedder 编码,等于拿拼音去查五笔字典。真实工程里嵌入模型(或 TF-IDF 词表)必须随库持久化、随检索加载;本任务在同一进程内复用对象,所以直接沿用即可。\n\n**collection.query 的工作方式**:传入查询向量,ChromaDB 在 HNSW 近似最近邻索引上找出距离最近的 `n_results` 条,返回 ids/documents/metadatas/distances。小数据下 ANN 与暴力搜索结果一致,数据上到百万级时 ANN 用微小精度换数量级的速度。\n\n**距离 ≠ 相似度**:集合建的是 cosine 空间,ChromaDB 返回的 distance 是**余弦距离 = 1 − 余弦相似度**。展示给用户前要做 `score = 1.0 - dist` 的换算,方向别搞反:距离越小越相似,相似度越大越相似。\n\n**元数据过滤是预过滤**:`where={\"category\": \"剑法\"}` 在向量比较之前先把候选集收窄到剑法类目,等价于 SQL 的 WHERE。RAG 实战里它用来做租户隔离、时间范围、文档类型筛选,是比\"纯向量召回再后过滤\"更高效的姿势。\n\n### 操作\n1. 补全 `search`:query → 距离换算 → 组装命中列表\n2. 运行查询\"刚猛的掌法\",TOP1 应是《降龙十八掌》\n3. 观察带 `category=\"剑法\"` 过滤的查询:候选只剩两本剑谱\n\n### 常见坑\n- **把距离当相似度直接展示**:余弦距离越小越好,直接当\"分数\"展示会误导用户;务必换算。\n- **查询和入库用了不同 embedder**:TF-IDF 词表不一致时相似度全是噪声,且不会报任何错——这是最隐蔽的坑。\n- **where 过滤字段忘了进 metadata**:入库时没写 category,过滤就永远查空;入库 schema 要按检索需求设计。",
+      "instruction": "### 目标\n让黑糖资料室真正\"可查\":实现 `search`——查询向量化、Top-K 相似度召回、`where` 元数据过滤,并把距离换算成人类可读的相似度分数。\n\n### 原理\n**检索与入库必须共用同一个嵌入器**:向量空间由 fit 时的词表与 IDF 决定,查询若用另一个 embedder 编码,等于拿拼音去查五笔字典。真实工程里嵌入模型(或 TF-IDF 词表)必须随库持久化、随检索加载;本任务在同一进程内复用对象,所以直接沿用即可。\n\n**collection.query 的工作方式**:传入查询向量,ChromaDB 在 HNSW 近似最近邻索引上找出距离最近的 `n_results` 条,返回 ids/documents/metadatas/distances。小数据下 ANN 与暴力搜索结果一致,数据上到百万级时 ANN 用微小精度换数量级的速度。\n\n**距离 ≠ 相似度**:集合建的是 cosine 空间,ChromaDB 返回的 distance 是**余弦距离 = 1 − 余弦相似度**。展示给用户前要做 `score = 1.0 - dist` 的换算,方向别搞反:距离越小越相似,相似度越大越相似。\n\n**元数据过滤是预过滤**:`where={\"category\": \"创作方法\"}` 在向量比较之前先把候选集收窄到创作方法类目,等价于 SQL 的 WHERE。RAG 实战里它用来做租户隔离、时间范围、文档类型筛选,是比\"纯向量召回再后过滤\"更高效的姿势。\n\n### 操作\n1. 补全 `search`:query → 距离换算 → 组装命中列表\n2. 运行查询\"稳定的处理方法\",TOP1 应是《故障恢复指南》\n3. 观察带 `category=\"创作方法\"` 过滤的查询:候选只剩两本输出模板\n\n### 常见坑\n- **把距离当相似度直接展示**:余弦距离越小越好,直接当\"分数\"展示会误导用户;务必换算。\n- **查询和入库用了不同 embedder**:TF-IDF 词表不一致时相似度全是噪声,且不会报任何错——这是最隐蔽的坑。\n- **where 过滤字段忘了进 metadata**:入库时没写 category,过滤就永远查空;入库 schema 要按检索需求设计。",
       "todoItems": [
         {
           "title": "补全 search:query → 距离换算 → 组装命中列表",
           "target": "search()",
           "code": "result = collection.query(query_embeddings=[q.tolist()], n_results=top_k, include=[\"documents\", \"metadatas\", \"distances\"]);score = 1.0 - dist",
-          "expect": "「刚猛的掌法」TOP1 是《降龙十八掌》;带 category=\"剑法\" 过滤时候选只剩两本剑谱"
+          "expect": "「稳定的处理方法」TOP1 是《故障恢复指南》;带 category=\"创作方法\" 过滤时候选只剩两本输出模板"
         }
       ],
       "hints": [
@@ -417,7 +417,7 @@
         {
           "title": "RAG 标准用法:召回结果拼进 Prompt",
           "language": "python",
-          "code": "hits = search(collection, embedder, user_question, top_k=3)\ncontext = \"\\n\\n\".join(h[\"title\"] for h in hits)\nprompt = f\"根据以下秘籍内容回答:\\n{context}\\n\\n问题:{user_question}\"\n# prompt -> LLM(deepseek-v4-pro) 生成最终答案",
+          "code": "hits = search(collection, embedder, user_question, top_k=3)\ncontext = \"\\n\\n\".join(h[\"title\"] for h in hits)\nprompt = f\"根据以下操作指南内容回答:\\n{context}\\n\\n问题:{user_question}\"\n# prompt -> LLM(deepseek-v4-pro) 生成最终答案",
           "description": "本步骤的 search 就是 RAG 中的 R(Retrieval),下一任务将把它接入完整检索链。"
         }
       ],
@@ -468,7 +468,7 @@
         {
           "type": "sandbox_run",
           "message": "运行应输出两个查询的 TOP 结果",
-          "expectedStdout": "TOP1 《降龙十八掌》",
+          "expectedStdout": "TOP1 《故障恢复指南》",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
@@ -480,7 +480,7 @@
       "taskId": "t21-embedding-store",
       "order": 6,
       "title": "封装 ScriptureStore 向量库组件",
-      "instruction": "### 目标\n把前五步的散装代码收敛成一个可复用组件 `ScriptureStore`:`build_index`(建库)、`sync`(增量同步)、`search`(检索)三个方法一站封装,作为章项目「藏经阁」的正式向量库模块。\n\n### 原理\n**为什么要封装**:前五步的代码能跑,但调用方要懂 TF-IDF、哈希 ID、距离换算才能用对——每多一个使用方就多一份用错的风险。封装把\"词表必须先 fit\"\"查询与入库共用 embedder\"\"ID 必须是内容哈希\"这些**不变量收进类内部**,调用方只面对三个语义清晰的方法。这正是工程与脚本的分水岭:不是功能更多,而是**误用的空间更小**。\n\n**替换点显式化**:好的封装把未来的变化点留成明牌——本类只有两个:(1)`EphemeralClient` → `PersistentClient(path=...)` 实现落盘;(2)`TfidfEmbedder` → `SentenceTransformer` 实现语义级向量。两处替换都不动 build_index/sync/search 的一行逻辑,因为前面五步我们一直在用统一接口编程。这就是\"面向接口而不是面向实现\"的回报。\n\n**状态归属**:embedder 为什么是实例属性而不是全局变量?因为词表/IDF 是这个集合的私有状态——两个不同集合用同一词表会互相污染。类把状态和行为绑在一起,天然防止这类串扰。\n\n### 操作\n1. 补全 `build_index`:fit 词表 → 全量 encode → 分批 upsert → 返回 count\n2. 补全 `sync`(第 4 步三态逻辑)与 `search`(第 5 步检索逻辑)\n3. 运行:建库 6 条 → 增量同步(1 重复跳过 + 1 新增)→ 检索\"刚猛的武功\"命中《降龙十八掌》\n\n### 常见坑\n- **build_index 忘了 fit**:直接 encode 会因 idf 为 None 抛 RuntimeError——顺序必须是 fit 在前。\n- **把同步报告写成 print 而不是 return**:组件方法应返回结构化数据(dict),让调用方决定展示还是落日志;在库里 print 是脚本思维的残留。\n- **search 的 where 拼错类型**:category 为 None 时要传 None 而不是空 dict `{}`,部分版本对空过滤条件行为不一致。",
+      "instruction": "### 目标\n把前五步的散装代码收敛成一个可复用组件 `ScriptureStore`:`build_index`(建库)、`sync`(增量同步)、`search`(检索)三个方法一站封装,作为章项目「黑糖资料室」的正式向量库模块。\n\n### 原理\n**为什么要封装**:前五步的代码能跑,但调用方要懂 TF-IDF、哈希 ID、距离换算才能用对——每多一个使用方就多一份用错的风险。封装把\"词表必须先 fit\"\"查询与入库共用 embedder\"\"ID 必须是内容哈希\"这些**不变量收进类内部**,调用方只面对三个语义清晰的方法。这正是工程与脚本的分水岭:不是功能更多,而是**误用的空间更小**。\n\n**替换点显式化**:好的封装把未来的变化点留成明牌——本类只有两个:(1)`EphemeralClient` → `PersistentClient(path=...)` 实现落盘;(2)`TfidfEmbedder` → `SentenceTransformer` 实现语义级向量。两处替换都不动 build_index/sync/search 的一行逻辑,因为前面五步我们一直在用统一接口编程。这就是\"面向接口而不是面向实现\"的回报。\n\n**状态归属**:embedder 为什么是实例属性而不是全局变量?因为词表/IDF 是这个集合的私有状态——两个不同集合用同一词表会互相污染。类把状态和行为绑在一起,天然防止这类串扰。\n\n### 操作\n1. 补全 `build_index`:fit 词表 → 全量 encode → 分批 upsert → 返回 count\n2. 补全 `sync`(第 4 步三态逻辑)与 `search`(第 5 步检索逻辑)\n3. 运行:建库 6 条 → 增量同步(1 重复跳过 + 1 新增)→ 检索\"稳定的技术方案\"命中《故障恢复指南》\n\n### 常见坑\n- **build_index 忘了 fit**:直接 encode 会因 idf 为 None 抛 RuntimeError——顺序必须是 fit 在前。\n- **把同步报告写成 print 而不是 return**:组件方法应返回结构化数据(dict),让调用方决定展示还是落日志;在库里 print 是脚本思维的残留。\n- **search 的 where 拼错类型**:category 为 None 时要传 None 而不是空 dict `{}`,部分版本对空过滤条件行为不一致。",
       "todoItems": [
         {
           "title": "补全 build_index:fit → 全量 encode → 分批 upsert → 返回 count",
@@ -492,7 +492,7 @@
           "title": "补全 sync 三态逻辑与 search 检索",
           "target": "sync() / search()",
           "code": "同 ID 记\"跳过\";同书名不同哈希先删旧再 upsert 记\"更新\";否则 upsert 记\"新增\";search 复用第 5 步检索三部曲",
-          "expect": "增量同步 1 重复跳过 + 1 新增;「刚猛的武功」命中《降龙十八掌》"
+          "expect": "增量同步 1 重复跳过 + 1 新增;「稳定的技术方案」命中《故障恢复指南》"
         }
       ],
       "hints": [
@@ -506,14 +506,14 @@
         },
         {
           "order": 3,
-          "text": "接近答案:sync 返回 {\"新增\": n1, \"更新\": n2, \"跳过\": n3} 计数 dict;search 返回 [{\"title\": m[\"title\"], \"score\": round(1.0 - dist, 4)} ...]。预期输出:建库完成: 6 条秘籍;增量同步报告: {'新增': 1, '更新': 0, '跳过': 1}。"
+          "text": "接近答案:sync 返回 {\"新增\": n1, \"更新\": n2, \"跳过\": n3} 计数 dict;search 返回 [{\"title\": m[\"title\"], \"score\": round(1.0 - dist, 4)} ...]。预期输出:建库完成: 6 条操作指南;增量同步报告: {'新增': 1, '更新': 0, '跳过': 1}。"
         }
       ],
       "codeSamples": [
         {
           "title": "组件用法(作为模块被 import)",
           "language": "python",
-          "code": "# 另一个文件里:\nfrom scripture_store import ScriptureStore\n\nstore = ScriptureStore(name=\"cangjingge\")\nstore.build_index(new_scriptures)\nreport = store.sync(daily_scans)          # 每日扫描件增量入库\nhits = store.search(\"疗伤的内功\", top_k=3, category=\"内功\")\nfor h in hits:\n    print(h[\"title\"], h[\"score\"])",
+          "code": "# 另一个文件里:\nfrom scripture_store import ScriptureStore\n\nstore = ScriptureStore(name=\"cangjingge\")\nstore.build_index(new_scriptures)\nreport = store.sync(daily_scans)          # 每日扫描件增量入库\nhits = store.search(\"故障恢复指南\", top_k=3, category=\"基础指南\")\nfor h in hits:\n    print(h[\"title\"], h[\"score\"])",
           "description": "封装后调用方无需了解 TF-IDF、哈希 ID、距离换算任何细节,三个方法覆盖全部场景。"
         }
       ],
@@ -568,12 +568,111 @@
         {
           "type": "sandbox_run",
           "message": "运行应输出建库条数、同步报告与检索结果",
-          "expectedStdout": "建库完成: 6 条秘籍",
+          "expectedStdout": "建库完成: 6 条操作指南",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true
         }
       ]
+    },
+    {
+      "id": "t21-embedding-store-s7",
+      "taskId": "t21-embedding-store",
+      "order": 7,
+      "title": "?? BGE ?????????????",
+      "instruction": "### ??\n????? TF-IDF ??????????????`BAAI/bge-small-zh-v1.5`??????????????????????????? Recall@1?metadata ??????????????????????????\n\n### ?????\n???? BGE ???? API?????????????????????????????????? `pip install sentence-transformers`??????????????????? `local_files_only=True`????????????????????????????????? TF-IDF ??????\n\n### ??\nBGE ?????????????????????? `fit`?`normalize_embeddings=True` ?????? 1?????????????\n\n??????????? 256MB????????????????????????????????????????????????????????? BGE ???? `encode` ?????????????\n\n### ??\n1. ?? `BgeEmbedder.encode`??? `self.model.encode(..., normalize_embeddings=True)`??? `list`?\n2. ?? `search`??? `category` ???????????? Top-K??????? id?source?category?score?\n3. ?? `answer_question`???????????????????????????????????????? source?\n4. ????????????????????\n\n### ???\n- **?????????**?CI???????????????? `local_files_only=True`???????????????\n- **metadata ???**??? Top-K ?????????????????????????????\n- **?????? Top1 ??**???????????????????????????\n- **?????**??????????? `source` ???????????????",
+      "todoItems": [
+        {
+          "title": "???? BGE ??",
+          "target": "BgeEmbedder.encode()",
+          "code": "vectors = self.model.encode(list(texts), normalize_embeddings=True); return vectors.tolist()",
+          "expect": "???? BGE ??????? list"
+        },
+        {
+          "title": "??????????",
+          "target": "InMemoryVectorStore.search() / answer_question()",
+          "code": "?? category ?? candidates?? score ????? min_score ??? citations=[]",
+          "expect": "?????? Recall@1?????????"
+        }
+      ],
+      "hints": [
+        {
+          "order": 1,
+          "text": "BGE ??????????? fit?????????????"
+        },
+        {
+          "order": 2,
+          "text": "????????????????????????"
+        },
+        {
+          "order": 3,
+          "text": "??????????????????????????????????????"
+        }
+      ],
+      "codeSamples": [
+        {
+          "title": "??????? BGE ??",
+          "language": "python",
+          "code": "from sentence_transformers import SentenceTransformer\nmodel = SentenceTransformer(\"BAAI/bge-small-zh-v1.5\", local_files_only=True)\nvectors = model.encode(texts, normalize_embeddings=True)",
+          "description": "????????????????????????????"
+        }
+      ],
+      "terms": [
+        {
+          "name": "????",
+          "definition": "??????????????????????????????"
+        },
+        {
+          "name": "????",
+          "definition": "?????????????????????????????????????"
+        }
+      ],
+      "techStack": [
+        {
+          "name": "sentence-transformers",
+          "role": "??????",
+          "description": "?? BAAI/bge-small-zh-v1.5 ?????????",
+          "officialUrl": "https://www.sbert.net/",
+          "category": "?",
+          "installHint": "pip install sentence-transformers"
+        },
+        {
+          "name": "BAAI/bge-small-zh-v1.5",
+          "role": "??????",
+          "description": "????????????????",
+          "officialUrl": "https://huggingface.co/BAAI/bge-small-zh-v1.5",
+          "category": "??",
+          "installHint": "?????????????????"
+        }
+      ],
+      "validation": [
+        {
+          "type": "placeholder_filled",
+          "message": "???????? TODO ????",
+          "placeholder": "# TODO:",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "???????????? BGE",
+          "pattern": "local_files_only\\s*=\\s*True",
+          "blocking": true
+        },
+        {
+          "type": "regex_in_code",
+          "message": "?????????",
+          "pattern": "normalize_embeddings\\s*=\\s*True",
+          "blocking": true
+        },
+        {
+          "type": "unit_test",
+          "message": "BGE ????????????",
+          "testFile": "t21-embedding-store-s7.test.py",
+          "blocking": true,
+          "testCode": "# ???? t21-embedding-store-s7.test.py ??? pytest???????????"
+        }
+      ],
+      "sandboxProfile": "ml"
     }
   ]
 }

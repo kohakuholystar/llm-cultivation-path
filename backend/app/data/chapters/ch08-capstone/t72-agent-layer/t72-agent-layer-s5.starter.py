@@ -1,4 +1,4 @@
-"""渡劫飞升 · s5:韧性设计,重试降级护体
+"""终期交付 · s5:韧性设计,重试降级护体
 
 真实世界里,模型 API 是脆弱的:网络抖动、限流、超时随时可能把一次
 好好的工具调用变成事故。本步给 Harness 披上三层护甲——
@@ -6,6 +6,27 @@
 2. FlakyLLM:按剧本「假装故障」的模型,专门用来本地演练故障场景;
 3. AgentHarness._ask:重试全部失败后降级,用兜底文案体面收场。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：韧性设计:重试降级护体。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `search_knowledge(query: str) -> str`：输入为签名中的参数；输出为 `str`。用途：检索构建资料:整句子串匹配,取第一条命中(模拟 RAG 检索)。
+#   - `calc_forge_cost(item_name: str, quantity: int, unit_cost: float, rarity: str='凡品') -> str`：输入为签名中的参数；输出为 `str`。用途：计算实现成本:数量 × 单价 × 品质加成。
+#   - `_envelope(ok: bool, kind: str='', message: str='', data: str='') -> str`：输入为签名中的参数；输出为 `str`。用途：统一错误信封:失败也要变成模型可读的反馈。
+#   - `dispatch(name: str, args: dict) -> str`：输入为签名中的参数；输出为 `str`。用途：执行工具并返回 JSON 信封:失败绝不抛出,都变成可读文本。
+#   - `build_pouch() -> list[StructuredTool]`：输入为签名中的参数；输出为 `list[StructuredTool]`。用途：把注册表处理成 LangChain 工具,随 bind_tools 一起发给模型。
+#   - `build_llm() -> ChatOpenAI`：输入为签名中的参数；输出为 `ChatOpenAI`。用途：装配 DeepSeek 客户端(OpenAI 兼容协议),配置全部来自环境变量。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `ChatMemory`：承载本节状态/数据；重点方法：context, add。
+#   - `WithRetry`：承载本节状态/数据；重点方法：invoke。
+#   - `FlakyLLM`：承载本节状态/数据；重点方法：invoke。
+#   - `AgentHarness`：承载本节状态/数据；重点方法：_ask, run。
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
 import os
 import sys
@@ -19,46 +40,46 @@ MOCK = os.environ.get("MOCK_LLM") == "1"  # 离线演示模式
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[渡劫台] 未检测到 OPENAI_API_KEY。")
+    print("[任务调度台] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地离线演示可设 MOCK_LLM=1,用剧本模拟模型决策)")
     sys.exit(0)
 
-SYSTEM_PROMPT = "你是渡劫台的助道者,回答修炼、丹方、炼器问题要简洁、准确、有仙侠味。"
+SYSTEM_PROMPT = "你是任务调度台的助道者,回答学习、制作方案、工具开发问题要简洁、准确、有项目侠味。"
 
 # ---- 工具层:s1 注册表 + 分发器,原样沿用 ----
 CORPUS = [
-    {"title": "筑基丹配方", "content": "百年灵芝三两、灵泉水五升,文火炼制七日,丹成有异香。"},
-    {"title": "飞剑淬火", "content": "辰时淬火,炉温三千度,仙品飞剑还需加注灵泉。"},
-    {"title": "雷劫征兆", "content": "渡劫前三日紫气东来;雷劫共九道,第八道须以法宝抵挡。"},
+    {"title": "基础阶段丹配方", "content": "百年灵芝三两、补充素材水五升,文火实现七日,丹成有异香。"},
+    {"title": "展示素材优化细节", "content": "展示前优化细节,渲染参数设为高质量,高质量展示素材还需补充光影说明。"},
+    {"title": "故障征兆", "content": "上线验收前三日原始数据东来;故障共九道,第八道须以工具抵挡。"},
 ]
 
-RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "仙品": 3.0}
+RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "高质量": 3.0}
 
 
 def search_knowledge(query: str) -> str:
-    """检索修炼典籍:整句子串匹配,取第一条命中(模拟 RAG 检索)。"""
+    """检索构建资料:整句子串匹配,取第一条命中(模拟 RAG 检索)。"""
     for entry in CORPUS:
         if query in entry["title"] + entry["content"]:
-            return f"【典籍】{entry['title']}:{entry['content']}"
-    return "【典籍】没有检索到相关条目,请换个说法再试。"
+            return f"【资料】{entry['title']}:{entry['content']}"
+    return "【资料】没有检索到相关条目,请换个说法再试。"
 
 
 def calc_forge_cost(item_name: str, quantity: int, unit_cost: float, rarity: str = "凡品") -> str:
-    """计算炼制成本:数量 × 单价 × 品质加成。"""
+    """计算实现成本:数量 × 单价 × 品质加成。"""
     total = quantity * unit_cost * RARITY_BONUS.get(rarity, 1.0)
-    return f"【炼器】{rarity}·{item_name} x{quantity}:共需 {total:.1f} 灵石"
+    return f"【工具开发】{rarity}·{item_name} x{quantity}:共需 {total:.1f} 预算点"
 
 
 TOOLS = {
     "search_knowledge": {
-        "desc": "检索修炼典籍,回答修行、丹方、雷劫等知识问题",
+        "desc": "检索学习资料,回答学习、制作方案、故障等知识问题",
         "params": {"query": "检索关键词"},
         "fn": search_knowledge,
     },
     "calc_forge_cost": {
-        "desc": "计算炼制法器的灵石成本(数量/单价/品质)",
-        "params": {"item_name": "法器名", "quantity": "数量", "unit_cost": "单价", "rarity": "品质"},
+        "desc": "计算实现工具的预算点成本(数量/单价/品质)",
+        "params": {"item_name": "工具名", "quantity": "数量", "unit_cost": "单价", "rarity": "品质"},
         "fn": calc_forge_cost,
     },
 }
@@ -86,7 +107,7 @@ def dispatch(name: str, args: dict) -> str:
 
 
 def build_pouch() -> list[StructuredTool]:
-    """把注册表锻造成 LangChain 工具,随 bind_tools 一起发给模型。"""
+    """把注册表处理成 LangChain 工具,随 bind_tools 一起发给模型。"""
     return [
         StructuredTool.from_function(func=spec["fn"], name=name, description=spec["desc"])
         for name, spec in TOOLS.items()
@@ -145,14 +166,14 @@ class FlakyLLM:
 
     def invoke(self, messages: list):
         # TODO: 补全抖动逻辑
-        # 提示: fail_times 大于 0 时减一并抛 ConnectionError(灵脉抖动);剧本耗尽抛 RuntimeError;正常情况按剧本顺序返回 AIMessage
+        # 提示: fail_times 大于 0 时减一并抛 ConnectionError(网络抖动);剧本耗尽抛 RuntimeError;正常情况按剧本顺序返回 AIMessage
         raise NotImplementedError("t72-agent-layer-s5 尚未实现:请按 TODO 提示补全抖动逻辑")
 
 
 class AgentHarness:
     """回合引擎(韧性版):决策走 _ask,重试耗尽就降级兜底。"""
 
-    def __init__(self, llm, memory, max_steps: int = 5, fallback: str = "(兜底)渡劫台暂时失联,请稍后再试。"):
+    def __init__(self, llm, memory, max_steps: int = 5, fallback: str = "(兜底)任务调度台暂时失联,请稍后再试。"):
         self.llm = llm
         self.memory = memory
         self.max_steps = max_steps
@@ -188,16 +209,16 @@ class AgentHarness:
 
 script1 = [
     # 一问一工具,2 次迭代出终答;前 2 次调用被 FlakyLLM 当成故障
-    {"content": "", "tool_calls": [{"name": "search_knowledge", "args": {"query": "筑基丹"}, "id": "call_1"}]},
-    {"content": "筑基丹以九转灵草为引,文火炼足四十九日,配方详见典籍。"},
+    {"content": "", "tool_calls": [{"name": "search_knowledge", "args": {"query": "基础阶段丹"}, "id": "call_1"}]},
+    {"content": "基础阶段丹以九转灵草为引,文火炼足四十九日,配方详见资料。"},
 ]
 
 if MOCK:
-    # 场景一:灵脉抖动 2 次后恢复 —— 重试护甲扛过 3 次失败并完成回合
+    # 场景一:网络抖动 2 次后恢复 —— 重试护甲扛过 3 次失败并完成回合
     flaky1 = FlakyLLM(script1, fail_times=2)
     retry1 = WithRetry(flaky1)
     harness1 = AgentHarness(llm=retry1, memory=ChatMemory(max_turns=5))
-    # 场景二:灵脉彻底断开 —— 3 次重试全败,_ask 降级兜底
+    # 场景二:网络彻底断开 —— 3 次重试全败,_ask 降级兜底
     flaky2 = FlakyLLM([], fail_times=999)
     retry2 = WithRetry(flaky2)
     harness2 = AgentHarness(llm=retry2, memory=ChatMemory(max_turns=5))
@@ -209,24 +230,24 @@ else:
 
 def main() -> None:
     if MOCK:
-        print("\n—— 道友问: 筑基丹怎么炼?(灵脉抖动 2 次,重试护甲扛过去)")
-        reply1 = harness1.run("筑基丹怎么炼?")
-        print("渡劫台:", reply1)
+        print("\n—— 学习者问: 活动方案怎么制作?(网络抖动 2 次,重试护甲扛过去)")
+        reply1 = harness1.run("活动方案怎么制作?")
+        print("任务调度台:", reply1)
         print("[检查] 场景一重试总尝试次数:", retry1.attempts)
-        assert reply1 == "筑基丹以九转灵草为引,文火炼足四十九日,配方详见典籍。"
+        assert reply1 == "基础阶段丹以九转灵草为引,文火炼足四十九日,配方详见资料。"
         assert retry1.attempts == 4  # 3 次失败 + 1 次成功
 
-        print("\n—— 道友问: 灵脉彻底断了,三次重试后降级兜底")
-        reply2 = harness2.run("今日运势如何?")
-        print("渡劫台:", reply2)
+        print("\n—— 学习者问: 网络彻底断了,三次重试后降级兜底")
+        reply2 = harness2.run("当前服务状态如何?")
+        print("任务调度台:", reply2)
         print("[检查] 场景二重试总尝试次数:", retry2.attempts)
         assert reply2 == harness2.fallback
         assert retry2.attempts == 3
         print("\n[检查] 重试与降级护甲全部生效。")
     else:
-        for q in ["筑基丹怎么炼?", "渡劫前要避开哪些劫难?"]:
-            print(f"\n—— 道友问: {q}")
-            print("渡劫台:", harness1.run(q))
+        for q in ["活动方案怎么制作?", "上线验收前要避开哪些故障难?"]:
+            print(f"\n—— 学习者问: {q}")
+            print("任务调度台:", harness1.run(q))
         print("\n[检查] 总步数:", harness1.step_count)
 
 

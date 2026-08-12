@@ -1,6 +1,6 @@
-"""乾坤圈 · s1:状态机基座
+"""Agent 运行时底座 · s1:状态机基座
 
-乾坤圈是神话里可大可小的法宝,也是本课程「通用 Agent 运行时」的心脏。
+Agent 运行时底座是本课程的 Agent 运行时组件,也是本课程「通用 Agent 运行时」的心脏。
 本步从零搭出最精简的循环骨架:状态(AgentStatus)、数据(AgentState)、
 循环(AgentLoop)三层分离;决策暂由剧本 scripted_decide 充当「模型大脑」,
 再装上一根 max_steps 保险丝,防止剧本失灵时无限空转。
@@ -29,21 +29,21 @@ class AgentState:
     steps: int = 0
 
 
-# —— 乾坤圈的「法宝库」:两个时辰类小工具 ——
+# —— Agent 运行时底座的「工具注册表」:两个流程演示工具 ——
 def get_time() -> str:
-    """报当前时辰(十二时辰制)。"""
+    """返回当前时间段。"""
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    """列出十二经脉名。"""
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    """列出工作流主要阶段。"""
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 def run_tool(name: str) -> str:
-    """工具分发器:按名字找到法宝并执行。"""
+    """工具分发器:按名字找到组件并执行。"""
     tools = {"get_time": get_time, "list_meridians": list_meridians}
     if name not in tools:
         return f"[未知工具] {name}"
@@ -59,7 +59,7 @@ def scripted_decide(state: AgentState, script: list) -> str:
 
 
 class AgentLoop:
-    """乾坤圈主循环:决策 → 执行 → 判定,三步一轮。"""
+    """Agent 运行时底座主循环:决策 → 执行 → 判定,三步一轮。"""
 
     def __init__(self, max_steps: int = 10):
         self.state = AgentState()
@@ -70,7 +70,7 @@ class AgentLoop:
         state = self.state
         state.steps += 1
         if decision == "reply":
-            state.reply = "巳时三刻,气血行至手阳明大肠经。"
+            state.reply = "当前为上午时段,工作流已完成工具执行。"
             state.status = AgentStatus.DONE
             return state.reply
         result = run_tool(decision)

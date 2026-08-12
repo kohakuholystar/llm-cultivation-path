@@ -1,4 +1,10 @@
-"""藏经阁 · 第 2 步:创建 ChromaDB 集合,把 TF-IDF 向量写入向量库"""
+"""黑糖资料室 · 第 2 步:创建 ChromaDB 集合,把 TF-IDF 向量写入向量库"""
+# 学习契约
+# 目标：完成 t21-embedding-store-s2 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 4 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：char_ngrams(text, n) -> 未标注; main() -> 未标注。
+# 技术栈：re, numpy, chromadb。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import re
 
 import numpy as np
@@ -47,19 +53,19 @@ class TfidfEmbedder:
 
 
 SCRIPTURES = [
-    {"title": "九阳神功", "category": "内功", "text": "他强由他强，清风拂山岗。九阳真气生生不息，乃内功之正宗"},
-    {"title": "九阴真经", "category": "内功", "text": "天之道，损有余而补不足。九阴真经总纲以柔克刚，载有疗伤之篇"},
-    {"title": "乾坤大挪移", "category": "内功", "text": "激发自身潜力，牵引挪移敌劲，阴阳二气转换自如"},
-    {"title": "独孤九剑", "category": "剑法", "text": "无招胜有招，料敌机先。破剑破刀破枪，天下剑法皆可破"},
-    {"title": "太极剑", "category": "剑法", "text": "以柔克刚，以静制动。剑意连绵不绝，如长江大河"},
-    {"title": "降龙十八掌", "category": "掌法", "text": "亢龙有悔，盈不可久。掌法刚猛，招式简明而威力无穷"},
-    {"title": "黯然销魂掌", "category": "掌法", "text": "黯然销魂者，唯别而已矣。掌力随心境而生，情深则力深"},
-    {"title": "凌波微步", "category": "轻功", "text": "步法依易经六十四卦方位变化，动无常则，若危若安"},
+    {"title": "检索基础指南", "category": "基础指南", "text": "输入表达可以变化，核心语义应保持稳定。索引构建完成后，应使用固定查询集验证召回结果。"},
+    {"title": "数据清洗手册", "category": "基础指南", "text": "清理冗余信息，补足缺失字段，并统一编码、日期与枚举值。"},
+    {"title": "检索设计指南", "category": "技术文档", "text": "通过候选召回、相关性重排与引用定位，提高资料问答的可靠性"},
+    {"title": "重排设计指南", "category": "检索工程", "text": "减少无效规则，优先识别相关信号，并使用稳定排序避免结果漂移。"},
+    {"title": "引用规范", "category": "检索工程", "text": "回答中的事实必须标注来源编号，且编号能够回到原始文档。"},
+    {"title": "故障恢复指南", "category": "运行保障", "text": "服务异常时先记录错误，再按重试、降级与状态恢复顺序处理。"},
+    {"title": "查询改写手册", "category": "检索工程", "text": "查询改写应保留原意，并补充能提高召回率的同义表达。"},
+    {"title": "文档切分指南", "category": "检索工程", "text": "按标题、段落与长度边界切分文档，并保留必要的上下文重叠。"},
 ]
 
 
 def main():
-    # 1) 用第 1 步的嵌入器把秘籍正文变成向量
+    # 1) 用第 1 步的嵌入器把参考资料正文变成向量
     embedder = TfidfEmbedder(n=2)
     corpus = [d["title"] + "。" + d["text"] for d in SCRIPTURES]
     embedder.fit(corpus)
@@ -81,7 +87,7 @@ def main():
     raise NotImplementedError("t21-embedding-store-s2 尚未实现:请按 TODO 提示写入集合")
 
     print(f"集合名称: {collection.name}")
-    print(f"已写入: {collection.count()} 条秘籍")
+    print(f"已写入: {collection.count()} 条操作指南")
     peek = collection.get(ids=[ids[0]], include=["metadatas"])
     print(f"抽查第一条 metadata: {peek['metadatas'][0]}")
 

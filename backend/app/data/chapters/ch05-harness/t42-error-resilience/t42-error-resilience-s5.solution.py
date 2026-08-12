@@ -1,4 +1,4 @@
-"""乾坤圈 · s5:韧性运行时 ResilientRunner
+"""Agent 运行时底座 · s5:韧性运行时 ResilientRunner
 
 四层护甲合体:幂等(最外) -> 熔断 -> 降级链(内含重试)。
 ResilientRunner 把前三步的组件拼成一条完整流水线,让 Agent
@@ -105,7 +105,7 @@ class ResilientRunner:
 
 
 def main():
-    print("== 乾坤圈 · s5:韧性运行时 ResilientRunner ==")
+    print("== Agent 运行时底座 · s5:韧性运行时 ResilientRunner ==")
     state = {"calls": 0}
 
     def llm_gateway(prompt):

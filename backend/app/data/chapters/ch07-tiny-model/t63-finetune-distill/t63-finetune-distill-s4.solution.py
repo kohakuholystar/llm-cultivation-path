@@ -1,4 +1,4 @@
-"""袖里乾坤 · s4:只训旁路——LoRA 微调循环
+"""模型研究小组 · s4:只训旁路——LoRA 微调循环
 
 LoRALayer 与交叉熵已备齐。现在手动写 SGD:每一轮只按
 梯度更新 A、B 两个旁路因子,冻结的主干 w 全程不动。
@@ -7,9 +7,9 @@ LoRALayer 与交叉熵已备齐。现在手动写 SGD:每一轮只按
 """
 import numpy as np
 
-CORPUS = ("乾坤炉中炼真火,火候三分见丹青。"
-          "丹青入册藏经阁,阁中坐忘修心性。"
-          "心性圆融通大道,大道无形育众生。")
+CORPUS = ("社团展台调灯光,参数三轮见成效。"
+          "丹青入册黑糖资料室,阁中坐忘修心性。"
+          "心性圆融通完整路线,完整路线无形育众生。")
 chars = sorted(set(CORPUS))
 VOCAB = len(chars)
 CHAR_IDS = {c: i for i, c in enumerate(chars)}

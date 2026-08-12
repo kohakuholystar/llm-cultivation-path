@@ -1,4 +1,5 @@
-"""百宝囊 v1.0 —— 给法宝配质检线:单元测试 + 极简测试运行器。"""
+"""社团工具箱 v1.0 —— 给工具配质检线:单元测试 + 极简测试运行器。"""
+# ????????????????????????? test_* ??? run_all_tests???????????????????????????????assert?????????t30-s5??????????????????????
 import ast, inspect, json, operator, random
 from datetime import datetime
 from pathlib import Path
@@ -76,7 +77,7 @@ def _safe_path(filename: str):
 def write_note(filename: str, content: str) -> str:
     """把文字保存为 .txt 笔记,如 write_note("todo.txt", "买牛奶")。用户要求记录、保存、备忘某段内容时使用;已存在同名笔记会覆盖。"""
     path = _safe_path(filename) if filename.endswith(".txt") else None
-    if path is None: return "错误:文件名非法,只支持百宝囊目录下的 .txt 文件"
+    if path is None: return "错误:文件名非法,只支持社团工具箱目录下的 .txt 文件"
     path.write_text(content, encoding="utf-8")
     return f"已保存 {filename}(共 {len(content)} 字符)"
 
@@ -90,12 +91,12 @@ def read_note(filename: str) -> str:
 
 @tool
 def list_notes() -> str:
-    """列出百宝囊中所有 .txt 笔记的文件名。用户问「我保存了哪些笔记」时使用,返回顿号分隔的文件名列表。"""
+    """列出社团工具箱中所有 .txt 笔记的文件名。用户问「我保存了哪些笔记」时使用,返回顿号分隔的文件名列表。"""
     return "、".join(sorted(p.name for p in NOTES_DIR.glob("*.txt"))) or "还没有任何笔记"
 
 
 def build_tool_manifest() -> str:
-    """生成 JSON 法宝图鉴:名称 + 描述 + 参数名,即将来放进 system prompt 的工具清单。"""
+    """生成 JSON 工具清单:名称 + 描述 + 参数名,即将来放进 system prompt 的工具清单。"""
     manifest = [{"name": n, "description": f.tool_description,
                  "parameters": list(inspect.signature(f).parameters)} for n, f in TOOLBOX.items()]
     return json.dumps(manifest, ensure_ascii=False, indent=2)
@@ -104,7 +105,7 @@ def build_tool_manifest() -> str:
 def dispatch(tool_name: str, **kwargs) -> str:
     """统一调用入口:按名字取工具并执行,Agent 主循环只跟它打交道。"""
     func = TOOLBOX.get(tool_name)
-    if func is None: return f"错误:没有工具 {tool_name!r},请先查看法宝图鉴"
+    if func is None: return f"错误:没有工具 {tool_name!r},请先查看工具清单"
     try:
         return str(func(**kwargs))
     except TypeError as exc: return f"错误:参数不对——{exc}"
@@ -114,7 +115,7 @@ def dispatch(tool_name: str, **kwargs) -> str:
 #   且 "错误" in calculate("1 / 0");再补一句危险表达式
 #   "错误" in calculate("__import__('os')")
 # 提示:calculate 的合法结果可直接用 == 比较;错误分支与注入攻击用 "错误" in 结果 判断
-def test_calculate():  # 计算法宝用例:开心路径 + 除零 + 注入
+def test_calculate():  # 计算工具用例:开心路径 + 除零 + 注入
     raise NotImplementedError("s6-test-calculate 尚未实现:请按 TODO 提示补全用例")
 
 
@@ -146,4 +147,4 @@ def run_all_tests() -> bool:
 
 
 if __name__ == "__main__":
-    print("全部测试通过,百宝囊质检合格!" if run_all_tests() else "存在失败用例,请修复")
+    print("全部测试通过,社团工具箱质检合格!" if run_all_tests() else "存在失败用例,请修复")

@@ -1,13 +1,19 @@
-"""灵讯通 · s1:配置加载
+"""星澈助手 · s1:配置加载
 从环境变量读取 DeepSeek 连接配置,这是整条工具链的第一块基石。
 """
+# 学习契约
+# 目标：完成 t01-s1 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 4 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：main() -> None。
+# 技术栈：os, sys, dataclasses；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 from dataclasses import dataclass
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -48,7 +54,7 @@ class APIConfig:
 def main() -> None:
     """加载并(安全地)展示当前配置。"""
     config = APIConfig.from_env()
-    print("灵讯通配置加载成功:")
+    print("星澈助手配置加载成功:")
     print(f"  base_url : {config.base_url}")
     print(f"  model    : {config.model}")
     print(f"  api_key  : {config.masked_key()}")  # 只打印打码后的 Key

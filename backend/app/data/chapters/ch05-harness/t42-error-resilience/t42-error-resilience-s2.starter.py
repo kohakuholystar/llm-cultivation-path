@@ -1,8 +1,22 @@
-"""乾坤圈 · s2:降级链 FallbackChain
+"""Agent 运行时底座 · s2:降级链 FallbackChain
 
 主路失败走备路,备路失败落兜底。本步实现降级链 FallbackChain:
 按优先级逐个尝试策略,任一环节成功即返回,全部失败才抛出异常。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：降级链:主路不通走备路。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：strategy、retry_call、_；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `compute_backoff(attempt, base_delay=0.1, max_delay=2.0) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：返回第 attempt 次重试的等待时长(秒),指数增长并封顶。
+#   - `retry_call(func, args=(), kwargs=None, retries=3, base_delay=0.1, max_delay=2.0, sleep=time.sleep) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按指数退避重试 func;重试次数用尽后抛出最后一次异常。
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `FallbackChain`：承载本节状态/数据；重点方法：run。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import time
 
 
@@ -54,7 +68,7 @@ class FallbackChain:
 
 
 def main():
-    print("== 乾坤圈 · s2:降级链 FallbackChain ==")
+    print("== Agent 运行时底座 · s2:降级链 FallbackChain ==")
 
     def primary_llm(text):
         raise TimeoutError("旗舰模型上游超时")

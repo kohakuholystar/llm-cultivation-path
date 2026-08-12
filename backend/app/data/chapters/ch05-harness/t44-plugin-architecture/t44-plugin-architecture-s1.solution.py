@@ -1,4 +1,4 @@
-"""乾坤圈 · s1:插件协议与注册表
+"""Agent 运行时底座 · s1:插件协议与注册表
 
 通用 Agent 运行时不该认识具体业务,只该认识「协议」。
 本步定义插件协议 Plugin,再用注册表收纳、列清单、试运行、
@@ -67,7 +67,7 @@ def main():
     for name in reg.names():
         plugin = reg.get(name)
         print(f"  ◆ {name} v{plugin.version}: {plugin.description}")
-    print("试运行:", reg.get("echo").run("你好,乾坤圈"))
+    print("试运行:", reg.get("echo").run("你好,Agent 运行时底座"))
     print("试运行:", reg.get("upper").run("hello"))
     reg.unregister("echo")
     reg.unregister("ghost")

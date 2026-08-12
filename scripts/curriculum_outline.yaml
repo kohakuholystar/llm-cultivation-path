@@ -1,4 +1,4 @@
-# LLM Agent 工程师修炼之路 — 课程大纲 v2（项目制重构 2026-07-31）
+# LLM Agent 工程师学习之路 — 课程大纲 v2（项目制重构 2026-07-31）
 # 课程元数据源：merge_curriculum.py 读取本文件 + chapters/ 散文件 → curriculum.json
 # 内容为 Agent 精写（不走 LLM 批量生成），每步规范见 scripts/prompts/system_prompt.txt
 #
@@ -13,7 +13,7 @@
 
 course:
   id: llm-agent-engineer
-  title: LLM Agent 工程师修炼之路
+  title: LLM Agent 工程师学习之路
   description: 项目制打怪升级：每章构建一个真实小产品，从 API 调用到自建小模型，成为 Agent 开发工程师
   version: "2.0"
 
@@ -26,11 +26,11 @@ defaults:
   needs_network: false      # 调 LLM API 的任务在 task 级标 true
 
 chapters:
-  # ============ 第一章 初入江湖 · LLM 基础 —— 项目「灵讯通」CLI 智能对话工具 ============
+  # ============ 第一章 项目起步 · LLM 基础 —— 项目「星澈助手」CLI 智能对话工具 ============
   - id: ch01-llm-basics
-    title: 第一章 初入江湖 · LLM 基础
-    description: 构建 CLI 智能对话工具「灵讯通」：API 接入、多轮对话、流式输出、结构化输出、Token 经济学
-    theme: 你是一名新晋修行者,要打造自己的第一件法器——CLI 智能对话工具「灵讯通」
+    title: 第一章 项目起步 · LLM 基础
+    description: 构建 CLI 智能对话工具「星澈助手」：API 接入、多轮对话、流式输出、结构化输出、Token 经济学
+    theme: 你是一名技术社新人,要打造自己的第一件工具——CLI 智能对话工具「星澈助手」
     unlock: { required_level: 1, required_exp: 0 }
     tasks:
       - id: t01-deepseek-connect
@@ -64,11 +64,11 @@ chapters:
         steps: 5
         needs_network: false
 
-  # ============ 第二章 拜入山门 · LangChain —— 项目「铸剑台」提示词工程工作台 ============
+  # ============ 第二章 进入项目组 · LangChain —— 项目「提示词工作台」提示词工程工作台 ============
   - id: ch02-langchain
-    title: 第二章 拜入山门 · LangChain 架构
-    description: 构建提示词工程工作台「铸剑台」：LCEL 管道、模板工程、输出解析、对话记忆、链式路由
-    theme: 拜入 LangChain 山门,打造提示词工程工作台「铸剑台」
+    title: 第二章 进入项目组 · LangChain 架构
+    description: 构建提示词工程工作台「提示词工作台」：LCEL 管道、模板工程、输出解析、对话记忆、链式路由
+    theme: 加入 LangChain 项目组,打造提示词工程工作台「提示词工作台」
     unlock: { required_level: 2, required_exp: 100, prerequisite_task_ids: [t05-token-economics] }
     tasks:
       - id: t10-lcel-basics
@@ -90,7 +90,7 @@ chapters:
         steps: 6
         needs_network: true
       - id: t13-memory-trio
-        title: 对话记忆三剑客
+        title: 三种对话记忆策略
         difficulty: medium
         topic: Buffer/Window/Summary 三种记忆封装对比、token 上限控制、记忆持久化。
         steps: 5
@@ -102,11 +102,11 @@ chapters:
         steps: 5
         needs_network: true
 
-  # ============ 第三章 秘境探宝 · RAG —— 项目「藏经阁」本地知识库问答 ============
+  # ============ 第三章 资料检索 · RAG —— 项目「黑糖资料室」本地知识库问答 ============
   - id: ch03-rag
-    title: 第三章 秘境探宝 · RAG 检索增强
-    description: 构建本地知识库问答系统「藏经阁」：文档切分、向量入库、检索重排、RAG 链、效果评估
-    theme: 深入秘境建造「藏经阁」,让 LLM 能查阅你的私藏典籍
+    title: 第三章 资料检索 · RAG 检索增强
+    description: 构建本地知识库问答系统「黑糖资料室」：文档切分、向量入库、检索重排、RAG 链、效果评估
+    theme: 深入实验区建造「黑糖资料室」,让 LLM 能查阅你的私藏资料
     unlock: { required_level: 3, required_exp: 400, prerequisite_task_ids: [t14-chain-routing] }
     tasks:
       - id: t20-doc-loading
@@ -118,8 +118,8 @@ chapters:
       - id: t21-embedding-store
         title: Embedding 与向量入库
         difficulty: medium
-        topic: sentence-transformers 本地嵌入、ChromaDB 集合管理、批量入库、增量更新。
-        steps: 6
+        topic: TF-IDF 基线、Sentence Transformers/BGE 本地嵌入、ChromaDB 集合管理、metadata 过滤、批量入库、增量更新与可重复检索行为测试。
+        steps: 7
         needs_network: false
       - id: t22-retrieval-rerank
         title: 检索策略与重排序
@@ -140,11 +140,11 @@ chapters:
         steps: 5
         needs_network: true
 
-  # ============ 第四章 炼器宗师 · Agent —— 项目「百宝囊」工具型智能体 ============
+  # ============ 第四章 工具开发进阶 · Agent —— 项目「工具助手」工具型智能体 ============
   - id: ch04-agent
-    title: 第四章 炼器宗师 · Agent 智能体
-    description: 构建工具型智能体「百宝囊」：自定义工具、手写 ReAct、AgentExecutor、结构化工具、人机协同
-    theme: 成为炼器宗师,打造能自主调用工具的「百宝囊」智能体
+    title: 第四章 工具开发进阶 · Agent 智能体
+    description: 构建工具型智能体「工具助手」：自定义工具、理解 ReAct、LangChain v1 create_agent、结构化工具与人机协同
+    theme: 成为工具开发进阶,打造能自主调用工具的「工具助手」智能体
     unlock: { required_level: 3, required_exp: 900, prerequisite_task_ids: [t24-rag-eval] }
     tasks:
       - id: t30-custom-tools
@@ -160,9 +160,9 @@ chapters:
         steps: 6
         needs_network: true
       - id: t32-agent-executor
-        title: AgentExecutor 工程化
+        title: LangChain v1 Agent 工程化
         difficulty: medium
-        topic: 工具箱组装、max_iterations 防失控、错误恢复策略、verbose 调试。
+        topic: create_agent、结构化工具参数、工具失败处理、messages 状态边界与人工确认。
         steps: 5
         needs_network: true
       - id: t33-structured-tools
@@ -178,11 +178,11 @@ chapters:
         steps: 5
         needs_network: true
 
-  # ============ 第五章 内功心法 · Harness 工程 —— 项目「乾坤圈」通用 Agent 运行时 ============
+  # ============ 第五章 运行时工程 · Harness 工程 —— 项目「Agent 运行时底座」通用 Agent 运行时 ============
   - id: ch05-harness
-    title: 第五章 内功心法 · Harness 工程
-    description: 构建通用 Agent 运行时「乾坤圈」：核心循环、上下文管理、错误韧性、可观测性、插件架构
-    theme: 修炼内功,打造支撑一切 Agent 的运行时「乾坤圈」
+    title: 第五章 运行时工程 · Harness 工程
+    description: 构建通用 Agent 运行时「Agent 运行时底座」：核心循环、上下文管理、错误韧性、可观测性、插件架构
+    theme: 学习基础指南,打造支撑一切 Agent 的运行时「Agent 运行时底座」
     unlock: { required_level: 3, required_exp: 1400, prerequisite_task_ids: [t34-agent-memory-hitl] }
     tasks:
       - id: t40-harness-loop
@@ -216,11 +216,11 @@ chapters:
         steps: 5
         needs_network: false
 
-  # ============ 第六章 分身之术 · 多 Agent —— 项目「天庭」虚拟开发团队 ============
+  # ============ 第六章 多 Agent 协作 · 多 Agent —— 项目「项目协作组」虚拟开发团队 ============
   - id: ch06-multi-agent
-    title: 第六章 分身之术 · 多 Agent 协作
-    description: 构建虚拟开发团队「天庭」：消息总线、Supervisor 编排、辩论机制、CrewAI 实战
-    theme: 习得分身之术,组建你的虚拟开发团队「天庭」
+    title: 第六章 多 Agent 协作 · 多 Agent 协作
+    description: 以 LangGraph 为主线构建可控多 Agent 工作流：消息与状态、Supervisor、评审与人工介入，并对照 CrewAI 快速原型。
+    theme: 习得多 Agent 协作,组建你的虚拟开发团队「项目协作组」
     unlock: { required_level: 4, required_exp: 1800, prerequisite_task_ids: [t44-plugin-architecture] }
     tasks:
       - id: t50-message-bus
@@ -230,29 +230,29 @@ chapters:
         steps: 6
         needs_network: false
       - id: t51-supervisor
-        title: Supervisor 编排模式
+        title: LangGraph 工作流与 Supervisor
         difficulty: hard
-        topic: 任务分派策略、结果聚合、手写迷你 StateGraph。
+        topic: LangGraph StateGraph、节点与边、条件路由、返工回路、任务分派与结果聚合。
         steps: 5
         needs_network: true
       - id: t52-debate
-        title: 辩论与评审机制
+        title: 工作流中的辩论与评审
         difficulty: hard
-        topic: 多角色辩论、裁判裁决、共识收敛判定。
+        topic: 作为 LangGraph 工作流节点的多角色辩论、裁判裁决、共识收敛与人工复核入口。
         steps: 5
         needs_network: true
       - id: t53-crewai-team
-        title: CrewAI 团队实战
+        title: CrewAI 快速原型（对照）
         difficulty: boss
-        topic: 角色/任务/流程定义、顺序与层级双模式、完整团队协作项目。
+        topic: 对照 LangGraph 的角色/任务式快速原型：Agent、Task、Crew、顺序与层级流程及适用边界。
         steps: 5
         needs_network: true
 
-  # ============ 第七章 袖里乾坤 · 小模型 —— 项目「袖里乾坤」微型 GPT 从零造 ============
+  # ============ 第七章 微型模型实验 · 小模型 —— 项目「微型模型实验」微型 GPT 从零造 ============
   - id: ch07-tiny-model
-    title: 第七章 袖里乾坤 · 自建小模型
+    title: 第七章 微型模型实验 · 自建小模型
     description: 从零造微型 GPT：Tokenizer、numpy 手写 Transformer、训练循环、微调蒸馏、量化部署
-    theme: 参悟袖里乾坤,用 numpy 从零炼出一个微型 GPT
+    theme: 查阅微型模型实验,用 numpy 从零炼出一个微型 GPT
     unlock: { required_level: 4, required_exp: 2200, prerequisite_task_ids: [t53-crewai-team] }
     tasks:
       - id: t60-tokenizer-data
@@ -286,11 +286,11 @@ chapters:
         steps: 5
         needs_network: false
 
-  # ============ 第八章 渡劫飞升 · 毕业设计 —— 项目「渡劫飞升」完整 Agent 应用 ============
+  # ============ 第八章 黑糖资料室 · 毕业设计 —— 项目「黑糖资料室」完整 Agent 应用 ============
   - id: ch08-capstone
-    title: 第八章 渡劫飞升 · 毕业设计
+    title: 第八章 黑糖资料室 · 毕业设计
     description: 整合全部所学：从需求分析到 Docker 部署,交付一个完整的 Agent 应用
-    theme: 渡劫飞升,整合七章所学交付完整 Agent 应用
+    theme: 黑糖资料室,整合七章所学交付完整 Agent 应用
     unlock: { required_level: 5, required_exp: 2600, prerequisite_task_ids: [t64-quantize-deploy] }
     tasks:
       - id: t70-prd-architecture

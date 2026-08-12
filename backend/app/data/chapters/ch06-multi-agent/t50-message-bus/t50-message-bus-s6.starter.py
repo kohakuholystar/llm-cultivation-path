@@ -1,4 +1,24 @@
-"""天庭 · s6:迷你天庭实战 —— 四路消息汇成一张作战黑板。"""
+"""校园 AI 社 · s6:迷你校园 AI 社实战 —— 四路消息汇成一张作战黑板。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：迷你校园 AI 社:多 Agent 流水线闭环。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `_next_id() -> int`：输入为签名中的参数；输出为 `int`。用途：按本节调用链完成对应处理
+#   - `_now() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `topic_match(pattern: str, topic: str) -> bool`：输入为签名中的参数；输出为 `bool`。用途：通配符匹配:* 恰好一层,# 匹配任意剩余层(可为空)。
+#   - `blackboard_bridge(bus: MessageBus, board: Blackboard) -> None`：输入为签名中的参数；输出为 `None`。用途：把 task.# 系列消息统统沉淀到黑板:键是 task.{任务}.{事件},值是整条 payload。
+#   - `qa_gate(bus: MessageBus, board: Blackboard) -> None`：输入为签名中的参数；输出为 `None`。用途：质检官:进度 100% 且带 commit 的任务才放行,结果广播到总线。
+#   - `daily_report(bus: MessageBus, board: Blackboard) -> None`：输入为签名中的参数；输出为 `None`。用途：收工日报:消息流水 + 主题统计 + 黑板快照。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Message`：承载本节状态/数据；重点方法：见类定义。
+#   - `MessageBus`：承载本节状态/数据；重点方法：subscribe, publish。
+#   - `Blackboard`：承载本节状态/数据；重点方法：write, read, keys。
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import itertools
 import time
 from collections import Counter
@@ -104,7 +124,7 @@ def qa_gate(bus: MessageBus, board: Blackboard) -> None:
 def daily_report(bus: MessageBus, board: Blackboard) -> None:
     """收工日报:消息流水 + 主题统计 + 黑板快照。"""
     # TODO: 依次打印日报头部、逐条消息、主题统计、黑板快照、收尾行
-    # 提示: print("===== 天庭日报 ====="); 遍历 bus.published 打印 #msg_id 时间 发送者 -> 主题 payload;
+    # 提示: print("===== 校园 AI 社日报 ====="); 遍历 bus.published 打印 #msg_id 时间 发送者 -> 主题 payload;
     #       stat = dict(Counter(m.topic for m in bus.published)); 打印主题统计与黑板快照; print("===== 日报结束 =====")
     raise NotImplementedError("t50-message-bus-s6 尚未实现:请按 TODO 提示补齐 daily_report 日报")
 

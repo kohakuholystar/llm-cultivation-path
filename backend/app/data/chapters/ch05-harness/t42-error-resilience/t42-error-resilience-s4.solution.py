@@ -1,4 +1,4 @@
-"""乾坤圈 · s4:幂等执行 IdempotentExecutor
+"""Agent 运行时底座 · s4:幂等执行 IdempotentExecutor
 
 网络重试会让同一请求被执行多次,幂等执行按 request_id 去重:
 命中历史记录直接重放,首次执行成功才存档——失败不落库,允许重试。
@@ -82,7 +82,7 @@ class IdempotentExecutor:
 
 
 def main():
-    print("== 乾坤圈 · s4:幂等执行 IdempotentExecutor ==")
+    print("== Agent 运行时底座 · s4:幂等执行 IdempotentExecutor ==")
     breaker = CircuitBreaker(failure_threshold=2, cooldown=0.5)
     payment = {"balance": 100}
 

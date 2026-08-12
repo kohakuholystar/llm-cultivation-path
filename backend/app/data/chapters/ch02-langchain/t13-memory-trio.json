@@ -5,7 +5,7 @@
       "taskId": "t13-memory-trio",
       "order": 1,
       "title": "全量记忆 Buffer:顾问的第一本流水账",
-      "instruction": "### 目标\n为「铸剑台」的接待顾问封装 `ForgeAdvisor` 类,用 `ConversationBufferMemory` 实现全量记忆:每一轮接待自动完成\"翻账 → 连账带问发给模型 → 问答记回账本\"的闭环,让顾问记得客人自报的姓名与需求。\n\n### 原理\n**LLM 本身是无状态的。** 每次 API 请求都是一次独立的 HTTP 调用,服务端不会替你保存上一轮对话——\"模型记得你\"这件事,是应用层把历史消息重新塞进本次请求的 messages 列表里\"伪造\"出来的。所以记忆的本质是一个**客户端账房**:决定存什么、取什么、以什么顺序拼进请求。看懂这一点,就看懂了所有记忆组件的工作方式。\n\n**`ConversationBufferMemory` 是最朴素的一本账:流水账,一字不丢。** 它内部维护一个 `chat_memory` 消息列表,`save_context({\"input\": ...}, {\"output\": ...})` 追加一对 Human/AI 消息,`load_memory_variables({})` 原样返回全部历史。保真度最高、实现最简单,代价是 token 开销随轮数**线性增长**——短对话无所谓,长对话会撞上下文上限、账单也会膨胀。这正是 Window 和 Summary 两种记忆存在的理由,本任务后面几步会逐一权衡。\n\n**`return_messages=True` 是对话模型的正确姿势。** 默认 False 时取出的是拼好的纯字符串,适合老式文本补全模型;对 ChatOpenAI 这类对话模型,应该取出消息对象列表,与本轮的 `HumanMessage` 直接拼接成 messages 发给模型。\n\n### 操作\n1. `__init__` 里创建 `ConversationBufferMemory(memory_key=\"history\", return_messages=True)` 存到 `self.memory`(参数 memory 不为 None 时直接用参数)\n2. `chat()` 三步走:`load_memory_variables({})[\"history\"]` 翻账;`model.invoke([*history, HumanMessage(content=user_input)])` 发问;`save_context` 记账后返回回复\n3. 运行 main:两轮接待后 `show_memory()` 摊开账本,确认 4 条消息(两问两答)都在\n4. 本地无 Key 可先 `MOCK_LLM=1` 离线演练,再填 Key 接真模型对比\n\n### 常见坑\n- 忘了 `save_context`:模型这轮答得再好,下一轮照样失忆——记忆不是自动发生的,记账是显式动作\n- `return_messages` 用默认的 False:取出来是字符串,和 `HumanMessage` 混排进 messages 列表会类型混乱甚至直接报错",
+      "instruction": "### 目标\n为「提示词工作台」的接待顾问封装 `ForgeAdvisor` 类,用 `ConversationBufferMemory` 实现全量记忆:每一轮接待自动完成\"翻账 → 连账带问发给模型 → 问答记回账本\"的闭环,让顾问记得客人自报的姓名与需求。\n\n### 原理\n**LLM 本身是无状态的。** 每次 API 请求都是一次独立的 HTTP 调用,服务端不会替你保存上一轮对话——\"模型记得你\"这件事,是应用层把历史消息重新塞进本次请求的 messages 列表里\"伪造\"出来的。所以记忆的本质是一个**客户端账房**:决定存什么、取什么、以什么顺序拼进请求。看懂这一点,就看懂了所有记忆组件的工作方式。\n\n**`ConversationBufferMemory` 是最朴素的一本账:流水账,一字不丢。** 它内部维护一个 `chat_memory` 消息列表,`save_context({\"input\": ...}, {\"output\": ...})` 追加一对 Human/AI 消息,`load_memory_variables({})` 原样返回全部历史。保真度最高、实现最简单,代价是 token 开销随轮数**线性增长**——短对话无所谓,长对话会撞上下文上限、账单也会膨胀。这正是 Window 和 Summary 两种记忆存在的理由,本任务后面几步会逐一权衡。\n\n**`return_messages=True` 是对话模型的正确姿势。** 默认 False 时取出的是拼好的纯字符串,适合老式文本补全模型;对 ChatOpenAI 这类对话模型,应该取出消息对象列表,与本轮的 `HumanMessage` 直接拼接成 messages 发给模型。\n\n### 操作\n1. `__init__` 里创建 `ConversationBufferMemory(memory_key=\"history\", return_messages=True)` 存到 `self.memory`(参数 memory 不为 None 时直接用参数)\n2. `chat()` 三步走:`load_memory_variables({})[\"history\"]` 翻账;`model.invoke([*history, HumanMessage(content=user_input)])` 发问;`save_context` 记账后返回回复\n3. 运行 main:两轮接待后 `show_memory()` 摊开账本,确认 4 条消息(两问两答)都在\n4. 本地无 Key 可先 `MOCK_LLM=1` 离线演练,再填 Key 接真模型对比\n\n### 常见坑\n- 忘了 `save_context`:模型这轮答得再好,下一轮照样失忆——记忆不是自动发生的,记账是显式动作\n- `return_messages` 用默认的 False:取出来是字符串,和 `HumanMessage` 混排进 messages 列表会类型混乱甚至直接报错",
       "hints": [
         {
           "order": 1,
@@ -97,7 +97,7 @@
       "taskId": "t13-memory-trio",
       "order": 2,
       "title": "滑动窗口 Window:只记最近 k 轮",
-      "instruction": "### 目标\n给记忆体系引入第二个后端 `ConversationBufferWindowMemory`(滑动窗口,k=2),用 `make_memory(backend)` 工厂统一后端创建,并用同一份四轮剧本做对照实验:亲眼看到客人第 1 轮报的姓名如何从窗口记忆里被挤出去。\n\n### 原理\n**滑动窗口是\"保真 vs 成本\"天平上偏向成本的一端。** Buffer 的 token 开销无界增长,Window 只保留最近 k 轮——token 开销有了可预期的上限(≤ 2k 条消息),代价是**旧信息硬丢失**:被挤出窗口的内容对模型而言从未存在过,没有回收站。选 k 就是在选\"记忆里程\":k 太小连上一轮的指代都接不住(\"那把剑\"是哪把?),k 太大则退化成 Buffer,失去成本控制的意义。\n\n**注意 k 的单位是\"轮\"不是\"条\"。** 一轮 = 一问一答 = 2 条消息,`k=2` 实际保留最近 4 条消息。底层实现类似一个定长队列:新问答进来,最旧的问答被**静默**挤出——没有回调、没有归档,挤出去就没了。排查\"模型怎么突然失忆\"时,第一反应应该是去看窗口大小,而不是怀疑模型。\n\n**工厂函数 `make_memory(backend)` 的价值是控制变量。** 对比实验要求除了\"记忆后端\"之外一切相同:同一个模型、同一份剧本、同一个顾问类。把后端的创建收敛到一个函数、用字符串参数切换,是保证实验公平的最简单手段——它也是后面 s3/s4 三方对比的基础设施。\n\n### 操作\n1. `make_memory()` 补上 `\"window\"` 分支:返回 `ConversationBufferWindowMemory(memory_key=\"history\", k=2, return_messages=True)`;未知后端 `raise ValueError`\n2. `ForgeAdvisor.__init__` 接收 `memory` 参数,默认 `make_memory(\"buffer\")`(s1 已完成,确认即可)\n3. main 里对 `\"buffer\"`/`\"window\"` 各跑一次:同一份 script 逐句 `advisor.chat(line)`,然后 `show_memory()` 摊开账本\n4. 观察输出:Buffer 八条全在;Window 只剩最近四条,第 1 轮的\"阿岩\"已消失\n\n### 常见坑\n- 把 `k` 当成消息条数:想保留最近 4 条消息应设 `k=2`,设 `k=4` 会保留 8 条——差一倍\n- 以为被挤出的历史\"暂时存到别处\":Window 没有任何兜底,丢失是静默且永久的,关键信息(姓名、订单号)不能指望窗口记忆长期持有",
+      "instruction": "### 目标\n给记忆体系引入第二个后端 `ConversationBufferWindowMemory`(滑动窗口,k=2),用 `make_memory(backend)` 工厂统一后端创建,并用同一份四轮剧本做对照实验:亲眼看到客人第 1 轮报的姓名如何从窗口记忆里被挤出去。\n\n### 原理\n**滑动窗口是\"保真 vs 成本\"天平上偏向成本的一端。** Buffer 的 token 开销无界增长,Window 只保留最近 k 轮——token 开销有了可预期的上限(≤ 2k 条消息),代价是**旧信息硬丢失**:被挤出窗口的内容对模型而言从未存在过,没有回收站。选 k 就是在选\"记忆里程\":k 太小连上一轮的指代都接不住(\"那把方案\"是哪把?),k 太大则退化成 Buffer,失去成本控制的意义。\n\n**注意 k 的单位是\"轮\"不是\"条\"。** 一轮 = 一问一答 = 2 条消息,`k=2` 实际保留最近 4 条消息。底层实现类似一个定长队列:新问答进来,最旧的问答被**静默**挤出——没有回调、没有归档,挤出去就没了。排查\"模型怎么突然失忆\"时,第一反应应该是去看窗口大小,而不是怀疑模型。\n\n**工厂函数 `make_memory(backend)` 的价值是控制变量。** 对比实验要求除了\"记忆后端\"之外一切相同:同一个模型、同一份剧本、同一个顾问类。把后端的创建收敛到一个函数、用字符串参数切换,是保证实验公平的最简单手段——它也是后面 s3/s4 三方对比的基础设施。\n\n### 操作\n1. `make_memory()` 补上 `\"window\"` 分支:返回 `ConversationBufferWindowMemory(memory_key=\"history\", k=2, return_messages=True)`;未知后端 `raise ValueError`\n2. `ForgeAdvisor.__init__` 接收 `memory` 参数,默认 `make_memory(\"buffer\")`(s1 已完成,确认即可)\n3. main 里对 `\"buffer\"`/`\"window\"` 各跑一次:同一份 script 逐句 `advisor.chat(line)`,然后 `show_memory()` 摊开账本\n4. 观察输出:Buffer 八条全在;Window 只剩最近四条,第 1 轮的\"阿岩\"已消失\n\n### 常见坑\n- 把 `k` 当成消息条数:想保留最近 4 条消息应设 `k=2`,设 `k=4` 会保留 8 条——差一倍\n- 以为被挤出的历史\"暂时存到别处\":Window 没有任何兜底,丢失是静默且永久的,关键信息(姓名、订单号)不能指望窗口记忆长期持有",
       "hints": [
         {
           "order": 1,
@@ -164,8 +164,8 @@
         },
         {
           "type": "regex_in_code",
-          "pattern": "ConversationBufferWindowMemory",
-          "message": "本步要求使用 ConversationBufferWindowMemory 滑动窗口记忆。",
+          "pattern": "(?:advisor\\.)?memory\\.messages\\s*=\\s*(?:advisor\\.)?memory\\.messages\\[-4:\\]",
+          "message": "窗口策略应明确只保留最近两轮（四条）消息。",
           "blocking": true
         },
         {
@@ -207,7 +207,7 @@
         {
           "title": "tiktoken 三十秒上手",
           "language": "python",
-          "code": "import tiktoken\n\nencoding = tiktoken.get_encoding(\"cl100k_base\")\ntext = \"铸剑台\"\nids = encoding.encode(text)\nprint(ids)              # token id 列表\nprint(len(ids), \"个 token\")\nprint(encoding.decode(ids))  # 还能解码回来",
+          "code": "import tiktoken\n\nencoding = tiktoken.get_encoding(\"cl100k_base\")\ntext = \"提示词工作台\"\nids = encoding.encode(text)\nprint(ids)              # token id 列表\nprint(len(ids), \"个 token\")\nprint(encoding.decode(ids))  # 还能解码回来",
           "description": "encode 把文本切成 token id 列表,长度即 token 数;decode 可逆,全程本地计算(仅首次 get_encoding 需下载编码文件,之后有本地缓存)。"
         }
       ],
@@ -279,7 +279,7 @@
       "taskId": "t13-memory-trio",
       "order": 4,
       "title": "摘要记忆 Summary:用 LLM 压缩旧账",
-      "instruction": "### 目标\n引入第三位剑客 `ConversationSummaryMemory`(摘要记忆):每当新问答入账,用一个 LLM 把\"旧摘要 + 新对话\"压缩成新摘要。把对比实验升级为三方对照,亲眼看到摘要记忆如何以近似恒定的 token 成本保住第 1 轮的\"阿岩\"。\n\n### 原理\n**摘要记忆的思路是\"用一次额外的 LLM 调用换 token 的近似恒定\"。** Buffer 无损无界、Window 有负有界,Summary 试图两全:旧对话既不丢弃也不原样保留,而是压缩成一段不断滚动的摘要。账本厚度取决于摘要长度而不是轮数,所以 token 曲线同样是平台期——但和 Window 的硬删除不同,早期的关键信息(姓名、预算)有机会在摘要里**幸存**下来。三种记忆构成一个完整谱系:无损无界 → 有损有界(硬删) → 有损有界(压缩)。\n\n**摘要是以 SystemMessage 的形式留在记忆里的。** `load_memory_variables` 返回的 history 中,那段摘要是一条系统消息,排在本轮输入之前——模型把它当作\"背景设定\"来读,而不是当作某一轮对话。这和 Buffer/Window 的 Human/AI 交替结构有本质不同,观察本步输出时留意这一点。\n\n**摘要是有损压缩,质量依赖摘要模型。** \"预算三百两\"可能被压成\"预算有限\",\"腊月前取货\"可能整个消失,而且丢失是静默的。工程结论:关键结构化字段(订单号、金额、交付日期)应另行结构化存储,不能只靠摘要记忆承载;摘要适合保留\"谈话大意\"。另外别忽略成本:每一轮 `save_context` 都触发一次额外的摘要 LLM 调用,延迟和费用都要计入总价。\n\n### 操作\n1. 实现 `get_summary_model()`:MOCK 时返回 `FakeListChatModel(responses=MOCK_SUMMARIES)`,真实环境返回 `ChatOpenAI`(temperature=0.2 求稳)\n2. `make_memory()` 补 `\"summary\"` 分支:`ConversationSummaryMemory(llm=get_summary_model(), memory_key=\"history\", return_messages=True)`\n3. `compare_backends()` 扩展为 buffer/window/summary 三方对照,summary 后端额外打印摘要原文,检查\"阿岩\"是否幸存\n4. 读输出:三条 token 曲线的形状对比,以及摘要保住了什么、可能丢了什么\n\n### 常见坑\n- 给 Summary 记忆也按 Human/AI 条数算账:它的 history 里主要是那条 SystemMessage 摘要,`chat_memory.messages` 可能已被清空,计价必须看 `load_memory_variables` 的返回值\n- 以为摘要\"记住了所以什么都没丢\":压缩是有损的,细节丢失静默发生——重要信息必须双重保障,不能只躺在摘要里",
+      "instruction": "### 目标\n引入第三位项目成员 `ConversationSummaryMemory`(摘要记忆):每当新问答入账,用一个 LLM 把\"旧摘要 + 新对话\"压缩成新摘要。把对比实验升级为三方对照,亲眼看到摘要记忆如何以近似恒定的 token 成本保住第 1 轮的\"阿岩\"。\n\n### 原理\n**摘要记忆的思路是\"用一次额外的 LLM 调用换 token 的近似恒定\"。** Buffer 无损无界、Window 有负有界,Summary 试图两全:旧对话既不丢弃也不原样保留,而是压缩成一段不断滚动的摘要。账本厚度取决于摘要长度而不是轮数,所以 token 曲线同样是平台期——但和 Window 的硬删除不同,早期的关键信息(姓名、预算)有机会在摘要里**幸存**下来。三种记忆构成一个完整谱系:无损无界 → 有损有界(硬删) → 有损有界(压缩)。\n\n**摘要是以 SystemMessage 的形式留在记忆里的。** `load_memory_variables` 返回的 history 中,那段摘要是一条系统消息,排在本轮输入之前——模型把它当作\"背景设定\"来读,而不是当作某一轮对话。这和 Buffer/Window 的 Human/AI 交替结构有本质不同,观察本步输出时留意这一点。\n\n**摘要是有损压缩,质量依赖摘要模型。** \"预算三百元\"可能被压成\"预算有限\",\"下周五前交付\"可能整个消失,而且丢失是静默的。工程结论:关键结构化字段(订单号、金额、交付日期)应另行结构化存储,不能只靠摘要记忆承载;摘要适合保留\"谈话大意\"。另外别忽略成本:每一轮 `save_context` 都触发一次额外的摘要 LLM 调用,延迟和费用都要计入总价。\n\n### 操作\n1. 实现 `get_summary_model()`:MOCK 时返回 `FakeListChatModel(responses=MOCK_SUMMARIES)`,真实环境返回 `ChatOpenAI`(temperature=0.2 求稳)\n2. `make_memory()` 补 `\"summary\"` 分支:`ConversationSummaryMemory(llm=get_summary_model(), memory_key=\"history\", return_messages=True)`\n3. `compare_backends()` 扩展为 buffer/window/summary 三方对照,summary 后端额外打印摘要原文,检查\"阿岩\"是否幸存\n4. 读输出:三条 token 曲线的形状对比,以及摘要保住了什么、可能丢了什么\n\n### 常见坑\n- 给 Summary 记忆也按 Human/AI 条数算账:它的 history 里主要是那条 SystemMessage 摘要,`chat_memory.messages` 可能已被清空,计价必须看 `load_memory_variables` 的返回值\n- 以为摘要\"记住了所以什么都没丢\":压缩是有损的,细节丢失静默发生——重要信息必须双重保障,不能只躺在摘要里",
       "hints": [
         {
           "order": 1,
@@ -298,7 +298,7 @@
         {
           "title": "摘要记忆的最小用法",
           "language": "python",
-          "code": "from langchain_classic.memory import ConversationSummaryMemory\nfrom langchain_core.language_models.fake_chat_models import FakeListChatModel\n\n# 真实环境把 FakeListChatModel 换成 ChatOpenAI(deepseek-v4-pro)\nsm = ConversationSummaryMemory(\n    llm=FakeListChatModel(responses=[\"客人阿岩要铸轻剑,预算三百两。\"]),\n    memory_key=\"history\", return_messages=True,\n)\nsm.save_context({\"input\": \"我叫阿岩,想铸轻剑\"}, {\"output\": \"记下了\"})\nhistory = sm.load_memory_variables({})[\"history\"]\nprint(type(history[0]).__name__)  # SystemMessage:摘要是「背景设定」\nprint(history[0].content)",
+          "code": "from langchain_classic.memory import ConversationSummaryMemory\nfrom langchain_core.language_models.fake_chat_models import FakeListChatModel\n\n# 真实环境把 FakeListChatModel 换成 ChatOpenAI(deepseek-v4-pro)\nsm = ConversationSummaryMemory(\n    llm=FakeListChatModel(responses=[\"客人阿岩要做轻量海报,预算三百元。\"]),\n    memory_key=\"history\", return_messages=True,\n)\nsm.save_context({\"input\": \"我叫阿岩,想做轻量海报\"}, {\"output\": \"记下了\"})\nhistory = sm.load_memory_variables({})[\"history\"]\nprint(type(history[0]).__name__)  # SystemMessage:摘要是「背景设定」\nprint(history[0].content)",
           "description": "摘要记忆把旧对话压缩成一条 SystemMessage;每次 save_context 都会调用摘要模型做一次滚动压缩。"
         }
       ],
@@ -309,7 +309,7 @@
         },
         {
           "name": "有损压缩",
-          "definition": "压缩过程中细节被静默丢弃的特性。摘要记忆是有损的——\"预算三百两\"可能变成\"预算有限\",关键字段不能只靠摘要承载。"
+          "definition": "压缩过程中细节被静默丢弃的特性。摘要记忆是有损的——\"预算三百元\"可能变成\"预算有限\",关键字段不能只靠摘要承载。"
         }
       ],
       "techStack": [
@@ -339,8 +339,8 @@
         },
         {
           "type": "regex_in_code",
-          "pattern": "ConversationSummaryMemory",
-          "message": "本步要求使用 ConversationSummaryMemory 摘要记忆。",
+          "pattern": "AIMessage\\(content=summary\\)",
+          "message": "摘要策略应把滚动摘要作为一条 AIMessage 保存。",
           "blocking": true
         },
         {
@@ -352,8 +352,8 @@
         },
         {
           "type": "regex_in_code",
-          "pattern": "load_memory_variables",
-          "message": "请通过 load_memory_variables 读取记忆内容(摘要在这里面)。",
+          "pattern": "get_summary_model\\(\\)\\.invoke",
+          "message": "摘要策略应调用独立摘要模型压缩当前上下文。",
           "blocking": true
         },
         {

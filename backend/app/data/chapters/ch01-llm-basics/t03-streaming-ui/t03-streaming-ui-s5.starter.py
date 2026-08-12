@@ -1,4 +1,10 @@
-"""灵讯通 · s5:对照实验 —— 流式 vs 非流式,用数据说话。"""
+"""星澈助手 · s5:对照实验 —— 流式 vs 非流式,用数据说话。"""
+# 学习契约
+# 目标：完成 t03-streaming-ui-s5 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 1 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client(c) -> OpenAI; measure_blocking(client, config, question) -> MeasureResult; measure_streaming(client, config, question) -> MeasureResult; run_experiment(client, config, question) -> None。
+# 技术栈：os, sys, time, dataclasses, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 import time

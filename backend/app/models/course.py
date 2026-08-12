@@ -160,6 +160,14 @@ class Step(CamelModel):
     terms: list[Term] = Field(default_factory=list)
     tech_stack: list[TechStackItem] = Field(default_factory=list)
     validation: list[ValidationRule] = Field(default_factory=list)
+    # 部分真实框架的最小示例天然紧凑；下调静态行数阈值时必须同时提供教学理由。
+    minimum_solution_lines: int = 40
+    compact_solution_rationale: Optional[str] = None
+    # None 表示继承 Task.needs_network，便于旧课程数据平滑迁移。
+    needs_network: Optional[bool] = None
+    # 默认超时由运行通道决定；仅对明确标注的多轮课程放宽至 120 秒。
+    sandbox_timeout: Optional[int] = Field(default=None, ge=1, le=120)
+    sandbox_profile: Literal["core", "ml"] = "core"
 
 
 class Task(CamelModel):

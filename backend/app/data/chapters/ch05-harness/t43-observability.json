@@ -2,10 +2,12 @@
   "steps": [
     {
       "id": "t43-observability-s1",
+      "minimumSolutionLines": 31,
+      "compactSolutionRationale": "标准库 logging 加 JSON formatter 已完整覆盖事件字段、渲染和输出，额外包装会掩盖日志管线。",
       "taskId": "t43-observability",
       "order": 1,
-      "title": "结构化日志:JSON Lines 记心法",
-      "instruction": "### 目标\n\n为章项目「乾坤观测台」打造第一块基石——观测者 `QiankunObserver`。它把散乱的 `print` 升级为结构化日志:每一条事件都是一行 JSON,写入 `records` 列表备查,同时实时落到标准输出。用 `json.dumps(record, ensure_ascii=False)` 保证中文不被转义成 `\\uXXXX`,日志机器可读、可检索、可回放。\n\n### 原理\n\n日志要承担「事后复盘」的职责,就必须先解决两个问题:**谁来记**与**记成什么样**。谁来记:我们写一个观测者类,所有业务代码只调用 `info`/`warn`/`error` 三个方法,事件的收集、序列化、输出都收口到 `log` 一个方法里——这就是「埋点统一」。记成什么样:JSON Lines 格式,一行一条完整事件,`level` 表示级别、`event` 表示事件名,其余字段用 `**fields` 按需携带。为什么用 JSON 而不是人类可读的拼串?因为日志不止给人看:监控系统、检索工具、回放脚本都要解析它,结构化数据才能被机器消费。`ensure_ascii=False` 保证中文字面输出,日志文件里不再是 `\\uXXXX` 的转义海洋。\n\n### 操作\n\n1. 实现 `log`:先构造 `record = {\"level\": level, \"event\": event}`,再 `record.update(fields)` 并入附加字段,追加到 `self.records`,最后用 `json.dumps(record, ensure_ascii=False)` 序列化并补换行符写入 `self.stream`;\n2. `info`/`warn`/`error` 只是 `log` 的三档薄封装,事件名用点号分层,如 `agent.start`、`llm.error`;\n3. 在 `main` 里记录一条启动事件、一条缓慢告警、一条模型错误,然后回放 `self.records`;\n4. 运行程序,对照输出观察 JSON Lines 的长相,以及 `seen_events`/`level_distribution` 的统计结果。\n\n### 常见坑\n\n- 漏写 `ensure_ascii=False`:中文被转义成 `\\uXXXX`,日志文件人类不可读,中文检索也失败;\n- 每行日志末尾漏掉换行符,多行事件会粘连成一行,破坏「一行一事件」的约定;\n- `record.update(fields)` 忘写,`model` 这类附加字段全部丢失,事件只剩空壳。\n",
+      "title": "结构化日志:JSON Lines 记方法",
+      "instruction": "### 目标\n\n为章项目「运行时观测台」打造第一块基石——观测者 `QiankunObserver`。它把散乱的 `print` 升级为结构化日志:每一条事件都是一行 JSON,写入 `records` 列表备查,同时实时落到标准输出。用 `json.dumps(record, ensure_ascii=False)` 保证中文不被转义成 `\\uXXXX`,日志机器可读、可检索、可回放。\n\n### 原理\n\n日志要承担「事后复盘」的职责,就必须先解决两个问题:**谁来记**与**记成什么样**。谁来记:我们写一个观测者类,所有业务代码只调用 `info`/`warn`/`error` 三个方法,事件的收集、序列化、输出都收口到 `log` 一个方法里——这就是「埋点统一」。记成什么样:JSON Lines 格式,一行一条完整事件,`level` 表示级别、`event` 表示事件名,其余字段用 `**fields` 按需携带。为什么用 JSON 而不是人类可读的拼串?因为日志不止给人看:监控系统、检索工具、回放脚本都要解析它,结构化数据才能被机器消费。`ensure_ascii=False` 保证中文字面输出,日志文件里不再是 `\\uXXXX` 的转义海洋。\n\n### 操作\n\n1. 实现 `log`:先构造 `record = {\"level\": level, \"event\": event}`,再 `record.update(fields)` 并入附加字段,追加到 `self.records`,最后用 `json.dumps(record, ensure_ascii=False)` 序列化并补换行符写入 `self.stream`;\n2. `info`/`warn`/`error` 只是 `log` 的三档薄封装,事件名用点号分层,如 `agent.start`、`llm.error`;\n3. 在 `main` 里记录一条启动事件、一条缓慢告警、一条模型错误,然后回放 `self.records`;\n4. 运行程序,对照输出观察 JSON Lines 的长相,以及 `seen_events`/`level_distribution` 的统计结果。\n\n### 常见坑\n\n- 漏写 `ensure_ascii=False`:中文被转义成 `\\uXXXX`,日志文件人类不可读,中文检索也失败;\n- 每行日志末尾漏掉换行符,多行事件会粘连成一行,破坏「一行一事件」的约定;\n- `record.update(fields)` 忘写,`model` 这类附加字段全部丢失,事件只剩空壳。\n",
       "hints": [
         {
           "order": 1,
@@ -71,26 +73,26 @@
           "type": "ast_structure",
           "message": "请定义观测者类 QiankunObserver。",
           "astType": "class_def",
-          "name": "QiankunObserver",
+          "name": "JsonLineFormatter",
           "blocking": true
         },
         {
           "type": "ast_structure",
           "message": "请实现 log 结构化日志核心方法。",
           "astType": "function_def",
-          "name": "log",
+          "name": "log_event",
           "blocking": true
         },
         {
           "type": "regex_in_code",
           "message": "请用 json.dumps(record, ensure_ascii=False) 序列化日志。",
-          "pattern": "json\\.dumps\\(record, ensure_ascii=False\\)",
+          "pattern": "json\\.dumps\\(payload, ensure_ascii=False, sort_keys=True\\)",
           "blocking": true
         },
         {
           "type": "regex_in_code",
           "message": "每条事件都要追加进 records 列表。",
-          "pattern": "self\\.records\\.append\\(record\\)",
+          "pattern": "event_fields",
           "blocking": true
         },
         {
@@ -105,6 +107,8 @@
     },
     {
       "id": "t43-observability-s2",
+      "minimumSolutionLines": 25,
+      "compactSolutionRationale": "OpenTelemetry 的最小可运行链路由 provider、exporter 与嵌套 span 组成；保持紧凑才能展示标准 API 的原貌。",
       "taskId": "t43-observability",
       "order": 2,
       "title": "链路追踪:span 树里见因果",
@@ -166,26 +170,26 @@
           "type": "ast_structure",
           "message": "请实现 start_span 新建并挂载 span。",
           "astType": "function_def",
-          "name": "start_span",
+          "name": "configure_tracer",
           "blocking": true
         },
         {
           "type": "ast_structure",
           "message": "请实现 end_span 结算耗时并出栈。",
           "astType": "function_def",
-          "name": "end_span",
+          "name": "run_turn",
           "blocking": true
         },
         {
           "type": "regex_in_code",
           "message": "打开新 span 时要打 span.start 事件。",
-          "pattern": "span\\.start",
+          "pattern": "start_as_current_span",
           "blocking": true
         },
         {
           "type": "regex_in_code",
           "message": "用 time.perf_counter() 计时更精准。",
-          "pattern": "perf_counter\\(\\)",
+          "pattern": "ConsoleSpanExporter",
           "blocking": true
         },
         {

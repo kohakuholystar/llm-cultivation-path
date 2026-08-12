@@ -4,8 +4,8 @@
       "id": "t10-lcel-basics-s1",
       "taskId": "t10-lcel-basics",
       "order": 1,
-      "title": "开炉点火:ChatOpenAI 封装 DeepSeek",
-      "instruction": "### 目标\n为章项目「铸剑台」点燃第一座炉火:用 LangChain 的 `ChatOpenAI` 把 DeepSeek 封装成一个可复用的 LLM 组件,完成第一次\"铸剑\"调用——给两块材料各起一个剑名。\n\n### 原理\nLangChain 的核心思想是把 LLM 应用拆成**可组合的组件**(Component):模型是组件、提示词是组件、解析器也是组件,后续步骤会用 `|` 把它们串成管道。`ChatOpenAI` 是其中的\"模型组件\",它把 OpenAI 兼容协议的 chat API 包装成统一接口:`.invoke()` 吃进消息、吐出 `AIMessage` 对象(真正的文本在 `.content` 属性里)。\n\nDeepSeek 完整实现了 OpenAI 兼容协议,所以只要把 `base_url` 指向 `https://api.deepseek.com`、模型名填 `deepseek-v4-pro`,同一份代码就能驱动 DeepSeek——这就是协议兼容的红利:**换供应商不改业务代码**。配置一律从环境变量读取(`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `MODEL_NAME`),密钥不落源码,这是工程基本功。\n\n本任务所有步骤都内置 `MOCK_LLM=1` 本地演示模式:设置环境变量后改用 `FakeListChatModel` 假模型,按顺序循环返回预置回答,不联网、不耗 token。它接口与真模型完全一致,你可以先跑通全流程,再接真实 API。\n\n### 操作\n1. 补全 `check_api_key()`:mock 模式直接放行;否则缺少 `OPENAI_API_KEY` 时打印提示并 `sys.exit(0)`,让学习者看到友好提示而不是一屏 traceback。\n2. 补全 `build_llm()`:mock 分支返回 `FakeListChatModel(responses=[...])`;真实分支返回 `ChatOpenAI(model=..., base_url=..., temperature=...)`,加上 `timeout` 与 `max_retries`。\n3. 运行程序,观察两种材料各得到什么剑名。\n\n### 常见坑\n- `base_url` 多拼成 `.../v1/chat/completions`:SDK 会自己拼路径,`base_url` 只到域名(或 `/v1`)为止,多写必 404。\n- 直接 `print(llm.invoke(...))` 会打出 `AIMessage(content='...')` 一整坨对象,文本要取 `.content`。\n- 密钥硬编码进代码并提交 git,等于把钱包贴在公告栏——务必走环境变量。",
+      "title": "开始处理点火:ChatOpenAI 封装 DeepSeek",
+      "instruction": "### 目标\n为章项目「提示词工作台」点燃第一座模型服务:用 LangChain 的 `ChatOpenAI` 把 DeepSeek 封装成一个可复用的 LLM 组件,完成第一次\"内容制作\"调用——给两块材料各起一个方案名称。\n\n### 原理\nLangChain 的核心思想是把 LLM 应用拆成**可组合的组件**(Component):模型是组件、提示词是组件、解析器也是组件,后续步骤会用 `|` 把它们串成管道。`ChatOpenAI` 是其中的\"模型组件\",它把 OpenAI 兼容协议的 chat API 包装成统一接口:`.invoke()` 吃进消息、吐出 `AIMessage` 对象(真正的文本在 `.content` 属性里)。\n\nDeepSeek 完整实现了 OpenAI 兼容协议,所以只要把 `base_url` 指向 `https://api.deepseek.com`、模型名填 `deepseek-v4-pro`,同一份代码就能驱动 DeepSeek——这就是协议兼容的红利:**换供应商不改业务代码**。配置一律从环境变量读取(`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `MODEL_NAME`),密钥不落源码,这是工程基本功。\n\n本任务所有步骤都内置 `MOCK_LLM=1` 本地演示模式:设置环境变量后改用 `FakeListChatModel` 假模型,按顺序循环返回预置回答,不联网、不耗 token。它接口与真模型完全一致,你可以先跑通全流程,再接真实 API。\n\n### 操作\n1. 补全 `check_api_key()`:mock 模式直接放行;否则缺少 `OPENAI_API_KEY` 时打印提示并 `sys.exit(0)`,让学习者看到友好提示而不是一屏 traceback。\n2. 补全 `build_llm()`:mock 分支返回 `FakeListChatModel(responses=[...])`;真实分支返回 `ChatOpenAI(model=..., base_url=..., temperature=...)`,加上 `timeout` 与 `max_retries`。\n3. 运行程序,观察两种材料各得到什么方案名称。\n\n### 常见坑\n- `base_url` 多拼成 `.../v1/chat/completions`:SDK 会自己拼路径,`base_url` 只到域名(或 `/v1`)为止,多写必 404。\n- 直接 `print(llm.invoke(...))` 会打出 `AIMessage(content='...')` 一整坨对象,文本要取 `.content`。\n- 密钥硬编码进代码并提交 git,等于把钱包贴在公告栏——务必走环境变量。",
       "todoItems": [
         {
           "title": "补全 check_api_key():mock 直接放行,缺 Key 时打印提示并 sys.exit(0)",
@@ -20,9 +20,9 @@
           "expect": "不再报 TODO 错误"
         },
         {
-          "title": "运行 main.py,观察两种材料各得到什么剑名",
+          "title": "运行 main.py,观察两种材料各得到什么方案名称",
           "target": "main() 运行输出",
-          "expect": "打印两块材料各自的剑名与点评"
+          "expect": "打印两块材料各自的方案名称与点评"
         }
       ],
       "hints": [
@@ -36,7 +36,7 @@
         },
         {
           "order": 3,
-          "text": "接近答案:mock 分支 return FakeListChatModel(responses=[\"剑名一\", \"剑名二\"]);真实分支按上面签名 return ChatOpenAI(...),取文本用 resp.content。"
+          "text": "接近答案:mock 分支 return FakeListChatModel(responses=[\"方案名称一\", \"方案名称二\"]);真实分支按上面签名 return ChatOpenAI(...),取文本用 resp.content。"
         }
       ],
       "codeSamples": [
@@ -119,7 +119,7 @@
       "taskId": "t10-lcel-basics",
       "order": 2,
       "title": "配方成链:prompt | llm | parser 管道",
-      "instruction": "### 目标\n把第一步的\"裸调用\"升级为第一条 LCEL 锻造链:`prompt | llm | parser`。一次 `chain.invoke({\"material\": ..., \"trait\": ...})` 走完\"填模板 → 调模型 → 剥出纯文本\"三步,这就是铸剑台的第一张标准配方。\n\n### 原理\nLCEL(LangChain Expression Language)用 Python 的 `|` 运算符把组件串成管道。它能这么做,是因为每个组件都实现了 **Runnable** 协议(都有 `.invoke()` / `.batch()` / `.stream()`),`|` 本质是调用 `__or__()`,把左右两个 Runnable 包成一个新的 `RunnableSequence`——所以**管道的返回值依然是 Runnable**,可以继续 `.invoke()`、继续和别人拼。\n\n数据在管道里从左向右流动并自动变形:你传入的 `dict` 先被 `ChatPromptTemplate` 填进模板变量(`{material}`、`{trait}`),变成消息列表;模型组件吃下消息、吐出 `AIMessage`;`StrOutputParser` 把 `AIMessage` 剥成纯字符串。没有最后这个 parser,你拿到的就是对象而不是文本。用 `ChatPromptTemplate.from_messages([(\"system\", ...), (\"human\", ...)])` 声明多轮角色模板,system 定人设与格式约束,human 放变量——**提示词从散落在 f-string 里的字符串,升级成可复用、可版本管理的组件**,这正是\"提示词工程工作台\"的立身之本。\n\n### 操作\n1. 补全 `build_prompt()`:用 `ChatPromptTemplate.from_messages()` 声明 system + human 两条消息,human 里留出 `{material}` 与 `{trait}` 两个变量。\n2. 补全 `build_chain(llm)`:返回 `prompt | llm | StrOutputParser()`。\n3. 运行,观察输出已是纯文本剑名,不再有 `AIMessage` 外壳。\n\n### 常见坑\n- 管道顺序写成 `llm | prompt`:数据流从左到右,模型先收到原始 dict 会直接报错——配方永远在最左。\n- `invoke` 传的 dict key 与模板变量名不一致(如模板 `{trait}` 却传 `{\"feature\": ...}`),会抛 KeyError。\n- 忘了接 `StrOutputParser`,把 `AIMessage` 当字符串拼,输出带 `content='...'` 外壳。",
+      "instruction": "### 目标\n把第一步的\"裸调用\"升级为第一条 LCEL 内容生成链:`prompt | llm | parser`。一次 `chain.invoke({\"material\": ..., \"trait\": ...})` 走完\"填模板 → 调模型 → 剥出纯文本\"三步,这就是提示词工作台的第一张标准配方。\n\n### 原理\nLCEL(LangChain Expression Language)用 Python 的 `|` 运算符把组件串成管道。它能这么做,是因为每个组件都实现了 **Runnable** 协议(都有 `.invoke()` / `.batch()` / `.stream()`),`|` 本质是调用 `__or__()`,把左右两个 Runnable 包成一个新的 `RunnableSequence`——所以**管道的返回值依然是 Runnable**,可以继续 `.invoke()`、继续和别人拼。\n\n数据在管道里从左向右流动并自动变形:你传入的 `dict` 先被 `ChatPromptTemplate` 填进模板变量(`{material}`、`{trait}`),变成消息列表;模型组件吃下消息、吐出 `AIMessage`;`StrOutputParser` 把 `AIMessage` 剥成纯字符串。没有最后这个 parser,你拿到的就是对象而不是文本。用 `ChatPromptTemplate.from_messages([(\"system\", ...), (\"human\", ...)])` 声明多轮角色模板,system 定人设与格式约束,human 放变量——**提示词从散落在 f-string 里的字符串,升级成可复用、可版本管理的组件**,这正是\"提示词工程工作台\"的立身之本。\n\n### 操作\n1. 补全 `build_prompt()`:用 `ChatPromptTemplate.from_messages()` 声明 system + human 两条消息,human 里留出 `{material}` 与 `{trait}` 两个变量。\n2. 补全 `build_chain(llm)`:返回 `prompt | llm | StrOutputParser()`。\n3. 运行,观察输出已是纯文本方案名称,不再有 `AIMessage` 外壳。\n\n### 常见坑\n- 管道顺序写成 `llm | prompt`:数据流从左到右,模型先收到原始 dict 会直接报错——配方永远在最左。\n- `invoke` 传的 dict key 与模板变量名不一致(如模板 `{trait}` 却传 `{\"feature\": ...}`),会抛 KeyError。\n- 忘了接 `StrOutputParser`,把 `AIMessage` 当字符串拼,输出带 `content='...'` 外壳。",
       "todoItems": [
         {
           "title": "补全 build_prompt():from_messages 声明 system + human,human 留出 {material} 与 {trait} 变量",
@@ -134,9 +134,9 @@
           "expect": "不再报 TODO 错误"
         },
         {
-          "title": "运行,确认输出已是纯文本剑名、没有 AIMessage 外壳",
+          "title": "运行,确认输出已是纯文本方案名称、没有 AIMessage 外壳",
           "target": "main() 运行输出",
-          "expect": "打印纯文本剑名,无 content='...' 包裹"
+          "expect": "打印纯文本方案名称,无 content='...' 包裹"
         }
       ],
       "hints": [
@@ -157,7 +157,7 @@
         {
           "title": "LCEL 管道的数据变形之旅",
           "language": "text",
-          "code": "输入 dict      {\"material\": \"陨铁\", \"trait\": \"坚硬\"}\n  │ prompt 填模板\n  ▼\n消息列表       [SystemMessage(...), HumanMessage(\"材料:陨铁...\")]\n  │ llm 生成\n  ▼\nAIMessage      content='剑名「断岳」...'\n  │ StrOutputParser 剥壳\n  ▼\n纯文本 str     \"剑名「断岳」,点评:...\"",
+          "code": "输入 dict      {\"material\": \"活动素材\", \"trait\": \"坚硬\"}\n  │ prompt 填模板\n  ▼\n消息列表       [SystemMessage(...), HumanMessage(\"材料:活动素材...\")]\n  │ llm 生成\n  ▼\nAIMessage      content='方案名称「断岳」...'\n  │ StrOutputParser 剥壳\n  ▼\n纯文本 str     \"方案名称「断岳」,点评:...\"",
           "description": "管道中每一环的输入输出类型自动衔接,| 左边产出的正是右边需要的。"
         }
       ],
@@ -218,8 +218,8 @@
       "id": "t10-lcel-basics-s3",
       "taskId": "t10-lcel-basics",
       "order": 3,
-      "title": "一炉多铸:链工厂与 partial 预设配方",
-      "instruction": "### 目标\n把锻造链升级成\"链工厂\":一个 `make_forge_chain(style, llm)` 函数,传入流派名就返回一条绑好风格的专用链。铸剑台从此有了配方库——古风、科幻、武侠三条链共用同一座炉(同一个 `llm` 组件)。\n\n### 原理\n上一步的链是\"一次性\"的:风格写死在 system 消息里,想换风格就得复制粘贴整条链。工程上的解法是**部分变量绑定**:`ChatPromptTemplate` 里声明 `{style}` 变量,然后用 `prompt.partial(style=...)` 预先填死它。`partial` 返回一个新模板,剩余变量(这里是 `{material}`)留到 `invoke` 时再传——如同函数柯里化,先固定一批参数、生成更专用的组件。\n\n这体现了 LCEL 组件观的深层价值:**组件是值,可以传参、可以返回、可以复用**。链工厂就是\"返回组件的函数\",它让提示词从字符串拼接进化成可索引的配方库(`RECIPES` 字典)。注意三条链共享同一个 `llm` 实例——模型组件无状态,天然可复用,不必每条链各建一个客户端连接。这也是 LangChain 相对裸 SDK 的第一处工程红利:组合发生在对象层,而不是字符串层。\n\n### 操作\n1. 补全 `make_forge_chain(style, llm)`:先校验流派名是否在 `RECIPES` 里(不在就 `raise ValueError`);再建含 `{style}` / `{material}` 双变量的模板,用 `prompt.partial(style=RECIPES[style])` 绑死风格,返回 `bound | llm | StrOutputParser()`。\n2. 在 `main()` 里只建一次 `llm`,循环三个流派各造一条链、铸一块\"天外陨铁\"。\n3. 对比三种流派输出的语气差异,体会\"同炉不同方\"。\n\n### 常见坑\n- 把 `partial` 当成原地修改:它返回**新**模板,必须接住返回值,`prompt.partial(...)` 单写一行等于没绑。\n- 绑错了变量名(如 `prompt.partial(style=...)` 写成 `styles`),`invoke` 时会因缺变量报 KeyError。\n- 每个流派都新建一个 `ChatOpenAI`:浪费连接资源,模型组件应作为参数注入、全局复用。",
+      "title": "单模型多模板:链工厂与 partial 预设配方",
+      "instruction": "### 目标\n把内容生成链升级成\"链工厂\":一个 `make_forge_chain(style, llm)` 函数,传入流派名就返回一条绑好风格的专用链。提示词工作台从此有了配方库——校园、科幻、幻想三条链共用同一座处理器(同一个 `llm` 组件)。\n\n### 原理\n上一步的链是\"一次性\"的:风格写死在 system 消息里,想换风格就得复制粘贴整条链。工程上的解法是**部分变量绑定**:`ChatPromptTemplate` 里声明 `{style}` 变量,然后用 `prompt.partial(style=...)` 预先填死它。`partial` 返回一个新模板,剩余变量(这里是 `{material}`)留到 `invoke` 时再传——如同函数柯里化,先固定一批参数、生成更专用的组件。\n\n这体现了 LCEL 组件观的深层价值:**组件是值,可以传参、可以返回、可以复用**。链工厂就是\"返回组件的函数\",它让提示词从字符串拼接进化成可索引的配方库(`RECIPES` 字典)。注意三条链共享同一个 `llm` 实例——模型组件无状态,天然可复用,不必每条链各建一个客户端连接。这也是 LangChain 相对裸 SDK 的第一处工程红利:组合发生在对象层,而不是字符串层。\n\n### 操作\n1. 补全 `make_forge_chain(style, llm)`:先校验流派名是否在 `RECIPES` 里(不在就 `raise ValueError`);再建含 `{style}` / `{material}` 双变量的模板,用 `prompt.partial(style=RECIPES[style])` 绑死风格,返回 `bound | llm | StrOutputParser()`。\n2. 在 `main()` 里只建一次 `llm`,循环三个流派各造一条链、制作一份\"活动素材\"。\n3. 对比三种流派输出的语气差异,体会\"同一模型不同模板\"。\n\n### 常见坑\n- 把 `partial` 当成原地修改:它返回**新**模板,必须接住返回值,`prompt.partial(...)` 单写一行等于没绑。\n- 绑错了变量名(如 `prompt.partial(style=...)` 写成 `styles`),`invoke` 时会因缺变量报 KeyError。\n- 每个流派都新建一个 `ChatOpenAI`:浪费连接资源,模型组件应作为参数注入、全局复用。",
       "todoItems": [
         {
           "title": "补全 make_forge_chain():先校验流派在 RECIPES 中,不在则 raise ValueError",
@@ -234,9 +234,9 @@
           "expect": "invoke 时只需传 {material} 一个变量"
         },
         {
-          "title": "main() 只建一次 llm,循环三个流派各铸一块天外陨铁",
+          "title": "main() 只建一次 llm,循环三个流派各制作一份活动素材",
           "target": "main() 三流派循环",
-          "expect": "打印古风/科幻/武侠三种风格的剑名与点评"
+          "expect": "打印清新校园风/科幻/校园创作三种风格的方案名称与点评"
         }
       ],
       "hints": [
@@ -250,14 +250,14 @@
         },
         {
           "order": 3,
-          "text": "接近答案:工厂开头 if style not in RECIPES: raise ValueError(...);模板两行消息为 system「风格要求:{style}」+ human「用「{material}」铸一剑...」。"
+          "text": "接近答案:工厂开头 if style not in RECIPES: raise ValueError(...);模板两行消息为 system「风格要求:{style}」+ human「用「{material}」制作一份方案...」。"
         }
       ],
       "codeSamples": [
         {
           "title": "prompt.partial:组件版的柯里化",
           "language": "python",
-          "code": "prompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"风格要求:{style}\"),\n    (\"human\", \"材料:{material}\"),\n])\nbound = prompt.partial(style=\"古风\")   # 返回新模板,style 已填死\nbound.invoke({\"material\": \"陨铁\"})       # 只剩 material 待传",
+          "code": "prompt = ChatPromptTemplate.from_messages([\n    (\"system\", \"风格要求:{style}\"),\n    (\"human\", \"材料:{material}\"),\n])\nbound = prompt.partial(style=\"清新校园风\")   # 返回新模板,style 已填死\nbound.invoke({\"material\": \"活动素材\"})       # 只剩 material 待传",
           "description": "partial 预填部分变量后返回新组件,剩余变量留到调用时再给——配方库由此而来。"
         }
       ],
@@ -314,8 +314,8 @@
       "id": "t10-lcel-basics-s4",
       "taskId": "t10-lcel-basics",
       "order": 4,
-      "title": "批量开炉:chain.batch 并发锻造",
-      "instruction": "### 目标\n给铸剑台接上\"批量开炉\"能力:六块材料一次 `chain.batch()` 并发锻造,并与串行 `invoke` 循环对比耗时,直观看到并发对吞吐的提升。\n\n### 原理\n`Runnable` 协议不只有 `.invoke()`,还有 `.batch(inputs, config=...)`:它接收**输入列表**,内部用线程池并发地逐个跑同一条链,最后按输入顺序收齐结果列表。LLM 调用是典型的 **I/O 密集型**任务——绝大多数时间花在等网络回包上,CPU 基本闲着,这正是并发最擅长榨干的场景。串行 N 次调用总耗时约等于\"单次耗时 × N\";`batch` 配合 `config={\"max_concurrency\": 3}` 限流后,总耗时约降为\"单次耗时 × ⌈N/并发数⌉\"。\n\n`max_concurrency` 不是可选项而是必修课:DeepSeek 这类 API 都有速率限制(RPM/TPM),并发开满会触发 429 限流。工程惯例是根据配额设一个温和的上限(教学用 3)。另外 `batch` 的顺序保证很关键——**结果列表与输入列表一一对应**,所以可以放心 `zip(orders, results)`。这一步还引入一个 `timed()` 计时小工具:把\"测量\"也封装成函数,对比实验才有数据而非感觉。批量化是工作台从\"单件手工作坊\"迈向\"流水线\"的第一步,后续 RAG 评估、批量打标都靠它。\n\n### 操作\n1. 补全 `forge_batch(chain, orders, workers)`:把订单转成 `[{\"material\": m}, ...]` 列表,调用 `chain.batch(inputs, config={\"max_concurrency\": workers})`。\n2. 用给定的 `timed()` 分别测 `forge_sequential` 与 `forge_batch`,打印两次耗时。\n3. 用 `zip` 对齐订单与结果逐行打印,确认顺序没乱;断两者数量一致。\n\n### 常见坑\n- `batch` 传的是**输入列表**,每个元素就是一次 `invoke` 的完整入参(dict);把字符串列表直接塞进去会报模板变量缺失。\n- 不设 `max_concurrency` 还批量几十上百条,容易撞 API 限流返回 429。\n- 以为并发会打乱返回顺序去手动排序——`batch` 保序,多此一举反而可能对错号。",
+      "title": "批量开始处理:chain.batch 并发处理",
+      "instruction": "### 目标\n给提示词工作台接上\"批量开始处理\"能力:六块材料一次 `chain.batch()` 并发处理,并与串行 `invoke` 循环对比耗时,直观看到并发对吞吐的提升。\n\n### 原理\n`Runnable` 协议不只有 `.invoke()`,还有 `.batch(inputs, config=...)`:它接收**输入列表**,内部用线程池并发地逐个跑同一条链,最后按输入顺序收齐结果列表。LLM 调用是典型的 **I/O 密集型**任务——绝大多数时间花在等网络回包上,CPU 基本闲着,这正是并发最擅长榨干的场景。串行 N 次调用总耗时约等于\"单次耗时 × N\";`batch` 配合 `config={\"max_concurrency\": 3}` 限流后,总耗时约降为\"单次耗时 × ⌈N/并发数⌉\"。\n\n`max_concurrency` 不是可选项而是必修课:DeepSeek 这类 API 都有速率限制(RPM/TPM),并发开满会触发 429 限流。工程惯例是根据配额设一个温和的上限(教学用 3)。另外 `batch` 的顺序保证很关键——**结果列表与输入列表一一对应**,所以可以放心 `zip(orders, results)`。这一步还引入一个 `timed()` 计时小工具:把\"测量\"也封装成函数,对比实验才有数据而非感觉。批量化是工作台从\"单件手工制作组\"迈向\"流水线\"的第一步,后续 RAG 评估、批量打标都靠它。\n\n### 操作\n1. 补全 `forge_batch(chain, orders, workers)`:把订单转成 `[{\"material\": m}, ...]` 列表,调用 `chain.batch(inputs, config={\"max_concurrency\": workers})`。\n2. 用给定的 `timed()` 分别测 `forge_sequential` 与 `forge_batch`,打印两次耗时。\n3. 用 `zip` 对齐订单与结果逐行打印,确认顺序没乱;断两者数量一致。\n\n### 常见坑\n- `batch` 传的是**输入列表**,每个元素就是一次 `invoke` 的完整入参(dict);把字符串列表直接塞进去会报模板变量缺失。\n- 不设 `max_concurrency` 还批量几十上百条,容易撞 API 限流返回 429。\n- 以为并发会打乱返回顺序去手动排序——`batch` 保序,多此一举反而可能对错号。",
       "todoItems": [
         {
           "title": "补全 forge_batch():订单转成 dict 列表,chain.batch(inputs, config={\"max_concurrency\": workers}) 并发调用",
@@ -414,8 +414,8 @@
       "id": "t10-lcel-basics-s5",
       "taskId": "t10-lcel-basics",
       "order": 5,
-      "title": "对照实验:原生 SDK vs LCEL(铸剑台 v0.1 收炉)",
-      "instruction": "### 目标\n做一组对照实验为「铸剑台 v0.1」收炉:同一块材料,分别走**原生 openai SDK** 与 **LCEL 链**两条路线,对比输出与耗时,并说清 LCEL 到底多给了什么。\n\n### 原理\n两条路线底层是同一座炉:DeepSeek 的 OpenAI 兼容端点。原生 SDK 路线里,`client.chat.completions.create(model=..., messages=[...])` 一把梭——手动拼 messages 字典、手动从 `resp.choices[0].message.content` 里剥文本。单次调用两者差别不大,LCEL 甚至还多一层抽象开销。但差异在**可组合性**:原生路线里,提示词是散落的字符串、调用是孤立的语句,流程一旦长成\"检索 → 拼提示 → 生成 → 解析 → 再判断\"的多环链,手动拼装会先乱——谁填模板、谁剥响应、怎么批量、哪里计时,全靠约定。\n\nLCEL 把每一环抽象成实现同一 `Runnable` 协议的组件:提示词能 `partial` 预设、链能 `batch` 批量、组件能当值传来传去。**抽象的价值不在第一次调用,在第 N 次扩展**。这就是铸剑台的立项结论:v0.1 起,工作台的每个能力(命名、点评、润色)都是一条可复用、可批量、可对照实验的链。实验要有实验的样子:同一输入、两条路线、计时量化,结论用数据说话——这也是提示词工程工作台日后做 A/B 对比的雏形。\n\n### 操作\n1. 补全 `call_native_sdk(material)`:mock 分支返回假串;真实分支建 `OpenAI()` 客户端(自动读 `OPENAI_API_KEY` / `OPENAI_BASE_URL`),调 `client.chat.completions.create(...)`,取 `resp.choices[0].message.content`。\n2. 阅读 `build_lcel_chain()` 与 `compare()`,理解两条路线如何共用同一份 system/human 语义。\n3. 运行,对比两条路线的输出与耗时,写下你的观察。\n\n### 常见坑\n- 原生 SDK 取文本写成 `resp[\"choices\"][0]`:`openai` v1+ 返回的是 pydantic 对象,要用属性访问 `resp.choices[0].message.content`,不是字典下标。\n- 手动 `OpenAI(api_key=\"sk-...\")` 把密钥写死:不传参即可,SDK 自动读环境变量。\n- 拿 mock 模式的耗时当下结论:假模型本地瞬时返回,两条路线都接近 0s——性能结论要看真实 API 下的数字。",
+      "title": "对照实验:原生 SDK vs LCEL(提示词工作台 v0.1 收处理器)",
+      "instruction": "### 目标\n做一组对照实验为「提示词工作台 v0.1」收处理器:同一块材料,分别走**原生 openai SDK** 与 **LCEL 链**两条路线,对比输出与耗时,并说清 LCEL 到底多给了什么。\n\n### 原理\n两条路线底层是同一座处理器:DeepSeek 的 OpenAI 兼容端点。原生 SDK 路线里,`client.chat.completions.create(model=..., messages=[...])` 一把梭——手动拼 messages 字典、手动从 `resp.choices[0].message.content` 里剥文本。单次调用两者差别不大,LCEL 甚至还多一层抽象开销。但差异在**可组合性**:原生路线里,提示词是散落的字符串、调用是孤立的语句,流程一旦长成\"检索 → 拼提示 → 生成 → 解析 → 再判断\"的多环链,手动拼装会先乱——谁填模板、谁剥响应、怎么批量、哪里计时,全靠约定。\n\nLCEL 把每一环抽象成实现同一 `Runnable` 协议的组件:提示词能 `partial` 预设、链能 `batch` 批量、组件能当值传来传去。**抽象的价值不在第一次调用,在第 N 次扩展**。这就是提示词工作台的立项结论:v0.1 起,工作台的每个能力(命名、点评、润色)都是一条可复用、可批量、可对照实验的链。实验要有实验的样子:同一输入、两条路线、计时量化,结论用数据说话——这也是提示词工程工作台日后做 A/B 对比的雏形。\n\n### 操作\n1. 补全 `call_native_sdk(material)`:mock 分支返回假串;真实分支建 `OpenAI()` 客户端(自动读 `OPENAI_API_KEY` / `OPENAI_BASE_URL`),调 `client.chat.completions.create(...)`,取 `resp.choices[0].message.content`。\n2. 阅读 `build_lcel_chain()` 与 `compare()`,理解两条路线如何共用同一份 system/human 语义。\n3. 运行,对比两条路线的输出与耗时,写下你的观察。\n\n### 常见坑\n- 原生 SDK 取文本写成 `resp[\"choices\"][0]`:`openai` v1+ 返回的是 pydantic 对象,要用属性访问 `resp.choices[0].message.content`,不是字典下标。\n- 手动 `OpenAI(api_key=\"sk-...\")` 把密钥写死:不传参即可,SDK 自动读环境变量。\n- 拿 mock 模式的耗时当下结论:假模型本地瞬时返回,两条路线都接近 0s——性能结论要看真实 API 下的数字。",
       "todoItems": [
         {
           "title": "补全 call_native_sdk():mock 返回假串;真实分支用 OpenAI() 客户端调 chat.completions.create 并取 .content",
@@ -431,7 +431,7 @@
         {
           "title": "运行,对比两条路线的输出与耗时,写下观察",
           "target": "main() 对照实验",
-          "expect": "打印两条路线各自的剑名与耗时"
+          "expect": "打印两条路线各自的方案名称与耗时"
         }
       ],
       "hints": [

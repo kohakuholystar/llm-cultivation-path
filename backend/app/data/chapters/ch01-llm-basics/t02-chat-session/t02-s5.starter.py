@@ -1,4 +1,10 @@
-"""灵讯通 · t02-s5:组装完整 CLI —— REPL + 斜杠命令 + 异常隔离,正式上岗。"""
+"""星澈助手 · t02-s5:组装完整 CLI —— REPL + 斜杠命令 + 异常隔离,正式上岗。"""
+# 学习契约
+# 目标：完成 t02-s5 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 1 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client(config) -> OpenAI; estimate_tokens(text) -> int; repl(session) -> None; demo(session) -> None。
+# 技术栈：os, sys, dataclasses, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 from dataclasses import dataclass
@@ -7,10 +13,10 @@ from openai import OpenAI
 USE_MOCK = os.environ.get("MOCK_LLM") == "1"  # MOCK_LLM=1 用本地假回复演示
 
 if not USE_MOCK and not os.environ.get("OPENAI_API_KEY"):  # 无 Key 优雅退出
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。\n请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。\n请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
-DEFAULT_PERSONA = "你是灵讯通,一个简洁可靠的命令行智能助手,回答不超过三句话。"
+DEFAULT_PERSONA = "你是星澈助手,一个简洁可靠的命令行智能助手,回答不超过三句话。"
 
 
 @dataclass
@@ -92,7 +98,7 @@ def repl(session: ChatSession) -> None:
 
 def demo(session: ChatSession) -> None:  # 非交互演示:脚本化对话 + 用量报告(沙箱/CI 可跑)
     for q in ["你好,我叫阿灵。", "给我讲讲滑动窗口。", "考考你:我叫什么名字?"]:
-        print(f"你: {q}\n灵讯通: {session.say(q)}")
+        print(f"你: {q}\n星澈助手: {session.say(q)}")
     print(f"[报告] 历史 {len(session.history)} 条,约 {session.history_tokens()} tokens")
 
 

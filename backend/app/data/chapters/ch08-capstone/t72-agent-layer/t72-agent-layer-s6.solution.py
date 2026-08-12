@@ -1,8 +1,8 @@
-"""渡劫飞升 · s6:总装验收,行动报告与完整装配
+"""终期交付 · s6:总装验收,行动报告与完整装配
 
 前五关锻好的零件——s1 工具注册表、s2 一轮对话、s3 记忆压缩、
-s4 Harness 循环、s5 重试降级——在这一关总装成「渡劫台」。
-DujieAgent 是对外门面:道友只见 chat 与 action_report,
+s4 Harness 循环、s5 重试降级——在这一关总装成「验收台」。
+DujieAgent 是对外门面:协作者只见 chat 与 action_report,
 内部怎么装配由构造器注入决定,这正是依赖注入的意义。
 """
 import json
@@ -18,46 +18,46 @@ MOCK = os.environ.get("MOCK_LLM") == "1"  # 离线演示模式
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[渡劫台] 未检测到 OPENAI_API_KEY。")
+    print("[任务调度台] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地离线演示可设 MOCK_LLM=1,用剧本模拟模型决策)")
     sys.exit(0)
 
-SYSTEM_PROMPT = "你是渡劫台的助道者,回答修炼、丹方、炼器问题要简洁、准确、有仙侠味。"
+SYSTEM_PROMPT = "你是任务调度台的助道者,回答学习、制作方案、工具开发问题要简洁、准确、有项目侠味。"
 
 # ---- 工具层:s1 注册表 + 分发器,原样沿用 ----
 CORPUS = [
-    {"title": "筑基丹配方", "content": "百年灵芝三两、灵泉水五升,文火炼制七日,丹成有异香。"},
-    {"title": "飞剑淬火", "content": "辰时淬火,炉温三千度,仙品飞剑还需加注灵泉。"},
-    {"title": "雷劫征兆", "content": "渡劫前三日紫气东来;雷劫共九道,第八道须以法宝抵挡。"},
+    {"title": "基础阶段丹配方", "content": "百年灵芝三两、补充素材水五升,文火实现七日,丹成有异香。"},
+    {"title": "展示素材优化细节", "content": "展示前优化细节,渲染参数设为高质量,高质量展示素材还需补充光影说明。"},
+    {"title": "故障征兆", "content": "上线验收前三日原始数据东来;故障共九道,第八道须以工具抵挡。"},
 ]
 
-RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "仙品": 3.0}
+RARITY_BONUS = {"凡品": 1.0, "精品": 1.5, "高质量": 3.0}
 
 
 def search_knowledge(query: str) -> str:
-    """检索修炼典籍:整句子串匹配,取第一条命中(模拟 RAG 检索)。"""
+    """检索构建资料:整句子串匹配,取第一条命中(模拟 RAG 检索)。"""
     for entry in CORPUS:
         if query in entry["title"] + entry["content"]:
-            return f"【典籍】{entry['title']}:{entry['content']}"
-    return "【典籍】没有检索到相关条目,请换个说法再试。"
+            return f"【资料】{entry['title']}:{entry['content']}"
+    return "【资料】没有检索到相关条目,请换个说法再试。"
 
 
 def calc_forge_cost(item_name: str, quantity: int, unit_cost: float, rarity: str = "凡品") -> str:
-    """计算炼制成本:数量 × 单价 × 品质加成。"""
+    """计算实现成本:数量 × 单价 × 品质加成。"""
     total = quantity * unit_cost * RARITY_BONUS.get(rarity, 1.0)
-    return f"【炼器】{rarity}·{item_name} x{quantity}:共需 {total:.1f} 灵石"
+    return f"【工具开发】{rarity}·{item_name} x{quantity}:共需 {total:.1f} 预算点"
 
 
 TOOLS = {
     "search_knowledge": {
-        "desc": "检索修炼典籍,回答修行、丹方、雷劫等知识问题",
+        "desc": "检索学习资料,回答学习、制作方案、故障等知识问题",
         "params": {"query": "检索关键词"},
         "fn": search_knowledge,
     },
     "calc_forge_cost": {
-        "desc": "计算炼制法器的灵石成本(数量/单价/品质)",
-        "params": {"item_name": "法器名", "quantity": "数量", "unit_cost": "单价", "rarity": "品质"},
+        "desc": "计算实现工具的预算点成本(数量/单价/品质)",
+        "params": {"item_name": "工具名", "quantity": "数量", "unit_cost": "单价", "rarity": "品质"},
         "fn": calc_forge_cost,
     },
 }
@@ -85,7 +85,7 @@ def dispatch(name: str, args: dict) -> str:
 
 
 def build_pouch() -> list[StructuredTool]:
-    """把注册表锻造成 LangChain 工具,随 bind_tools 一起发给模型。"""
+    """把注册表处理成 LangChain 工具,随 bind_tools 一起发给模型。"""
     return [
         StructuredTool.from_function(func=spec["fn"], name=name, description=spec["desc"])
         for name, spec in TOOLS.items()
@@ -174,7 +174,7 @@ class DujieAgent:
         self.turn_count = 0
 
     def chat(self, user_text: str) -> str:
-        """道友发问:记轮次、走 Harness,返回终答。"""
+        """协作者发问:记轮次、走 Harness,返回终答。"""
         self.turn_count += 1
         print(f"\n—— 第 {self.turn_count} 轮: {user_text}")
         return self.harness.run(user_text)
@@ -182,7 +182,7 @@ class DujieAgent:
     def action_report(self) -> str:
         """输出本次运行的可观测性汇总:轮次、工具调用、记忆规模。"""
         return "\n".join([
-            "===== 渡劫台行动报告 =====",
+            "===== 任务调度台行动报告 =====",
             f"对话轮数: {self.turn_count}",
             f"工具调用: {len(self.harness.trace)} 次",
             f"记忆规模: {len(self.memory.messages)} 条最近消息 + 摘要 {len(self.memory.summary)} 字",
@@ -203,11 +203,11 @@ class ScriptedLLM:
 
 script = [
     # 第一问:一问一工具,2 次迭代出终答
-    {"content": "", "tool_calls": [{"name": "search_knowledge", "args": {"query": "筑基丹"}, "id": "call_1"}]},
-    {"content": "筑基丹以九转灵草为引,文火炼足四十九日,配方详见典籍。"},
+    {"content": "", "tool_calls": [{"name": "search_knowledge", "args": {"query": "基础阶段丹"}, "id": "call_1"}]},
+    {"content": "基础阶段丹以九转灵草为引,文火炼足四十九日,配方详见资料。"},
     # 第二问:成本计算工具,同样 2 次迭代
-    {"content": "", "tool_calls": [{"name": "calc_forge_cost", "args": {"item_name": "飞剑", "quantity": 3, "unit_cost": 120, "rarity": "精品"}, "id": "call_2"}]},
-    {"content": "三件精品飞剑共需 540 灵石,已在账房记下。"},
+    {"content": "", "tool_calls": [{"name": "calc_forge_cost", "args": {"item_name": "展示素材", "quantity": 3, "unit_cost": 120, "rarity": "精品"}, "id": "call_2"}]},
+    {"content": "三件精品展示素材共需 540 预算点,已在账房记下。"},
     # 第三问:纯闲聊,不调任何工具
     {"content": "那太好了,我们继续。"},
 ]
@@ -223,23 +223,28 @@ agent = DujieAgent(memory=memory, harness=harness)
 
 
 def main() -> None:
-    print("—— 渡劫台开张 ——")
-    print("道友: 筑基丹怎么炼?")
-    print("渡劫台:", agent.chat("筑基丹怎么炼?"))
-    print("道友: 三件精品飞剑多少钱?")
-    print("渡劫台:", agent.chat("三件精品飞剑多少钱?"))
-    print("道友: 好,我们继续。")
-    print("渡劫台:", agent.chat("好,我们继续。"))
+    print("—— 任务调度台开张 ——")
+    print("学习者: 活动方案怎么制作?")
+    print("任务调度台:", agent.chat("活动方案怎么制作?"))
+    print("学习者: 三件精品展示素材多少钱?")
+    print("任务调度台:", agent.chat("三件精品展示素材多少钱?"))
+    print("学习者: 好,我们继续。")
+    print("任务调度台:", agent.chat("好,我们继续。"))
     print()
     print(agent.action_report())
     print("\n[检查] 剧本全部消耗:", not script)
     print("[检查] 摘要已生成:", bool(agent.memory.summary))
     print("[检查] 摘要内容:", agent.memory.summary)
     print("[检查] 窗口剩余:", len(agent.memory.messages))
-    assert not script
+    # 只有 MOCK 模式才存在固定 script；真实模型运行时验证可观察的状态契约。
+    if MOCK:
+        assert not script
+        assert "活动方案怎么制作?" in agent.memory.summary
+        assert len(agent.memory.messages) == 4  # max_turns=2 → 预算 4 条
+    else:
+        assert agent.turn_count == 3 and agent.memory.summary
     assert bool(agent.memory.summary)
-    assert "筑基丹怎么炼?" in agent.memory.summary
-    assert len(agent.memory.messages) == 4  # max_turns=2 → 预算 4 条
+    assert len(agent.memory.messages) <= agent.memory.max_turns * 2
 
 
 if __name__ == "__main__":

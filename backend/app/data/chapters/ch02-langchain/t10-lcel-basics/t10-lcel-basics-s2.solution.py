@@ -1,4 +1,4 @@
-"""铸剑台 · 第二步:配方成链 —— 用 LCEL 管道 prompt | llm | parser 组装第一条锻造链。"""
+"""黑糖资料室 · LCEL 处理管道 · s2：用 LangChain 完成可验证的学习任务。"""
 import os
 import sys
 
@@ -29,17 +29,17 @@ def build_llm():
     """模型组件:mock 与真实两种实现,接口一致。"""
     if use_mock():
         return FakeListChatModel(responses=[
-            "剑名「断岳」,点评:重剑无锋,大巧不工。",
-            "剑名「流萤」,点评:轻灵似水,剑走偏锋。",
+            "方案名称「断岳」,点评:长篇方案无锋,大巧不工。",
+            "方案名称「流萤」,点评:轻灵似水,方案走偏锋。",
         ])
     return ChatOpenAI(model=MODEL_NAME, base_url=BASE_URL, temperature=0.7, timeout=30)
 
 
 def build_prompt() -> ChatPromptTemplate:
-    """锻造配方:system 定人设与格式,human 里的 {material}/{trait} 是待填变量。"""
+    """制作配方:system 定人设与格式,human 里的 {material}/{trait} 是待填变量。"""
     return ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑台首席铸剑师,言辞古雅精炼,每次回答不超过 60 字。"),
-        ("human", "材料:{material}\n特性:{trait}\n请为此剑命名并附一句点评,格式:剑名「X」,点评:..."),
+        ("system", "你是提示词工作台首席内容策划助手,言辞古雅精炼,每次回答不超过 60 字。"),
+        ("human", "材料:{material}\n特性:{trait}\n请为这份方案命名并附一句点评,格式:方案名称「X」,点评:..."),
     ])
 
 
@@ -59,17 +59,17 @@ def forge(chain, material: str, trait: str) -> str:
     try:
         return chain.invoke({"material": material, "trait": trait}).strip()
     except Exception as exc:
-        return f"铸造失败:{type(exc).__name__}"
+        return f"生成失败:{type(exc).__name__}"
 
 
 def main() -> None:
     check_api_key()
-    chain = build_chain(build_llm())   # 一条链 = 配方 + 炉火 + 出料口
-    print(f"锻造链已成型:prompt | llm | parser [{MODEL_NAME}]")
-    orders = [("天外陨铁", "沉重坚硬"), ("千年寒玉", "至寒至脆")]
+    chain = build_chain(build_llm())   # 一条链 = 配方 + 流程火 + 出料口
+    print(f"内容生成链已成型:prompt | llm | parser [{MODEL_NAME}]")
+    orders = [("活动素材", "沉重坚硬"), ("校园照片", "色调清冷")]
     for material, trait in orders:
         print(f"【{material}/{trait}】{forge(chain, material, trait)}")
-    print("配方成链,出炉两剑。")
+    print("配方成链,输出运行两方案。")
 
 
 if __name__ == "__main__":

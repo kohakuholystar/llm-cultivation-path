@@ -1,4 +1,4 @@
-"""灵讯通 · s4:健壮流式消费封装
+"""星澈助手 · s4:健壮流式消费封装
 真实世界的流不完美:空 chunk、无文本 chunk、中途断流,safe_stream 全部兜住。
 """
 import os
@@ -10,7 +10,7 @@ from openai import OpenAI
 
 MOCK = bool(os.environ.get("MOCK_LLM"))
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地演示可设置 MOCK_LLM=1,内置假流会模拟空 chunk 与断流)")
     sys.exit(0)
@@ -53,7 +53,7 @@ class StreamReport:
 
 def mock_stream():
     """MOCK 演示流:混入无文本 chunk 与空心跳 chunk,结尾模拟断流。"""
-    for text in ["你好,", None, "", "我是灵讯通。", "正在演示"]:
+    for text in ["你好,", None, "", "我是星澈助手。", "正在演示"]:
         yield NS(choices=[NS(delta=NS(content=text))])  # None/空串 = 无文本块
     yield NS(choices=[])                                 # 心跳块:choices 为空
     yield NS(choices=[NS(delta=NS(content="健壮流式。"))])
@@ -100,7 +100,7 @@ def main() -> None:
     client = create_client(config)
     question = "用一句话介绍你自己。"
     print(f"你: {question}")
-    print("灵讯通: ", end="", flush=True)
+    print("星澈助手: ", end="", flush=True)
     report = StreamReport()
     parts = list(safe_stream(client, config, question, report))
     print("".join(parts))

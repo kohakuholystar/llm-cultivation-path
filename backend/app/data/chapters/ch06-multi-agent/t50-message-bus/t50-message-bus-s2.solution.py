@@ -1,4 +1,4 @@
-"""天庭 · s2:发布订阅总线 —— 消息不再直达,交给总线分发。"""
+"""校园 AI 社 · s2:发布订阅总线 —— 消息不再直达,交给总线分发。"""
 import itertools
 import time
 from collections import defaultdict

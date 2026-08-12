@@ -1,6 +1,6 @@
 """t74 · s1:集成测试初阵——pytest 真跑真验证
 
-项目「渡劫飞升」上线前要过三道关:功能、性能、部署。本步搭起
+项目「终期交付」上线前要过三道关:功能、性能、部署。本步搭起
 集成测试的台子:把知识库问答拆成可测的纯函数,再用 pytest
 按真实 CLI 流程逐用例验收。
 """
@@ -21,22 +21,22 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    kb = ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"]
-    hits = retrieve("渡劫 飞升", kb, top_k=3)
+    kb = ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"]
+    hits = retrieve("上线验收 完成交付", kb, top_k=3)
     assert len(hits) == 2
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    assert hits[0][0] == "黑糖资料室需要故障演练"
     assert hits[0][1] == 2
 
 
 def test_format_answer_joins_hits():
-    hits = [("渡劫飞升需要雷劫淬体", 2, 0), ("飞升之后成仙", 1, 2)]
-    assert format_answer(hits) == "[1] 渡劫飞升需要雷劫淬体(来源片段 0)\n[2] 飞升之后成仙(来源片段 2)"
+    hits = [("黑糖资料室需要故障演练", 2, 0), ("完成交付之后完成项目", 1, 2)]
+    assert format_answer(hits) == "[1] 黑糖资料室需要故障演练(来源片段 0)\n[2] 完成交付之后完成项目(来源片段 2)"
 
 
 def test_pipeline_end_to_end():
-    kb = load_kb("渡劫需雷劫\n\n---\n\n飞升需法器")
-    ans = format_answer(retrieve("雷劫", kb))
-    assert "[1] 渡劫需雷劫" in ans
+    kb = load_kb("上线验收需故障\n\n---\n\n完成交付需工具")
+    ans = format_answer(retrieve("故障", kb))
+    assert "[1] 上线验收需故障" in ans
 """
 
 
@@ -71,9 +71,9 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 集成测试 s1 ==")
-    kb = load_kb("渡劫需渡雷劫\n\n---\n\n心魔劫最难\n\n---\n\n飞升需法器")
-    print(format_answer(retrieve("渡劫", kb)))
+    print("== 黑糖资料室 · 集成测试 s1 ==")
+    kb = load_kb("上线验收需要覆盖故障\n\n---\n\n异常情况故障最难\n\n---\n\n完成交付需工具")
+    print(format_answer(retrieve("上线验收", kb)))
     with tempfile.TemporaryDirectory() as d:
         run_tests(d)
     print("pytest 全部通过:4 个用例")

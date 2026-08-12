@@ -1,7 +1,7 @@
 """微缩 GPT · s3:多头注意力"""
 import numpy as np
 
-VOCAB = list("日月星辰山河风雷水火天地剑器灵气道术")
+VOCAB = list("日月星辰山河风雷水火天地方案器运行资源道术")
 EMBED_DIM = 32
 MAX_SEQ = 16
 NUM_HEADS = 4

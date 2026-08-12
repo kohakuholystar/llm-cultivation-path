@@ -1,4 +1,10 @@
-"""灵讯通 · 结构化抽取 v2:用 Pydantic schema 给抽取结果上“类型保险”"""
+"""星澈助手 · 结构化抽取 v2:用 Pydantic schema 给抽取结果上“类型保险”"""
+# 学习契约
+# 目标：完成 t04-structured-output-s2 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 2 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：build_client() -> OpenAI; chat_once(client, messages) -> str; parse_ticket(raw) -> 'TicketExtract'; main() -> None。
+# 技术栈：json, os, sys, openai, pydantic；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import json
 import os
 import sys
@@ -8,7 +14,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 
-DEMO_DIALOG = """客服:您好,这里是灵讯通,请问有什么可以帮您?
+DEMO_DIALOG = """客服:您好,这里是星澈助手,请问有什么可以帮您?
 用户:我昨天充值的会员到现在还没到账,订单号 88231。
 客服:非常抱歉,我马上帮您核实订单状态。
 用户:麻烦尽快处理,我今晚等着用。"""
@@ -55,14 +61,14 @@ def main() -> None:
     client = build_client()
     messages = [
         {"role": "system", "content": (
-            "你是灵讯通客服质检助手。请从对话中抽取关键信息,"
+            "你是星澈助手客服质检助手。请从对话中抽取关键信息,"
             "只输出一个 JSON 对象,包含 issue、order_id、emotion 三个字段。"
         )},
         {"role": "user", "content": DEMO_DIALOG},
     ]
     raw = chat_once(client, messages)
     ticket = parse_ticket(raw)
-    print("[灵讯通] 校验通过的工单:")
+    print("[星澈助手] 校验通过的工单:")
     print(ticket.model_dump_json(indent=2))
     print(f"摘要: 订单 {ticket.order_id} | 情绪 {ticket.emotion} | {ticket.issue}")
 

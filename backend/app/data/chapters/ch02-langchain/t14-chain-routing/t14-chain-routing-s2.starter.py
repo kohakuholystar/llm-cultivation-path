@@ -1,9 +1,12 @@
-"""铸剑台 · s2:三路分流 —— RunnableBranch 路由器
+"""黑糖资料室 · 项目咨询路由 · s2：用 LangChain 完成可验证的学习任务。"""
 
-s1 的分类链能判明来意;本步打造锻房、铭文坊两条作坊链和一间茶室,
-用 RunnablePassthrough.assign + RunnableBranch 焊成自动分流的路由器:
-客人一句话进来,正确的作坊接住。
-"""
+# 学习契约
+# - 目标：基于分类结果，用 `RunnableBranch` 将请求送到对应处理链。
+# - 补写：补写三条业务链与路由器。
+# - 关键函数/类（入参 → 出参）：`build_*_chain()` 返回具体处理链；`build_router()` 返回按意图选择分支的路由器。
+# - 技术栈：LangChain Core、`RunnableBranch`、`RunnablePassthrough.assign`。
+# - 前置条件：真实调用需右上角 DeepSeek API Key。
+# - 可观察结果：输入请求经过分类后进入相应的项目咨询分支。
 import os
 import sys
 
@@ -18,7 +21,7 @@ MOCK_LLM = os.environ.get("MOCK_LLM") == "1"
 
 # 无 Key 且未开 MOCK 时给出引导并优雅退出
 if not MOCK_LLM and not os.environ.get("OPENAI_API_KEY"):
-    print("[铸剑台] 未检测到 OPENAI_API_KEY。")
+    print("[提示词工作台] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -40,8 +43,8 @@ def build_llm(mock_replies=None) -> BaseChatModel:
 def build_classifier_chain():
     """意图分类链(s1 的件):出口是原始判定文本。"""
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑台的接待。判断客人来意,只回答一个词:"
-                   "forge(铸剑)、inscribe(题铭文)、appraise(鉴剑)、chat(闲聊)。"),
+        ("system", "你是提示词工作台的接待。判断客人来意,只回答一个词:"
+                   "forge(内容制作)、inscribe(撰写文案)、appraise(质量评审)、chat(闲聊)。"),
         ("human", "{request}"),
     ])
     return prompt | build_llm(["forge", "inscribe", "appraise", "chat"]) | StrOutputParser()
@@ -57,21 +60,21 @@ def normalize_intent(raw: str) -> str:
 
 
 def build_forge_chain():
-    """锻房:散文答复铸剑方案。"""
-    prompt = ChatPromptTemplate.from_messages([("system", "你是铸剑大师,三句话内给出铸剑方案。"), ("human", "{request}")])
-    return prompt | build_llm(["当用寒铁为骨,烈火淬之,四十九日可成。"]) | StrOutputParser()
+    """制作组:散文答复制作方案。"""
+    prompt = ChatPromptTemplate.from_messages([("system", "你是内容策划助手,三句话内给出内容制作方案。"), ("human", "{request}")])
+    return prompt | build_llm(["建议以冷色调素材为基础,补充标题层级与留白,再完成版式检查。"]) | StrOutputParser()
 
 
 def build_inscribe_chain():
-    """铭文坊:为宝剑题铭文。"""
-    prompt = ChatPromptTemplate.from_messages([("system", "你是铭文师,题一句四言或七言铭文。"), ("human", "{request}")])
-    return prompt | build_llm(["霜刃未曾试,今日把示君。"]) | StrOutputParser()
+    """文案组:为内容方案撰写文案。"""
+    prompt = ChatPromptTemplate.from_messages([("system", "你是文案师,题一句四言或七言文案。"), ("human", "{request}")])
+    return prompt | build_llm(["让创意被看见,今日把示君。"]) | StrOutputParser()
 
 
 def build_chat_chain():
-    """茶室:闲聊兜底,也是路由器的默认分支。"""
-    prompt = ChatPromptTemplate.from_messages([("system", "你是铸剑台掌柜,陪客人闲聊,谈吐风趣。"), ("human", "{request}")])
-    return prompt | build_llm(["坐,炉上正温着茶,慢慢聊。"]) | StrOutputParser()
+    """咨询台:闲聊兜底,也是路由器的默认分支。"""
+    prompt = ChatPromptTemplate.from_messages([("system", "你是提示词工作台掌柜,陪客人闲聊,谈吐风趣。"), ("human", "{request}")])
+    return prompt | build_llm(["坐,处理器上正温着茶,慢慢聊。"]) | StrOutputParser()
 
 
 def build_router():
@@ -86,10 +89,10 @@ def build_router():
 
 
 def main() -> None:
-    """四位客人轮番上门,观察分流结果。"""
+    """四位咨询者轮番上门,观察分流结果。"""
     router = build_router()
-    guests = ["我要铸一柄佩剑", "给此剑题句铭文", "帮我鉴赏这柄古剑", "今天天气如何"]
-    print("== 铸剑台 · 三路分流 ==")
+    guests = ["我要制作一份活动主视觉", "为这份方案写一句短文案", "帮我鉴赏这份旧版设计", "今天天气如何"]
+    print("== 提示词工作台 · 三路分流 ==")
     for g in guests:
         reply = router.invoke({"request": g})
         print(f"客人:「{g}」\n  接待:{reply}")

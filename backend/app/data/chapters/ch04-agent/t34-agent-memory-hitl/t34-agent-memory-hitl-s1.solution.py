@@ -1,4 +1,4 @@
-"""百宝囊 · s1:对话记忆基座
+"""社团工具箱 · s1:对话记忆基座
 给 Agent 装上短期记忆:同一轮对话里记住用户说过的话。
 """
 import os
@@ -14,7 +14,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-SYSTEM_PROMPT = "你是「百宝囊」,随身法宝管家,回答简洁,并记住用户说过的信息。"
+SYSTEM_PROMPT = "你是「社团工具箱」,随身工具管家,回答简洁,并记住用户说过的信息。"
 
 
 @dataclass
@@ -70,14 +70,14 @@ def main() -> None:
         client = OpenAI(api_key=os.environ["OPENAI_API_KEY"],
                         base_url=BASE_URL, timeout=30, max_retries=0)
     script = [                               # 演示剧本:体现"记得名字"
-        "你好阿黎!我是百宝囊,已经记住你的名字了。",
+        "你好阿黎!我是社团工具箱,已经记住你的名字了。",
         "你叫阿黎,我们刚打过招呼。",
     ]
     llm = LLM(client, script)
     memory = ChatMemory(max_turns=10)
     for question in ["你好,我叫阿黎。", "你还记得我叫什么吗?"]:
         print(f"我: {question}")
-        print(f"百宝囊: {ask(llm, memory, question)}")
+        print(f"社团工具箱: {ask(llm, memory, question)}")
     print(f"[记忆] 保存 {len(memory.history())} 条消息,容量 {memory.max_turns} 轮")
 
 

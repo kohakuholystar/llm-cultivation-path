@@ -1,4 +1,4 @@
-"""铸剑台 · 第三步:一炉多铸 —— 链工厂 + prompt.partial 预设配方库。"""
+"""黑糖资料室 · LCEL 处理管道 · s3：用 LangChain 完成可验证的学习任务。"""
 import os
 import sys
 
@@ -10,11 +10,11 @@ from langchain_openai import ChatOpenAI
 MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 
-# 铸剑台配方库:不同流派 = 绑到同一模板变量上的不同预设风格
+# 黑糖资料室配方库:不同风格组 = 绑到同一模板变量上的不同预设风格
 RECIPES = {
-    "古风": "言辞古雅,引经据典,60 字以内",
+    "清新校园风": "言辞古雅,引经据典,60 字以内",
     "科幻": "用词冷峻硬核,带科技感,60 字以内",
-    "武侠": "豪情万丈,有江湖气,60 字以内",
+    "校园创作": "豪情万丈,有技术社区气,60 字以内",
 }
 
 
@@ -33,18 +33,18 @@ def check_api_key() -> None:
 
 
 def build_llm():
-    """一座炉:全局只建一次,供所有链复用。"""
+    """一座流程:全局只建一次,供所有链复用。"""
     if use_mock():
         return FakeListChatModel(responses=[
-            "剑名「青霜」,霜刃未曾试,今日把示君。",
-            "离子锻压剑「PX-7」,充能完毕,锋值 98.2%。",
-            "好剑!此剑一出,江湖又该热闹了。",
+            "方案名称「晨光」,让创意被看见,今日把示君。",
+            "离子锻压方案「PX-7」,充能完毕,锋值 98.2%。",
+            "好方案!这份方案一出,技术社区又该热闹了。",
         ])
     return ChatOpenAI(model=MODEL_NAME, base_url=BASE_URL, temperature=0.8, timeout=30)
 
 
 def make_forge_chain(style: str, llm):
-    """链工厂:传入流派名,返回一条绑好风格的专用锻造链。
+    """链工厂:传入风格组名,返回一条绑好风格的专用制作链。
 
     prompt.partial(style=...) 把「风格」变量预先填死(类似函数柯里化),
     调用方 invoke 时只需再传 material;同一个 llm 被多条链共享。
@@ -52,8 +52,8 @@ def make_forge_chain(style: str, llm):
     if style not in RECIPES:
         raise ValueError(f"未知流派:{style},可选:{list(RECIPES)}")
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑台首席铸剑师,风格要求:{style}"),
-        ("human", "用「{material}」铸一剑,给出剑名和一句点评。"),
+        ("system", "你是提示词工作台首席内容策划助手,风格要求:{style}"),
+        ("human", "用「{material}」制作一份方案,给出方案名称和一句点评。"),
     ])
     # 注意:partial 返回新模板,必须接住返回值,单写一行等于没绑
     bound = prompt.partial(style=RECIPES[style])
@@ -61,22 +61,22 @@ def make_forge_chain(style: str, llm):
 
 
 def forge_one(chain, material: str) -> str:
-    """单块材料锻造,异常兜底不中断整炉。"""
+    """单块素材制作,异常兜底不中断整流程。"""
     try:
         return chain.invoke({"material": material}).strip()
     except Exception as exc:
-        return f"铸造失败:{type(exc).__name__}"
+        return f"生成失败:{type(exc).__name__}"
 
 
 def main() -> None:
     check_api_key()
-    llm = build_llm()                    # 一座炉
-    print(f"铸剑台配方库开张,今日流派:{', '.join(RECIPES)}")
-    for style in RECIPES:                # 三条链共用一座炉,同料不同方
+    llm = build_llm()                    # 一座流程
+    print(f"提示词工作台配方库开张,今日流派:{', '.join(RECIPES)}")
+    for style in RECIPES:                # 三条链共用一座流程,同料不同方
         chain = make_forge_chain(style, llm)
-        result = forge_one(chain, "天外陨铁")
+        result = forge_one(chain, "活动素材")
         print(f"[{style}] {result}")
-    print("一炉三铸,各成其剑。")
+    print("一次处理三种输出,分别生成结果。")
 
 
 if __name__ == "__main__":

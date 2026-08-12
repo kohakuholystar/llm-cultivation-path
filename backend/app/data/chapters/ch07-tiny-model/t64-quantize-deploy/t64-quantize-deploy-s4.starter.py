@@ -1,9 +1,25 @@
-"""袖里乾坤 · s4:模型打包
+"""模型研究小组 · s4:模型打包
 
 把训练产物变成「开箱即用」的单一交付物:量化权重压进 .npz,
 词表与配置写进 manifest.json,再写 load_model 读回并自检
 (张量齐全、类型正确、scale 为正),为 s5 的推理服务备好食粮。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：模型打包:交付一个开箱即用的包。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `make_weights() -> dict`：输入为签名中的参数；输出为 `dict`。用途：蒸馏产物权重:嵌入/隐藏/输出三矩阵,演示用随机权重。
+#   - `quantize_tensor(w: np.ndarray) -> tuple`：输入为签名中的参数；输出为 `tuple`。用途：对称 int8 量化:返回 (int8 权重, scale)。
+#   - `quantize_model(weights: dict) -> dict`：输入为签名中的参数；输出为 `dict`。用途：逐张量量化,键名加上 _q / _scale 后缀。
+#   - `save_model(qw: dict, path: str=PACK_NPZ) -> dict`：输入为签名中的参数；输出为 `dict`。用途：打包:量化张量写 .npz,词表与配置写 manifest.json,返回清单。
+#   - `load_model(path: str=PACK_NPZ) -> dict`：输入为签名中的参数；输出为 `dict`。用途：读回打包产物并自检:张量齐全、int8 类型、scale 为正。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：模型基础：Tokenizer、numpy、PyTorch、Transformer、训练/微调/量化。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
 import os
 

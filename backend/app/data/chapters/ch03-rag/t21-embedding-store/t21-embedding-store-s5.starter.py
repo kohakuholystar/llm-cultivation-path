@@ -1,4 +1,10 @@
-"""藏经阁 · 第 5 步:语义检索 —— 查询向量化、Top-K 召回与元数据过滤"""
+"""黑糖资料室 · 第 5 步:语义检索 —— 查询向量化、Top-K 召回与元数据过滤"""
+# 学习契约
+# 目标：完成 t21-embedding-store-s5 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 2 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：char_ngrams(text, n) -> 未标注; doc_id(text) -> 未标注; build_collection(collection, embedder, docs) -> 未标注; search(collection, embedder, query, top_k, category) -> 未标注。
+# 技术栈：re, hashlib, numpy, chromadb。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import re
 import hashlib
 
@@ -51,19 +57,19 @@ def doc_id(text):
 
 
 SCRIPTURES = [
-    {"title": "九阳神功", "category": "内功", "text": "他强由他强，清风拂山岗。九阳真气生生不息，乃内功之正宗"},
-    {"title": "九阴真经", "category": "内功", "text": "天之道，损有余而补不足。九阴真经总纲以柔克刚，载有疗伤之篇"},
-    {"title": "乾坤大挪移", "category": "内功", "text": "激发自身潜力，牵引挪移敌劲，阴阳二气转换自如"},
-    {"title": "独孤九剑", "category": "剑法", "text": "无招胜有招，料敌机先。破剑破刀破枪，天下剑法皆可破"},
-    {"title": "太极剑", "category": "剑法", "text": "以柔克刚，以静制动。剑意连绵不绝，如长江大河"},
-    {"title": "降龙十八掌", "category": "掌法", "text": "亢龙有悔，盈不可久。掌法刚猛，招式简明而威力无穷"},
-    {"title": "黯然销魂掌", "category": "掌法", "text": "黯然销魂者，唯别而已矣。掌力随心境而生，情深则力深"},
-    {"title": "凌波微步", "category": "轻功", "text": "步法依易经六十四卦方位变化，动无常则，若危若安"},
+    {"title": "检索基础指南", "category": "基础指南", "text": "输入表达可以变化，核心语义应保持稳定。索引构建完成后，应使用固定查询集验证召回结果。"},
+    {"title": "数据清洗手册", "category": "基础指南", "text": "清理冗余信息，补足缺失字段，并统一编码、日期与枚举值。"},
+    {"title": "检索设计指南", "category": "技术文档", "text": "通过候选召回、相关性重排与引用定位，提高资料问答的可靠性"},
+    {"title": "重排设计指南", "category": "检索工程", "text": "减少无效规则，优先识别相关信号，并使用稳定排序避免结果漂移。"},
+    {"title": "引用规范", "category": "检索工程", "text": "回答中的事实必须标注来源编号，且编号能够回到原始文档。"},
+    {"title": "故障恢复指南", "category": "运行保障", "text": "服务异常时先记录错误，再按重试、降级与状态恢复顺序处理。"},
+    {"title": "查询改写手册", "category": "检索工程", "text": "查询改写应保留原意，并补充能提高召回率的同义表达。"},
+    {"title": "文档切分指南", "category": "检索工程", "text": "按标题、段落与长度边界切分文档，并保留必要的上下文重叠。"},
 ]
 
 
 def build_collection(collection, embedder, docs):
-    """用第 4 步的哈希 ID 把秘籍 upsert 进集合(幂等,重复执行也安全)。"""
+    """用第 4 步的哈希 ID 把参考资料 upsert 进集合(幂等,重复执行也安全)。"""
     for d in docs:
         text = d["title"] + "。" + d["text"]
         collection.upsert(ids=[doc_id(text)], embeddings=embedder.encode([text]).tolist(),
@@ -90,12 +96,12 @@ def main():
         "cangjingge", metadata={"hnsw:space": "cosine"})
     build_collection(collection, embedder, SCRIPTURES)
 
-    print("查询: 刚猛的掌法")
-    for i, h in enumerate(search(collection, embedder, "刚猛的掌法"), 1):
+    print("查询: 稳定的处理方法")
+    for i, h in enumerate(search(collection, embedder, "稳定的处理方法"), 1):
         print(f"  TOP{i} 《{h['title']}》[{h['category']}] 相似度 {h['score']}")
 
-    print("查询: 以柔克刚 (限定剑法类目)")
-    for i, h in enumerate(search(collection, embedder, "以柔克刚", category="剑法"), 1):
+    print("查询: 优先保留相关信号 (限定创作方法类目)")
+    for i, h in enumerate(search(collection, embedder, "优先保留相关信号", category="创作方法"), 1):
         print(f"  TOP{i} 《{h['title']}》[{h['category']}] 相似度 {h['score']}")
 
 

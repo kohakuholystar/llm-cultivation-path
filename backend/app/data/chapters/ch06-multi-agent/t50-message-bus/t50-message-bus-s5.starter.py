@@ -1,4 +1,24 @@
-"""天庭 · s5:总线驱动黑板 —— 消息流进来,黑板自己长出来。"""
+"""校园 AI 社 · s5:总线驱动黑板 —— 消息流进来,黑板自己长出来。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：总线驱动黑板:消息自动沉淀为状态。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `_next_id() -> int`：输入为签名中的参数；输出为 `int`。用途：按本节调用链完成对应处理
+#   - `_now() -> str`：输入为签名中的参数；输出为 `str`。用途：按本节调用链完成对应处理
+#   - `topic_match(pattern: str, topic: str) -> bool`：输入为签名中的参数；输出为 `bool`。用途：通配符匹配:* 恰好一层,# 匹配任意剩余层(可为空)。
+#   - `bridge_status(bus: MessageBus, board: Blackboard) -> None`：输入为签名中的参数；输出为 `None`。用途：把 task.done 消息桥接成黑板上的完成状态。
+#   - `bridge_progress(bus: MessageBus, board: Blackboard) -> None`：输入为签名中的参数；输出为 `None`。用途：把 task.progress 消息桥接成黑板上的进度百分比。
+#   - `topic_stats(bus: MessageBus) -> dict[str, int]`：输入为签名中的参数；输出为 `dict[str, int]`。用途：按主题统计总线上各消息的条数。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `Message`：承载本节状态/数据；重点方法：见类定义。
+#   - `MessageBus`：承载本节状态/数据；重点方法：subscribe, publish。
+#   - `Blackboard`：承载本节状态/数据；重点方法：write, read, keys。
+# 所属技术栈/模块：多 Agent 工程：消息协议、LangGraph StateGraph、条件边、人工复核；CrewAI 仅作对照原型。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import itertools
 import time
 from collections import Counter

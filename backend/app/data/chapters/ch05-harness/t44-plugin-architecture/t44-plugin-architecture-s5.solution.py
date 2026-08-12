@@ -1,4 +1,4 @@
-"""乾坤圈 · s5:总装成军
+"""Agent 运行时底座 · s5:总装成军
 
 注册表、状态机、钩子、热加载四件套合体成 QiankunRuntime,
 运行时不认识具体插件,新能力只是新注册一个插件。组合优于
@@ -132,11 +132,11 @@ def main():
         rt.activate(plugin.name)
     rt.load_config()
     for _ in range(3):
-        rt.handle("你好,乾坤圈")
+        rt.handle("你好,Agent 运行时底座")
     with open(cfg_path, "w", encoding="utf-8") as f:
         json.dump({"echo": {"prefix": "v2"}}, f, ensure_ascii=False)
     print(f"  热更新检测: {rt.hot_reload()}")
-    rt.handle("你好,乾坤圈")
+    rt.handle("你好,Agent 运行时底座")
     rt.handle("禁止飞行")
 
 

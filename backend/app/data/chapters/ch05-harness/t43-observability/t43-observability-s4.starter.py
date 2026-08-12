@@ -1,8 +1,20 @@
-"""乾坤观测台 · s4:Markdown 报告,观测结果落成文
+"""运行时观测台 · s4:Markdown 报告,观测结果落成文
 
 日志、链路、指标都在手了,还得能带走、能复盘。本步把观测者的家底
 拼成一份 Markdown 报告:标题、链路树、指标小节,一页纸讲完全局。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：Markdown 报告:观测结果落成文。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+#   - `QiankunObserver`：承载本节状态/数据；重点方法：log, info, warn, error, seen_events, start_span, end_span, inc, snapshot, generate_report, _report_span, save_report。
+# 所属技术栈/模块：Python 运行时工程：Harness、状态机、上下文、韧性、日志与插件。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import json
 import sys
 import time

@@ -1,4 +1,4 @@
-"""渡劫飞升 · s5:配置注入与密钥守卫
+"""终期交付 · s5:配置注入与密钥守卫
 部署的灵魂是「配置不进镜像」。本步把所有可变项收进环境变量,
 并为密钥上一道守卫:缺 key 时给出引导文案,而不是甩出堆栈 traceback。
 """
@@ -13,7 +13,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
     sys.exit(0)
 
 # 编排文件(s3 产物,原样复用;密钥经 environment 注入)
-COMPOSE = """# 渡劫飞升 · 编排(由 s3 生成)。
+COMPOSE = """# 黑糖资料室 · 编排(由 s3 生成)。
 services:
   app:
     build: .
@@ -55,7 +55,7 @@ def audit_compose(text: str) -> list[str]:
 
 
 # 环境配置样例:复制为 .env 后按需修改,密钥本体绝不允许进仓库
-ENV_EXAMPLE = """# 渡劫飞升 · 环境配置样例(由 s5 生成)。
+ENV_EXAMPLE = """# 黑糖资料室 · 环境配置样例(由 s5 生成)。
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
 MODEL_NAME=deepseek-v4-pro
 PORT=8000

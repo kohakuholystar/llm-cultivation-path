@@ -1,17 +1,30 @@
-"""渡劫飞升 · s3:docker-compose 编排
+"""终期交付 · s3:docker-compose 编排
 从「一个镜像」升级到「一套服务」:用 compose 把服务编排起来——
 构建、端口、密钥注入、健康检查一条龙。文本先写后审,yaml 解析把关。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：docker-compose 编排:一键拉起。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `write_service(path: str) -> str`：输入为签名中的参数；输出为 `str`。用途：把服务源码写到磁盘,返回路径。
+#   - `audit_compose(text: str) -> list[str]`：输入为签名中的参数；输出为 `list[str]`。用途：解析 compose 文本,校验服务、端口、环境与健康检查,返回问题清单。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import yaml
 
 # 目标服务源码(s1 产物,原样复用)
-SERVICE_PY = """# 渡劫飞升 · Agent 应用 HTTP 服务(由构建脚本生成)。
+SERVICE_PY = """# 黑糖资料室 · Agent 应用 HTTP 服务(由构建脚本生成)。
 import os
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="渡劫飞升", version="0.1.0")
+app = FastAPI(title="黑糖资料室", version="0.1.0")
 
 @app.get("/health")
 def health() -> dict:
@@ -44,7 +57,7 @@ def write_service(path: str) -> str:
 
 
 # 镜像说明书(s2 产物,原样复用)
-DOCKERFILE = """# 渡劫飞升 · 服务镜像(由 s2 生成)。
+DOCKERFILE = """# 黑糖资料室 · 服务镜像(由 s2 生成)。
 FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
@@ -55,7 +68,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 """
 
 # 编排文件 docker-compose.yml(由 s3 生成)。密钥经环境变量注入,不进镜像。
-COMPOSE = """# 渡劫飞升 · 编排(由 s3 生成)。
+COMPOSE = """# 黑糖资料室 · 编排(由 s3 生成)。
 services:
   app:
     build: .

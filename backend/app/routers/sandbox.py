@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.config import settings
 from app.models.sandbox import SandboxRunRequest, SandboxRunResponse, SandboxStatus
-from app.services.sandbox_runner import get_runner
+from app.services.sandbox_runner import SandboxConfigurationError, get_runner
 
 router = APIRouter(prefix="/api/sandbox", tags=["sandbox"])
 
@@ -14,9 +14,13 @@ async def run_code(req: SandboxRunRequest) -> SandboxRunResponse:
     if not settings.sandbox_enabled:
         raise HTTPException(503, "沙箱已被配置禁用 (sandbox_enabled=False)")
     runner = get_runner()
-    if not runner.is_available():
-        raise HTTPException(503, "沙箱镜像未就绪, 请先运行 pnpm build:sandbox")
-    return await runner.run(req)
+    if not runner.is_available(req.sandbox_profile):
+        command = "pnpm build:sandbox:ml" if req.sandbox_profile == "ml" else "pnpm build:sandbox"
+        raise HTTPException(503, f"{req.sandbox_profile} 沙箱镜像未就绪, 请先运行 {command}")
+    try:
+        return await runner.run(req)
+    except SandboxConfigurationError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/status")

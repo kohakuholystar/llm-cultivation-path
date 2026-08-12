@@ -4,8 +4,8 @@
       "id": "t01-s1",
       "taskId": "t01-deepseek-connect",
       "order": 1,
-      "title": "环境变量与配置加载:给灵讯通一块基石",
-      "instruction": "### 目标\n为「灵讯通」打下第一块基石:编写 `APIConfig` 配置模块,从环境变量读取 DeepSeek 的 Key、端点与模型名,并能安全地打印(Key 打码)。\n\n### 原理\n**为什么 Key 绝不写进代码?** 源码会进 git、会被分享、会出现在 CI 日志里——硬编码的 Key 等于把钱包贴在公告栏。工程界的共识(12-Factor App)是:代码不变,配置随环境走,密钥只存在于环境变量中。`os.environ` 就是 Python 读取环境变量的入口。\n\n**为什么 base_url 也要做成配置?** DeepSeek、通义、Moonshot 都实现了 OpenAI 兼容协议——同样的请求格式,只换域名。把 base_url 外置,你的工具就天然支持所有兼容厂商,这是\"一次学习、处处可用\"的关键设计。\n\n**为什么用 dataclass?** 配置不是几个散装变量,而是一个有结构的概念:Key、端点、模型、超时永远成组出现。用 `@dataclass` 把它固化成类型,后续每一步都在它之上扩展。\n\n### 操作\n1. 定义 `APIConfig` dataclass:api_key / base_url / model / timeout 四个字段\n2. 实现 `from_env()`:读 `OPENAI_API_KEY`(必选)、`OPENAI_BASE_URL` 与 `MODEL_NAME`(给 DeepSeek 默认值)\n3. 实现 `masked_key()`:Key 只露首尾 4 位\n4. 运行,确认配置打印正确且 Key 已打码\n\n### 常见坑\n- `os.environ[\"KEY\"]` 取不到会抛 `KeyError`——文件顶部已做判空保护,不要删\n- 直接 `print(api_key)` 是新手最常犯的安全事故:终端历史、录屏、日志都会让它泄漏\n- `from_env` 忘记 `return`:函数会返回 `None`,运行时报 `AttributeError: 'NoneType' object has no attribute 'base_url'`——看到这个错,先检查是不是漏了 `return cls(...)`",
+      "title": "环境变量与配置加载:给星澈助手一块基石",
+      "instruction": "### 目标\n为「星澈助手」打下第一块基石:编写 `APIConfig` 配置模块,从环境变量读取 DeepSeek 的 Key、端点与模型名,并能安全地打印(Key 打码)。\n\n### 原理\n**为什么 Key 绝不写进代码?** 源码会进 git、会被分享、会出现在 CI 日志里——硬编码的 Key 等于把钱包贴在公告栏。工程界的共识(12-Factor App)是:代码不变,配置随环境走,密钥只存在于环境变量中。`os.environ` 就是 Python 读取环境变量的入口。\n\n**为什么 base_url 也要做成配置?** DeepSeek、通义、Moonshot 都实现了 OpenAI 兼容协议——同样的请求格式,只换域名。把 base_url 外置,你的工具就天然支持所有兼容厂商,这是\"一次学习、处处可用\"的关键设计。\n\n**为什么用 dataclass?** 配置不是几个散装变量,而是一个有结构的概念:Key、端点、模型、超时永远成组出现。用 `@dataclass` 把它固化成类型,后续每一步都在它之上扩展。\n\n### 操作\n1. 定义 `APIConfig` dataclass:api_key / base_url / model / timeout 四个字段\n2. 实现 `from_env()`:读 `OPENAI_API_KEY`(必选)、`OPENAI_BASE_URL` 与 `MODEL_NAME`(给 DeepSeek 默认值)\n3. 实现 `masked_key()`:Key 只露首尾 4 位\n4. 运行,确认配置打印正确且 Key 已打码\n\n### 常见坑\n- `os.environ[\"KEY\"]` 取不到会抛 `KeyError`——文件顶部已做判空保护,不要删\n- 直接 `print(api_key)` 是新手最常犯的安全事故:终端历史、录屏、日志都会让它泄漏\n- `from_env` 忘记 `return`:函数会返回 `None`,运行时报 `AttributeError: 'NoneType' object has no attribute 'base_url'`——看到这个错,先检查是不是漏了 `return cls(...)`",
       "todoItems": [
         {
           "title": "定义 APIConfig dataclass，包含 api_key / base_url / model / timeout 四个字段",
@@ -107,7 +107,7 @@
         },
         {
           "type": "sandbox_run",
-          "expectedStdout": "灵讯通|请先在右上角",
+          "expectedStdout": "星澈助手|请先在右上角",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "message": "运行后应打印配置信息(或未配置 Key 的引导),退出码为 0。",
@@ -221,7 +221,7 @@
         },
         {
           "type": "sandbox_run",
-          "expectedStdout": "灵讯通|请先在右上角",
+          "expectedStdout": "星澈助手|请先在右上角",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "message": "运行后应打印客户端就绪信息(或未配置 Key 的引导),退出码为 0。",
@@ -234,10 +234,10 @@
       "taskId": "t01-deepseek-connect",
       "order": 3,
       "title": "首次对话:messages 剧本与响应结构",
-      "instruction": "### 目标\n实现 `chat_once(client, question)`:发送单轮提问,从响应结构中取出回复文本,完成灵讯通的第一次真实对话。\n\n### 原理\n**LLM 是无状态的。** 模型不记得你是谁,它每轮能看到的只有这一次请求里的 `messages` 数组——所谓\"多轮对话\",本质是客户端把历史消息越攒越长地反复发送。理解这一点,后面 Agent 的记忆、上下文压缩才学得动。\n\n**messages 是一个剧本。** `system` 是导演给的人设(整场对话生效),`user` 是用户台词,`assistant` 是模型之前说过的台词。本步先写 system + user 两条,让灵讯通有个基本人格。\n\n**响应不是字符串,是结构体。** `response.choices[0].message.content` 这条链的含义:choices 是候选回复列表(默认只有 1 个),取第 0 个候选的 message,再取其 content 才是文本。第 6 步你还会用到同一个响应里的 `usage` 字段——一次请求,信息远不止文本。\n\n### 操作\n1. 复用 s2 的全局配置与客户端代码(见代码顶部)\n2. 构造 messages:system 给\"灵讯通\"人设,user 放本轮提问\n3. 调用 `client.chat.completions.create(model=MODEL, messages=...)`\n4. 取出 choices[0].message.content 并打印对话\n\n### 常见坑\n- messages 里每条必须是 `{\"role\": ..., \"content\": ...}` 字典,漏掉 role 会被服务端 400 拒绝\n- 把 response 或 choices 直接 print,打出来的是一长串对象结构——真正的文本在 `.message.content`",
+      "instruction": "### 目标\n实现 `chat_once(client, question)`:发送单轮提问,从响应结构中取出回复文本,完成星澈助手的第一次真实对话。\n\n### 原理\n**LLM 是无状态的。** 模型不记得你是谁,它每轮能看到的只有这一次请求里的 `messages` 数组——所谓\"多轮对话\",本质是客户端把历史消息越攒越长地反复发送。理解这一点,后面 Agent 的记忆、上下文压缩才学得动。\n\n**messages 是一个剧本。** `system` 是导演给的人设(整场对话生效),`user` 是用户台词,`assistant` 是模型之前说过的台词。本步先写 system + user 两条,让星澈助手有个基本人格。\n\n**响应不是字符串,是结构体。** `response.choices[0].message.content` 这条链的含义:choices 是候选回复列表(默认只有 1 个),取第 0 个候选的 message,再取其 content 才是文本。第 6 步你还会用到同一个响应里的 `usage` 字段——一次请求,信息远不止文本。\n\n### 操作\n1. 复用 s2 的全局配置与客户端代码(见代码顶部)\n2. 构造 messages:system 给\"星澈助手\"人设,user 放本轮提问\n3. 调用 `client.chat.completions.create(model=MODEL, messages=...)`\n4. 取出 choices[0].message.content 并打印对话\n\n### 常见坑\n- messages 里每条必须是 `{\"role\": ..., \"content\": ...}` 字典,漏掉 role 会被服务端 400 拒绝\n- 把 response 或 choices 直接 print,打出来的是一长串对象结构——真正的文本在 `.message.content`",
       "todoItems": [
         {
-          "title": "构造 messages 剧本：system 给灵讯通人设，user 放本轮提问",
+          "title": "构造 messages 剧本：system 给星澈助手人设，user 放本轮提问",
           "target": "chat_once() 的 messages 列表",
           "code": "{\"role\": \"system\", \"content\": \"...\"}",
           "expect": "每条消息都是 role/content 字典，不缺 role"
@@ -255,7 +255,7 @@
           "expect": "打印真正的回复文本，不是一长串对象结构"
         },
         {
-          "title": "运行脚本，完成灵讯通首次真实对话",
+          "title": "运行脚本，完成星澈助手首次真实对话",
           "target": "文件底部 main 入口",
           "expect": "终端打印带人设的回复，退出码 0"
         }
@@ -282,7 +282,7 @@
         {
           "title": "messages 剧本的三种角色",
           "language": "python",
-          "code": "messages = [\n    # 人设与规则,整场对话生效,放最前\n    {\"role\": \"system\", \"content\": \"你是灵讯通,回答不超过三句话。\"},\n    # 用户的提问\n    {\"role\": \"user\", \"content\": \"什么是大语言模型?\"},\n    # 模型上一轮的回复(多轮对话时由客户端追加回去)\n    {\"role\": \"assistant\", \"content\": \"大语言模型是……\"},\n]",
+          "code": "messages = [\n    # 人设与规则,整场对话生效,放最前\n    {\"role\": \"system\", \"content\": \"你是星澈助手,回答不超过三句话。\"},\n    # 用户的提问\n    {\"role\": \"user\", \"content\": \"什么是大语言模型?\"},\n    # 模型上一轮的回复(多轮对话时由客户端追加回去)\n    {\"role\": \"assistant\", \"content\": \"大语言模型是……\"},\n]",
           "description": "模型无记忆:多轮对话 = 把历史消息全部塞回 messages 再发一次。"
         }
       ],
@@ -457,7 +457,7 @@
       "taskId": "t01-deepseek-connect",
       "order": 5,
       "title": "错误分类:把异常翻译成行动建议",
-      "instruction": "### 目标\n实现 `friendly_error(exc)`、`chat_safely()` 与三个故障注入函数:把 SDK 抛出的各类异常翻译成用户看得懂、知道怎么办的中文提示,并让自测只对\"值得重试\"的错误重试;再故意制造三类故障,亲眼验证错误处理真的在干活。\n\n### 原理\n**不是所有错误都生而平等。** 401(AuthenticationError)是\"钥匙不对\"——重试一万次也没用,该做的是提示检查 Key;429(RateLimitError)是\"太忙了\"——退避后重试合情合理;超时(APITimeoutError)与连接失败(APIConnectionError)多是瞬时网络问题,值得重试。**错误分类的本质是按\"对策\"分组**,而不是背诵异常名。\n\n**openai SDK 的异常继承体系。** 所有 API 错误都继承自 `APIError`;带 HTTP 状态码的(401/429/500)属于 `APIStatusError`,可用 `exc.status_code` 取状态码;超时与断连是网络层错误,独立于状态码体系。判断时要从具体到宽泛排列,先抓特殊、最后兜底。\n\n**给用户的是\"行动建议\",不是堆栈。** \"认证失败(401):请检查右上角 AI 配置\"比一屏 traceback 有价值得多——这就是工程化封装的意义。\n\n**错误处理代码也要验货。** 正常路径永远不会走进异常分支——你的 try/except 是不是摆设,只有制造错误才知道。s5 把\"故障注入\"写进代码:三个小函数各改一个全局参数(参数 = 全局变量 + 故障注入),让三类错误真实发生。\n\n### 操作\n1. 从 openai 导入 AuthenticationError / RateLimitError / APITimeoutError / APIConnectionError\n2. 实现 friendly_error:isinstance 逐类判断,返回对应中文建议\n3. 实现 chat_safely:调 chat_once,异常时打印友好提示并返回 None\n4. 升级 health_check:只对限流/超时/连接错误退避重试,其余(如 401)直接放弃\n5. 实现三个故障注入函数,每个只改一个全局参数(参数 = 全局变量 + 故障注入),再调 chat_safely:\n   - fault_bad_key:api_key = API_KEY + \"x\" → 认证失败(401)\n   - fault_bad_url:base_url = BASE_URL + \"x\" → 连接失败\n   - fault_tiny_timeout:timeout = TIMEOUT / 3000 → 请求超时\n6. main 编排:health_check 通过后,依次跑三个故障注入\n\n### 常见坑\n- `APITimeoutError` 是 `APIConnectionError` 的子类——判断顺序写反,超时就永远落入\"连接失败\"分支\n- `except Exception` 一把抓后对一切错误重试:401 也重试 3 次,白等十几秒还误导用户\n- 故障注入函数没改参数就拿真客户端去测——错不到任何分支,验证形同虚设\n\n### 故障注入验证:让错误处理现出原形\n运行 `python main.py`,你会依次看到三条友好提示,每一条都是你的代码亲手翻译出来的:\n- `[灵讯通] 认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。`\n- `[灵讯通] 连接失败:请检查网络、代理与 base_url 配置。`\n- `[灵讯通] 请求超时:网络不佳或服务繁忙,可调大 LLM_TIMEOUT 后重试。`\n429 需要真实命中限流,本地无法触发,概念理解即可(退避逻辑已在 s4 亲手验过)",
+      "instruction": "### 目标\n实现 `friendly_error(exc)`、`chat_safely()` 与三个故障注入函数:把 SDK 抛出的各类异常翻译成用户看得懂、知道怎么办的中文提示,并让自测只对\"值得重试\"的错误重试;再故意制造三类故障,亲眼验证错误处理真的在干活。\n\n### 原理\n**不是所有错误都生而平等。** 401(AuthenticationError)是\"钥匙不对\"——重试一万次也没用,该做的是提示检查 Key;429(RateLimitError)是\"太忙了\"——退避后重试合情合理;超时(APITimeoutError)与连接失败(APIConnectionError)多是瞬时网络问题,值得重试。**错误分类的本质是按\"对策\"分组**,而不是背诵异常名。\n\n**openai SDK 的异常继承体系。** 所有 API 错误都继承自 `APIError`;带 HTTP 状态码的(401/429/500)属于 `APIStatusError`,可用 `exc.status_code` 取状态码;超时与断连是网络层错误,独立于状态码体系。判断时要从具体到宽泛排列,先抓特殊、最后兜底。\n\n**给用户的是\"行动建议\",不是堆栈。** \"认证失败(401):请检查右上角 AI 配置\"比一屏 traceback 有价值得多——这就是工程化封装的意义。\n\n**错误处理代码也要验货。** 正常路径永远不会走进异常分支——你的 try/except 是不是摆设,只有制造错误才知道。s5 把\"故障注入\"写进代码:三个小函数各改一个全局参数(参数 = 全局变量 + 故障注入),让三类错误真实发生。\n\n### 操作\n1. 从 openai 导入 AuthenticationError / RateLimitError / APITimeoutError / APIConnectionError\n2. 实现 friendly_error:isinstance 逐类判断,返回对应中文建议\n3. 实现 chat_safely:调 chat_once,异常时打印友好提示并返回 None\n4. 升级 health_check:只对限流/超时/连接错误退避重试,其余(如 401)直接放弃\n5. 实现三个故障注入函数,每个只改一个全局参数(参数 = 全局变量 + 故障注入),再调 chat_safely:\n   - fault_bad_key:api_key = API_KEY + \"x\" → 认证失败(401)\n   - fault_bad_url:base_url = BASE_URL + \"x\" → 连接失败\n   - fault_tiny_timeout:timeout = TIMEOUT / 3000 → 请求超时\n6. main 编排:health_check 通过后,依次跑三个故障注入\n\n### 常见坑\n- `APITimeoutError` 是 `APIConnectionError` 的子类——判断顺序写反,超时就永远落入\"连接失败\"分支\n- `except Exception` 一把抓后对一切错误重试:401 也重试 3 次,白等十几秒还误导用户\n- 故障注入函数没改参数就拿真客户端去测——错不到任何分支,验证形同虚设\n\n### 故障注入验证:让错误处理现出原形\n运行 `python main.py`,你会依次看到三条友好提示,每一条都是你的代码亲手翻译出来的:\n- `[星澈助手] 认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。`\n- `[星澈助手] 连接失败:请检查网络、代理与 base_url 配置。`\n- `[星澈助手] 请求超时:网络不佳或服务繁忙,可调大 LLM_TIMEOUT 后重试。`\n429 需要真实命中限流,本地无法触发,概念理解即可(退避逻辑已在 s4 亲手验过)",
       "todoItems": [
         {
           "title": "从 openai 导入四类异常",
@@ -518,7 +518,7 @@
         {
           "title": "故障注入:参数 = 全局变量 + 故障注入",
           "language": "python",
-          "code": "bad_client = OpenAI(\n    api_key=API_KEY + \"x\",  # 只改这一个参数\n    base_url=BASE_URL,\n    timeout=TIMEOUT,\n    max_retries=0,\n)\nchat_safely(bad_client, question)\n# 输出: [灵讯通] 认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。",
+          "code": "bad_client = OpenAI(\n    api_key=API_KEY + \"x\",  # 只改这一个参数\n    base_url=BASE_URL,\n    timeout=TIMEOUT,\n    max_retries=0,\n)\nchat_safely(bad_client, question)\n# 输出: [星澈助手] 认证失败(401):API Key 无效或已过期,请检查右上角 AI 配置。",
           "description": "每次只改一个参数:错到哪类,就应看到哪类提示——错误处理是否在干活,一眼便知。"
         }
       ],
@@ -629,8 +629,8 @@
       "id": "t01-s6",
       "taskId": "t01-deepseek-connect",
       "order": 6,
-      "title": "用量与延迟:给灵讯通装上第一块仪表盘",
-      "instruction": "### 目标\n实现 `chat_with_metrics()`:在对话的同时采集延迟与 token 用量,打印一份调用报告——给灵讯通装上第一块\"仪表盘\"。\n\n### 原理\n**你不能优化你看不见的东西。** 延迟和成本是 LLM 应用的两条命脉:用户嫌慢、账单超标,都是先死于\"没数据\"。每次调用顺手记录耗时与 token 数,就是最小可行的可观测性(observability),后续章节的完整观测体系将从这里长出来。\n\n**usage 字段是账单明细。** 响应里的 `response.usage` 给出 `prompt_tokens`(输入)、`completion_tokens`(输出)、`total_tokens`(合计)。记住一个反直觉的事实:**输出 token 通常比输入贵数倍**——生成要逐字串行计算,输入却可以并行处理。所以\"让模型闭嘴\"是最有效的省钱手段,这也是第 4 步 ping 要限 max_tokens 的原因。\n\n**延迟怎么测才准?** 用 `time.perf_counter()`(单调高精度时钟)在调用前后打点,别用 `time.time()`——后者会被系统校时污染。总延迟 ≈ 网络往返 + 排队 + 逐 token 生成;想细分\"首字延迟\"需要流式输出,那是后续任务的内容。\n\n### 操作\n1. 定义 `CallMetrics` dataclass:latency_ms / prompt_tokens / completion_tokens / total_tokens\n2. chat_with_metrics:create 前后用 perf_counter 打点,从 response.usage 取三项用量\n3. 失败时复用上一步的 friendly_error;main 打印延迟、token 明细与生成速度\n\n### 常见坑\n- 部分异常/截断场景 `response.usage` 可能为 None,生产代码取值前要判空\n- 用 total_tokens 算\"生成速度\"会虚高——速度只该用 completion_tokens 除以耗时",
+      "title": "用量与延迟:给星澈助手装上第一块仪表盘",
+      "instruction": "### 目标\n实现 `chat_with_metrics()`:在对话的同时采集延迟与 token 用量,打印一份调用报告——给星澈助手装上第一块\"仪表盘\"。\n\n### 原理\n**你不能优化你看不见的东西。** 延迟和成本是 LLM 应用的两条命脉:用户嫌慢、账单超标,都是先死于\"没数据\"。每次调用顺手记录耗时与 token 数,就是最小可行的可观测性(observability),后续章节的完整观测体系将从这里长出来。\n\n**usage 字段是账单明细。** 响应里的 `response.usage` 给出 `prompt_tokens`(输入)、`completion_tokens`(输出)、`total_tokens`(合计)。记住一个反直觉的事实:**输出 token 通常比输入贵数倍**——生成要逐字串行计算,输入却可以并行处理。所以\"让模型闭嘴\"是最有效的省钱手段,这也是第 4 步 ping 要限 max_tokens 的原因。\n\n**延迟怎么测才准?** 用 `time.perf_counter()`(单调高精度时钟)在调用前后打点,别用 `time.time()`——后者会被系统校时污染。总延迟 ≈ 网络往返 + 排队 + 逐 token 生成;想细分\"首字延迟\"需要流式输出,那是后续任务的内容。\n\n### 操作\n1. 定义 `CallMetrics` dataclass:latency_ms / prompt_tokens / completion_tokens / total_tokens\n2. chat_with_metrics:create 前后用 perf_counter 打点,从 response.usage 取三项用量\n3. 失败时复用上一步的 friendly_error;main 打印延迟、token 明细与生成速度\n\n### 常见坑\n- 部分异常/截断场景 `response.usage` 可能为 None,生产代码取值前要判空\n- 用 total_tokens 算\"生成速度\"会虚高——速度只该用 completion_tokens 除以耗时",
       "todoItems": [
         {
           "title": "定义 CallMetrics dataclass，记录延迟与三项 token 用量",

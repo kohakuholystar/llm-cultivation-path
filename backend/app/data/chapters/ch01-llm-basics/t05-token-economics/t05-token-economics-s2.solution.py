@@ -1,11 +1,11 @@
-"""灵讯通 · 成本仪表盘 v0.2:给 token 标上价格——DeepSeek 费率表建模。"""
+"""星澈助手 · 成本仪表盘 v0.2:给 token 标上价格——DeepSeek 费率表建模。"""
 import tiktoken
 from dataclasses import dataclass
 
 PAT_STR = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-FALLBACK_WORDS = ["灵讯通", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
+FALLBACK_WORDS = ["星澈助手", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
 CHAT_OVERHEAD = 4  # 每条 chat 消息的 role 等包装开销(教学近似值)
-MODEL_NAME = "deepseek-v4-pro"  # 灵讯通的默认模型
+MODEL_NAME = "deepseek-v4-pro"  # 星澈助手的默认模型
 
 
 def build_encoding() -> tiktoken.Encoding:
@@ -66,18 +66,18 @@ def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int, cached
 def main() -> None:
     meter = TokenMeter()
     messages = [
-        {"role": "system", "content": "你是灵讯通内置的成本助手。"},
+        {"role": "system", "content": "你是星澈助手内置的成本助手。"},
         {"role": "user", "content": "请帮我算一下这次会话的预算"},
     ]
     prompt_tokens = meter.count_messages(messages)
     completion_tokens = 150  # 假设本次输出 150 tokens
-    print(f"[灵讯通] 输入 {prompt_tokens} tokens,预计输出 {completion_tokens} tokens")
+    print(f"[星澈助手] 输入 {prompt_tokens} tokens,预计输出 {completion_tokens} tokens")
     cost = estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens)
-    print(f"[灵讯通] 本次预估成本: ¥{cost:.6f}")
+    print(f"[星澈助手] 本次预估成本: ¥{cost:.6f}")
     cached_cost = estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens, cached_tokens=20)
-    print(f"[灵讯通] 若其中 20 tokens 命中缓存: ¥{cached_cost:.6f} (省 ¥{cost - cached_cost:.6f})")
+    print(f"[星澈助手] 若其中 20 tokens 命中缓存: ¥{cached_cost:.6f} (省 ¥{cost - cached_cost:.6f})")
     per_yuan = int((prompt_tokens + completion_tokens) / cost)  # 1 元钱能聊多少 token
-    print(f"[灵讯通] 按此对话规模,¥1.00 大约可支撑 {per_yuan} tokens 的往来")
+    print(f"[星澈助手] 按此对话规模,¥1.00 大约可支撑 {per_yuan} tokens 的往来")
 
 
 if __name__ == "__main__":

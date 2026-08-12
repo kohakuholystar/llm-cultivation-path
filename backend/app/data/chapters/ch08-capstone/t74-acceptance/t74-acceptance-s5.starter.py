@@ -1,6 +1,24 @@
 """t74 · s5:项目复盘与上线确认——报告聚合 + 一键上线
 
 四段式复盘报告把测试、性能、清单聚合成结论,全过才可上线。"""
+
+
+# === 学习契约（面向学生）===
+# 本节目标：项目复盘与上线确认:报告聚合 + 上线门禁。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `load_kb(text) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `retrieve(query, kb, top_k=3) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `bench_retrieve(kb, query, rounds=30) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `p95(times) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `run_checks(kb, backup_path) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `build_report(stats, perf_ms, checks) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `run_tests(work_dir) -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+#   - `main() -> 未标注`：输入为签名中的参数；输出为 `函数约定的返回值或状态更新`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import os
 import tempfile
 import time
@@ -20,8 +38,8 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    hits = retrieve("渡劫 飞升", ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"])
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    hits = retrieve("上线验收 完成交付", ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"])
+    assert hits[0][0] == "黑糖资料室需要故障演练"
 
 
 def test_p95_fixed():
@@ -29,7 +47,7 @@ def test_p95_fixed():
 
 
 def test_perf_p95_within_budget():
-    assert p95(bench_retrieve(KB, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+    assert p95(bench_retrieve(KB, "上线验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
 
 
 def test_run_checks_all_pass(tmp_path):
@@ -51,9 +69,9 @@ def test_report_sections():
 
 
 def test_report_ok():
-    # TODO: 全部通过时,断言结论为「可以上线渡劫!」
+    # TODO: 全部通过时,断言结论为「可以上线上线验收!」
     # 提示: r = build_report((TEST_TOTAL, TEST_TOTAL, 0), 1.0, [{"name": "a", "ok": True, "desc": "d"}] * 6)
-    # 提示: assert "可以上线渡劫!" in r
+    # 提示: assert "可以上线上线验收!" in r
     raise NotImplementedError("t74-acceptance-s5 尚未实现:请按 TODO 提示补全 test_report_ok")
 
 
@@ -78,7 +96,7 @@ CHECKLIST_YAML = """
 - {name: 延迟达标, desc: 线上延迟达标}
 """
 
-KB = ["渡劫需渡雷劫", "心魔劫最难渡过", "飞升需法器"]
+KB = ["上线验收需要覆盖故障", "异常恢复最需要验证", "完成交付需工具"]
 
 TEST_TOTAL = 9
 
@@ -113,10 +131,10 @@ def p95(times):
 
 
 def run_checks(kb, backup_path):
-    lat = lambda: p95(bench_retrieve(kb, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+    lat = lambda: p95(bench_retrieve(kb, "上线验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
     checks = {
         "知识库可加载": lambda: len(kb) > 0,
-        "检索可用": lambda: len(retrieve("渡劫", kb)) > 0,
+        "检索可用": lambda: len(retrieve("上线验收", kb)) > 0,
         "性能达标": lat,
         "工具就绪": lambda: "calc" in TOOL_TABLE,
         "备份存在": lambda: Path(backup_path).exists(),
@@ -130,12 +148,12 @@ def build_report(stats, perf_ms, checks):
     # TODO: 生成四段式复盘报告,并用与运算聚合三关结论
     # 提示: total, passed, failed = stats
     # 提示: ok = failed == 0 and perf_ms <= PERF_BUDGET_MS and all(c["ok"] for c in checks)
-    # 提示: lines = ["# 渡劫飞升 · 上线复盘报告", "", "## 1 测试统计",
+    # 提示: lines = ["# 终期交付 · 上线复盘报告", "", "## 1 测试统计",
     # 提示:         f"共 {total} 个用例,通过 {passed} 个,失败 {failed} 个", "",
     # 提示:         "## 2 性能基线", f"检索 P95 = {perf_ms:.1f} ms(预算 {PERF_BUDGET_MS} ms)", "",
     # 提示:         "## 3 上线清单", ""]
     # 提示: lines += [f"- {c['name']}:{'通过' if c['ok'] else '未通过'}" for c in checks]
-    # 提示: lines += ["", "## 4 结论", "全部通过,可以上线渡劫!" if ok else "存在未通过项,禁止上线。"]
+    # 提示: lines += ["", "## 4 结论", "全部通过,可以上线验收!" if ok else "存在未通过项,禁止上线。"]
     # 提示: return "\n".join(lines)
     raise NotImplementedError("t74-acceptance-s5 尚未实现:请按 TODO 提示完成复盘报告聚合")
 
@@ -150,17 +168,17 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 复盘与上线 s5 ==")
+    print("== 黑糖资料室 · 复盘与上线 s5 ==")
     backup = os.path.join(tempfile.gettempdir(), "kb_backup.json")
-    Path(backup).write_text('{"kb": "渡劫飞升知识库备份"}', encoding="utf-8")
+    Path(backup).write_text('{"kb": "黑糖资料室知识库备份"}', encoding="utf-8")
     with tempfile.TemporaryDirectory() as d:
         stats = run_tests(d)
         rp = os.path.join(d, "REPORT.md")
-        perf_ms = p95(bench_retrieve(KB, "渡劫 雷劫", rounds=20)) * 1000
+        perf_ms = p95(bench_retrieve(KB, "上线验收 故障", rounds=20)) * 1000
         report = build_report(stats, perf_ms, run_checks(KB, backup))
         Path(rp).write_text(report, encoding="utf-8")
         print(f"复盘报告已生成:{rp}")
-    print("渡劫飞升,全部通过,可以上线!")
+    print("黑糖资料室,全部通过,可以上线!")
 
 
 if __name__ == "__main__":

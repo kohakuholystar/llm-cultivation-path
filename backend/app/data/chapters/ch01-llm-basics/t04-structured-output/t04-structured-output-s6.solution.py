@@ -1,4 +1,4 @@
-"""灵讯通 · 结构化抽取 v6:批量质检报告 + 离线自测"""
+"""星澈助手 · 结构化抽取 v6:批量质检报告 + 离线自测"""
 import json, os, sys
 from collections import Counter
 from dataclasses import dataclass
@@ -69,7 +69,7 @@ class TicketExtractor:
         return resp.choices[0].message.content
 
     def _messages(self, dialog: str) -> list[dict]:
-        head = "你是灵讯通客服质检助手。只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。"
+        head = "你是星澈助手客服质检助手。只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。"
         shots = [f"对话:{d} 输出:{json.dumps(a, ensure_ascii=False)}" for d, a in FEW_SHOT]
         return [{"role": "system", "content": "\n".join([head, "参考示例:"] + shots)}, {"role": "user", "content": dialog}]
 
@@ -117,7 +117,7 @@ def self_test() -> None:
 def main() -> None:
     self_test()
     r = build_report(TicketExtractor(build_client()).batch_extract(DIALOGS))
-    print("=" * 10, f"灵讯通质检报告: 处理 {r['total']} 条 | 成功 {r['success']} | 转人工 {r['failed']} | 平均尝试 {r['avg_attempts']} 次", "=" * 10)
+    print("=" * 10, f"星澈助手质检报告: 处理 {r['total']} 条 | 成功 {r['success']} | 转人工 {r['failed']} | 平均尝试 {r['avg_attempts']} 次", "=" * 10)
     print(f"情绪分布: {r['emotion_dist']} | 优先级分布: {r['priority_dist']}\n高优订单: {', '.join(r['high_priority_orders']) or '无'}")
 
 

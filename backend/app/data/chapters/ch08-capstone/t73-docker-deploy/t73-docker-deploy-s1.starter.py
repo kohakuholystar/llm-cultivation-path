@@ -1,17 +1,30 @@
-"""渡劫飞升 · s1:FastAPI 服务封装
+"""终期交付 · s1:FastAPI 服务封装
 把前几关打磨好的 Agent 应用封装为 HTTP 服务:先写出 main.py 的完整源码,
 再用 ast 做「源码审计」——不依赖 fastapi 也能解析结构、盘点路由。
 """
+
+
+# === 学习契约（面向学生）===
+# 本节目标：FastAPI 服务封装:源码审计先行。完成后能把本节概念放入可运行的工程链路。
+# 需要补写：本文件中标有 TODO 的函数或类方法；只补全 TODO，不改变既有接口、断言或执行顺序。
+# 关键函数/类（输入与输出）：
+#   - `write_service(path: str) -> str`：输入为签名中的参数；输出为 `str`。用途：把服务源码写到磁盘,返回路径。
+#   - `audit_service(source: str) -> list[dict]`：输入为签名中的参数；输出为 `list[dict]`。用途：用 ast 解析服务源码,盘点每条路由:方法、路径、处理函数。
+#   - `main() -> None`：输入为签名中的参数；输出为 `None`。用途：按本节调用链完成对应处理
+# 所属技术栈/模块：应用交付：RAG、Agent、FastAPI、Docker、pytest、性能与上线验收。
+# 前置条件：无需联网；按文件中的依赖导入和本地运行环境执行。
+# 可观察结果：运行本文件后，应看到任务规定的状态、报告或验证输出；通过测试/断言即表示本节契约成立。
+# === 学习契约结束 ===
 import ast
 
 # 目标服务 main.py 的完整源码(文本)。真实项目里,这一步就是把文件真实写出。
-SERVICE_PY = """# 渡劫飞升 · Agent 应用 HTTP 服务(由构建脚本生成)。
+SERVICE_PY = """# 黑糖资料室 · Agent 应用 HTTP 服务(由构建脚本生成)。
 import os
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="渡劫飞升", version="0.1.0")
+app = FastAPI(title="黑糖资料室", version="0.1.0")
 
 @app.get("/health")
 def health() -> dict:

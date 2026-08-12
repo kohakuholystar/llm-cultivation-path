@@ -78,14 +78,14 @@ function LearningPath() {
       <DocH3>章节递进</DocH3>
       <ol className="mb-5 mt-2 space-y-2 text-base text-slate-600">
         {[
-          '第一章 初入江湖 · LLM 基础(5 任务):DeepSeek 接入/多轮对话/流式输出/结构化输出/Token 经济学',
-          '第二章 拜入山门 · LangChain 架构(5 任务):LCEL 管道/提示词模板/输出解析器/对话记忆/链路由',
-          '第三章 秘境探宝 · RAG 检索增强(5 任务):文档加载切分/Embedding 入库/检索重排/RAG 链/评估',
-          '第四章 炼器宗师 · Agent 智能体(5 任务):自定义工具/手写 ReAct/AgentExecutor/结构化工具/记忆与人机协同',
-          '第五章 内功心法 · Harness 工程(5 任务):核心循环/上下文窗口/错误韧性/可观测/插件化',
-          '第六章 分身之术 · 多 Agent 协作(4 任务):消息总线/Supervisor 编排/辩论评审/CrewAI 团队',
-          '第七章 袖里乾坤 · 自建小模型(5 任务):Tokenizer/手写 Transformer/训练循环/微调蒸馏/量化部署',
-          '第八章 渡劫飞升 · 毕业设计(5 任务):需求架构/核心 RAG/Agent 决策层/Docker 部署/验收上线',
+          '第一章 项目起步 · LLM 基础(5 任务):DeepSeek 接入/多轮对话/流式输出/结构化输出/Token 经济学',
+          '第二章 进入项目组 · LangChain 架构(5 任务):LCEL 管道/提示词模板/输出解析器/对话记忆/链路由',
+          '第三章 资料检索 · RAG 检索增强(5 任务):文档加载切分/Embedding 入库/检索重排/RAG 链/评估',
+          '第四章 工具开发进阶 · Agent 智能体(5 任务):自定义工具/手写 ReAct/AgentExecutor/结构化工具/记忆与人机协同',
+          '第五章 运行时工程 · Harness 工程(5 任务):核心循环/上下文窗口/错误韧性/可观测/插件化',
+          '第六章 多 Agent 协作 · 多 Agent 协作(4 任务):消息总线/Supervisor 编排/辩论评审/CrewAI 团队',
+          '第七章 微型模型实验 · 自建小模型(5 任务):Tokenizer/手写 Transformer/训练循环/微调蒸馏/量化部署',
+          '第八章 黑糖资料室 · 毕业设计(5 任务):需求架构/核心 RAG/Agent 决策层/Docker 部署/验收上线',
         ].map((t, i) => (
           <li key={i} className="flex gap-3">
             <span className="font-semibold text-slate-400">{i + 1}.</span>

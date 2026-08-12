@@ -2,41 +2,45 @@
   "steps": [
     {
       "id": "t53-crewai-team-s1",
+      "minimumSolutionLines": 23,
+      "compactSolutionRationale": "真实 CrewAI Agent 的角色、目标、背景和 LLM 直接由构造函数表达，避免用自定义数据类冒充框架。",
       "taskId": "t53-crewai-team",
+      "needsNetwork": true,
       "order": 1,
-      "title": "分神化形:Agent 角色卡入册",
-      "instruction": "### 目标\n\n给天庭四位神职(产品经理、后端工程师、前端工程师、测试工程师)登记角色卡,复刻 CrewAI 的 `Agent` 数据结构,为后续编排多 Agent 协作打地基。\n\n### 原理\n\n多 Agent 系统的起点是「角色化」:同一个模型,给它不同的身份设定,就会表现出不同的行为倾向。角色卡的三要素各司其职——`role` 声明「你是谁」,决定对话的立场;`goal` 声明「要达成什么」,决定行动的方向;`backstory` 声明「立场与专长」,决定回答的口吻与知识侧重。这三段文字最终会拼进模型的 system prompt,提示词里有一个明确角色时,模型输出的稳定性会明显高于裸对话。本步用 `@dataclass` 定义一个轻量 `Agent` 类,字段与 CrewAI 的 `Agent(role=..., goal=..., backstory=..., tools=[])` 一一对应——先在本项目里跑通概念,将来换真实框架几乎零成本。\n\n### 操作\n\n1. 补全 `Agent` 的四个字段:`role` / `goal` / `backstory` 为 `str`,`tools` 用 `field(default_factory=list)` 提供空列表默认值;\n2. 通读 `role_card` 与 `build_heaven`,理解角色卡如何渲染成给模型看的自我介绍;\n3. 补全 `build_heaven`,返回 4 个带中文设定与工具的 `Agent`;\n4. 运行脚本,核对名册里四张角色卡是否齐全、工具列表是否打印正确。\n\n### 常见坑\n\n- `tools` 是可变对象,默认值不能写 `tools=[]`,必须用 `field(default_factory=list)`,否则所有实例共享同一个列表;\n- dataclass 里没有默认值的字段必须写在有默认值字段之前(`role` / `goal` / `backstory` 在前,`tools` 在后),顺序错了会抛 `TypeError`。\n",
+      "title": "对照原型：CrewAI Agent 角色卡",
+      "instruction": "### 定位\n\n前面的任务已经用 LangGraph 建立了本章的生产主线。本任务开始只做对照：CrewAI 用角色、任务和团队快速表达一个小型协作原型；它不替代 LangGraph 的显式状态、条件路由和人工介入。\n\n### 目标\n\n使用真实 `crewai.Agent` 定义产品、后端、前端和测试四个角色。运行前必须在右上角配置自己的 DeepSeek Key。\n\n### 操作\n\n1. 实现 `build_llm`，从环境变量读取由平台临时注入的 Key。\n2. 在 `build_heaven` 中创建四个真实 `Agent(role=..., goal=..., backstory=..., llm=...)`。\n3. 运行并核对角色与目标。\n\n### 边界\n\n- 本步不自定义 `Agent` 数据类，也不模拟 CrewAI API。\n- CrewAI 适合快速验证角色分工；需要明确分支、循环和审批时回到 LangGraph。",
       "todoItems": [
         {
-          "title": "补全 Agent 的四个字段:role / goal / backstory 为 str,tools 用 field 提供空列表默认值",
-          "target": "Agent 类(文件顶部)",
-          "code": "tools: list[str] = field(default_factory=list)",
-          "expect": "不再报 TODO 错误,可实例化带 4 个字段的 Agent"
+          "title": "实现 build_llm",
+          "target": "build_llm",
+          "code": "读取 OPENAI_API_KEY 并创建 LLM",
+          "expect": "缺少 Key 时给出右上角配置引导"
         },
         {
-          "title": "实现 build_heaven:返回 4 个带中文设定与工具的 Agent",
-          "target": "build_heaven() 函数",
-          "code": "Agent(role=..., goal=..., backstory=..., tools=[...])",
-          "expect": "运行后打印出四张角色卡"
+          "title": "创建真实 CrewAI Agent",
+          "target": "build_heaven",
+          "code": "Agent(role=..., goal=..., backstory=..., llm=llm)",
+          "expect": "返回四个真实 Agent"
         },
         {
-          "title": "运行脚本,核对名册里四张角色卡齐全、工具列表正确",
-          "target": "文件底部 main 入口",
-          "expect": "终端输出四张角色卡,退出码 0"
+          "title": "运行角色卡",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "打印四个角色及其目标"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "角色卡三要素:role 决定「你是谁」,goal 决定「要达成什么」,backstory 决定「立场与专长」;这三段文字最终会拼进模型的 system prompt。"
+          "text": "CrewAI 的真实角色类从 `crewai import Agent` 导入，不要自定义同名 dataclass。"
         },
         {
           "order": 2,
-          "text": "关键写法:tools: list[str] = field(default_factory=list);可变默认值不能写 tools=[]。"
+          "text": "每个 Agent 都传同一个 `llm`，差异来自 role、goal 与 backstory。"
         },
         {
           "order": 3,
-          "text": "build_heaven 返回 4 个 Agent(...) 组成的列表,每个 Agent 的三个字符串参数顺序是 role、goal、backstory。"
+          "text": "这一步用于对照；需要显式路由和审批时使用 LangGraph。"
         }
       ],
       "codeSamples": [
@@ -49,34 +53,34 @@
       ],
       "terms": [
         {
-          "name": "Agent(角色)",
-          "definition": "多 Agent 系统中承担特定职责的角色实体,由 role(职责)、goal(使命)、backstory(背景)三要素定义,是模型扮演该角色的 prompt 骨架。"
+          "name": "CrewAI Agent",
+          "definition": "CrewAI 的真实角色对象，使用 role、goal、backstory 与 llm 定义职责。"
         },
         {
-          "name": "role/goal/backstory",
-          "definition": "角色卡的三要素:role 声明身份,goal 声明目标,backstory 声明立场与专长;三者共同决定模型在该角色下的行为倾向。"
+          "name": "快速原型",
+          "definition": "用较少配置快速验证角色和任务分工；不等同于生产工作流的完整控制。"
         },
         {
-          "name": "dataclass",
-          "definition": "Python 标准库 dataclasses 提供的装饰器,自动为类生成 __init__ 等方法,是快速定义纯数据结构的首选。"
+          "name": "LangGraph 主线",
+          "definition": "本章用于状态、条件路由、返工与人工介入的主要工程方式。"
         }
       ],
       "techStack": [
         {
           "name": "CrewAI",
-          "role": "多 Agent 编排框架",
-          "description": "本步用纯 Python 复刻其 Agent 数据结构;安装后可直接替换为真实 Agent 类。",
+          "role": "对照用快速原型框架",
+          "description": "使用真实 Agent、Task、Crew 与 Process 快速验证角色/任务式协作；不替代本章的 LangGraph 主线。",
           "officialUrl": "https://docs.crewai.com",
           "category": "框架",
           "installHint": "pip install crewai"
         },
         {
-          "name": "Python dataclasses",
-          "role": "标准库",
-          "description": "dataclass 装饰器自动生成初始化方法,用于定义轻量数据类。",
-          "officialUrl": "https://docs.python.org/3/library/dataclasses.html",
-          "category": "库",
-          "installHint": "标准库,无需安装"
+          "name": "DeepSeek",
+          "role": "真实模型服务",
+          "description": "通过右上角配置的学习者 Key 调用；代码不保存 Key。",
+          "officialUrl": "https://api-docs.deepseek.com/",
+          "category": "模型",
+          "installHint": "无需安装，在右上角 AI 配置中填入自己的 Key"
         }
       ],
       "validation": [
@@ -89,7 +93,7 @@
         {
           "type": "ast_structure",
           "message": "请定义 Agent 数据类。",
-          "astType": "class_def",
+          "astType": "call",
           "name": "Agent",
           "blocking": true
         },
@@ -126,41 +130,45 @@
     },
     {
       "id": "t53-crewai-team-s2",
+      "minimumSolutionLines": 22,
+      "compactSolutionRationale": "本步聚焦真实 CrewAI Task 的 expected_output 与 context 依赖，使用两个串联任务即可说明最小依赖图。",
       "taskId": "t53-crewai-team",
+      "needsNetwork": true,
       "order": 2,
-      "title": "排兵布阵:Task 任务清单成形",
-      "instruction": "### 目标\n\n给天庭排兵布阵:定义任务实体 `Task`,把四道军令(需求分析、API 设计、前端开发、测试验收)组成一张按依赖顺序排列的作战图,复刻 CrewAI 的 `Task` 数据结构。\n\n### 原理\n\n只有角色卡、没有任务清单,多 Agent 系统只是一群「摆设」;是任务把角色组织成生产流水线。`Task` 的三个必填要素各管一段:`description` 描述「干什么」,是发给执行者的指令正文;`expected_output` 描述「完成时应该交付什么形态的产物」,既是执行者的验收标准,也是顺序流程中上下文传递的边界——上一道任务的产出名,会被下一道任务写进 `context`;`role` 指明执行者,让 Crew 能按角色名把军令分派到人。`context` 声明前置依赖,列表里的每一项都是上游任务的产出,连起来就构成一张任务依赖图:顺序流程按列表顺序逐道执行,图上是链式的;换用并行流程时,这张图直接决定哪些任务可以同时开工。\n\n### 操作\n\n1. 补全 `Task` 的四个字段:`description` / `expected_output` / `role` 为 `str`,`context` 用 `field(default_factory=list)` 声明前置依赖;\n2. 补全 `build_plan`,按顺序返回 4 个 `Task`:需求分析 → API 设计 → 前端开发 → 测试验收,后三道在 `context` 里写明依赖的前置产出;\n3. 通读 `show_plan`,理解作战图如何渲染成军令清单;\n4. 运行脚本,核对四道军令、执行者、验收标准与依赖是否打印正确。\n\n### 常见坑\n\n- `expected_output` 必须描述「可验收的产出形态」,不能只写「做好」「完成」这类模糊动词,否则执行者不知道交付什么、下游也拿不到明确的上下文;\n- `context` 依赖要按实际先后关系填写:后置任务依赖前置任务的产出名,写错依赖会让任务图与真实执行顺序脱节。\n",
+      "title": "对照原型：CrewAI Task 依赖",
+      "instruction": "### 定位\n\n这是对 LangGraph 状态与边的另一种表达：CrewAI 用 `Task` 与 `context` 描述角色/任务式依赖。它便于快速原型，但不展示完整的条件路由图。\n\n### 目标\n\n使用真实 `crewai.Task` 构建需求、API、界面和验收四项任务，并用 `context` 声明上游任务。\n\n### 操作\n\n1. 创建真实 `Agent` 作为每个任务的负责人。\n2. 创建真实 `Task(description=..., expected_output=..., agent=...)`。\n3. 让后续任务的 `context` 指向前置 `Task`。\n4. 运行并检查任务描述。\n\n### 常见坑\n\n- `context` 放的是前置 `Task` 对象，不是字符串名称。\n- `expected_output` 必须是可验收的产出。",
       "todoItems": [
         {
-          "title": "补全 Task 的四个字段:description / expected_output / role 为 str,context 声明前置依赖",
-          "target": "Task 类(文件顶部)",
-          "code": "context: list = field(default_factory=list)",
-          "expect": "不再报 TODO 错误,可实例化带 4 个字段的 Task"
+          "title": "创建真实负责人",
+          "target": "build_plan",
+          "code": "Agent(..., llm=llm)",
+          "expect": "每个 Task 有真实 Agent"
         },
         {
-          "title": "实现 build_plan:按顺序返回 4 个 Task,后三道写明 context 依赖",
-          "target": "build_plan() 函数",
-          "code": "Task(description=..., expected_output=..., role=..., context=[...])",
-          "expect": "运行后打印出四道军令"
+          "title": "创建真实 Task 与 context",
+          "target": "build_plan",
+          "code": "Task(..., agent=..., context=[前置 Task])",
+          "expect": "依赖由 Task 对象表达"
         },
         {
-          "title": "运行脚本,核对作战图打印正确",
-          "target": "文件底部 main 入口",
-          "expect": "终端输出四道军令、执行者、验收标准与依赖,退出码 0"
+          "title": "运行检查",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "打印四项任务"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "Task 三要素:description 是任务本身,expected_output 是验收标准,role 是执行者;context 声明这道军令依赖的前置产出。"
+          "text": "`context` 传入前置 Task 对象列表，不是前置任务的字符串名称。"
         },
         {
           "order": 2,
-          "text": "关键写法:context: list = field(default_factory=list);后置任务的 context 里写上前置任务的产出名,如 context=[\"需求文档\"]。"
+          "text": "`expected_output` 写出可检查的交付物，而不是“完成即可”。"
         },
         {
           "order": 3,
-          "text": "build_plan 返回 4 个 Task(...) 的列表,顺序即依赖顺序:需求分析 → API 设计 → 前端开发 → 测试验收。"
+          "text": "CrewAI 的依赖表达适合原型；复杂分支仍需要 LangGraph 图。"
         }
       ],
       "codeSamples": [
@@ -173,26 +181,34 @@
       ],
       "terms": [
         {
-          "name": "Task",
-          "definition": "CrewAI 中的任务实体,由 description(任务描述)、expected_output(验收标准)、role(执行者)与 context(前置依赖)定义。"
+          "name": "CrewAI Task",
+          "definition": "真实任务对象，包含描述、预期产出、负责人和可选上下文依赖。"
         },
         {
-          "name": "expected_output",
-          "definition": "任务的验收标准,描述「完成时应该交付什么形态的产物」,是顺序流程上下文传递的边界。"
+          "name": "context",
+          "definition": "任务依赖的上游 Task 列表，CrewAI 据此传递前置结果。"
         },
         {
-          "name": "context(前置依赖)",
-          "definition": "任务声明的输入依赖,列出该任务执行前必须就绪的前置产出。"
+          "name": "显式图",
+          "definition": "LangGraph 用节点和边表达的流程结构，适合条件分支和循环。"
         }
       ],
       "techStack": [
         {
           "name": "CrewAI",
-          "role": "多 Agent 编排框架",
-          "description": "本步用纯 Python 复刻其 Task 数据结构与依赖图;安装后可直接替换为真实 Task 类。",
+          "role": "对照用快速原型框架",
+          "description": "使用真实 Agent、Task、Crew 与 Process 快速验证角色/任务式协作；不替代本章的 LangGraph 主线。",
           "officialUrl": "https://docs.crewai.com",
           "category": "框架",
           "installHint": "pip install crewai"
+        },
+        {
+          "name": "DeepSeek",
+          "role": "真实模型服务",
+          "description": "通过右上角配置的学习者 Key 调用；代码不保存 Key。",
+          "officialUrl": "https://api-docs.deepseek.com/",
+          "category": "模型",
+          "installHint": "无需安装，在右上角 AI 配置中填入自己的 Key"
         }
       ],
       "validation": [
@@ -205,7 +221,7 @@
         {
           "type": "ast_structure",
           "message": "请定义 Task 数据类。",
-          "astType": "class_def",
+          "astType": "call",
           "name": "Task",
           "blocking": true
         },
@@ -243,41 +259,42 @@
     {
       "id": "t53-crewai-team-s3",
       "taskId": "t53-crewai-team",
+      "needsNetwork": true,
       "order": 3,
-      "title": "顺序流程:一令既出,依次执行",
-      "instruction": "### 目标\n\n点亮天庭引擎:接上 DeepSeek 大模型,实现顺序流程(sequential)——四道军令按列表顺序逐道执行,每一道的产出自动成为下一道的上下文,最后回收全部结果。这是多 Agent 系统里最简单也最常用的协作模式。\n\n### 原理\n\n顺序流程有两个支柱。第一是「列表即顺序」:任务列表本身就是执行序列,Crew 启动后从第一道军令开始,依序遍历 `self.tasks`,按 `task.role` 找到对应角色卡,把「角色卡 + 军令 + 验收标准 + 上一道产出」拼成一次对话交给模型,取回产出再执行下一道。第二是「上下文接力」:用一个 `context` 变量在循环中传递——每道任务完成后 `context = output`,下一道任务就把上一道的产出写进自己的 `context` 参数,拼进 user 消息的「前置产出(供参考)」段。为什么需要角色卡?因为同一个模型面对不同的 system prompt 会表现出不同的行为:给「产品经理」看的是用户诉求翻译任务,给「测试工程师」看的是找茬任务,分工由提示词完成。这就是多 Agent 与单 Agent 的本质区别:单 Agent 是一次对话解决所有问题,多 Agent 把问题拆成多个角色、多段对话,每个角色只干自己职责内的一段,最后拼出整体结果。\n\n### 操作\n\n1. 通读 `Crew` 类与 `ask_llm`:看清单次派活如何拼装 system / user 两条消息;\n2. 补全 `ask_llm`:拼出角色系统提示词与任务消息,调用 `llm.invoke([SystemMessage(...), HumanMessage(...)])` 并返回 `reply.content`;\n3. 补全 `kickoff`:依序遍历任务、找执行者、打印进度、执行并收集产出、更新上下文;\n4. 设 `MOCK_LLM=1` 运行,观察四道军令依次流转、产出逐道接力;拿到 API Key 后取消 MOCK 真实调用。\n\n### 常见坑\n\n- `context` 的更新必须在 `results.append(output)` 之后、下一轮循环开始之前,漏写或写错位置会让整条流水线拿到空的上下文;\n- `llm.invoke(...)` 返回的是 AIMessage 对象,产出文本在 `.content` 里,直接返回 reply 对象会把整条消息结构传下去,下游没法用;\n- 无 API Key 时要在调用模型前优雅退出并提示配置,而不是等到请求失败才报错——代码顶部已写好检查,补全逻辑时不要绕过它。\n",
+      "title": "对照原型：CrewAI 顺序团队",
+      "instruction": "### 定位\n\nCrewAI 的 `Process.sequential` 是固定链路的快速原型方式；本章的复杂工作流主线仍是 LangGraph。\n\n### 目标\n\n用真实 `Crew`、`Task`、`Agent` 和 `Process.sequential` 完成两项存在依赖的真实 DeepSeek 任务。每次运行只做两次模型调用，符合课堂 30 秒交互目标。\n\n### 操作\n\n1. 从右上角配置注入的环境变量读取 Key，创建 `LLM`。\n2. 创建产品和后端角色，以及需求、API 两个真实任务。\n3. 用 `Crew(..., process=Process.sequential).kickoff()` 执行。\n4. 检查最终交付文本。\n\n### 边界\n\n- 这是线性流程；需要返工、条件分支或审批时使用 LangGraph。\n- 不用 Mock 或服务端 Key 替代真实调用。",
       "todoItems": [
         {
-          "title": "实现 ask_llm:拼出 system 与 user 两条消息并调用 llm.invoke",
-          "target": "ask_llm() 函数",
-          "code": "reply = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])",
-          "expect": "不再报 TODO 错误,可正常派活"
+          "title": "创建 DeepSeek LLM",
+          "target": "build_llm",
+          "code": "LLM(model='openai/...', api_key=require_key(), base_url=...)",
+          "expect": "使用学习者自己的 Key"
         },
         {
-          "title": "补全 kickoff 顺序执行循环:找执行者、打印进度、收集产出、更新上下文",
-          "target": "Crew.kickoff() 方法",
-          "code": "context = output",
-          "expect": "四道军令依次执行,产出逐道接力"
+          "title": "创建顺序 Crew",
+          "target": "main",
+          "code": "Crew(..., process=Process.sequential)",
+          "expect": "两个任务按依赖顺序执行"
         },
         {
-          "title": "设 MOCK_LLM=1 运行,观察上下文接力",
-          "target": "文件底部 main 入口",
-          "code": "MOCK_LLM=1 python t53-crewai-team-s3.py",
-          "expect": "终端依次打印四道军令进度与产出摘要,退出码 0"
+          "title": "执行真实交付",
+          "target": "main",
+          "code": "crew.kickoff()",
+          "expect": "打印最终交付文本"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "上下文接力是顺序流程的灵魂:每个任务看到的是「角色卡 + 任务 + 验收标准 + 上一道的产出」,代码里用一个 context 变量在循环中传递。"
+          "text": "本练习只用两个 Task，既能展示上下文依赖，也能控制课堂等待时间。"
         },
         {
           "order": 2,
-          "text": "关键 API:ChatOpenAI(model=MODEL, api_key=os.environ[\"OPENAI_API_KEY\"], base_url=BASE_URL, temperature=0);llm.invoke([SystemMessage(content=...), HumanMessage(content=...)]) 返回的 AIMessage.content 即产出。"
+          "text": "真实调用前，先确认右上角已保存 DeepSeek Key。"
         },
         {
           "order": 3,
-          "text": "kickoff 骨架:results = [];context = \"\";for i, task in enumerate(self.tasks, 1): 找 agent、打印进度、output = self._run_one(...)、append、context = output。"
+          "text": "顺序流程不能替代 LangGraph 的条件路由、返工和人工审批。"
         }
       ],
       "codeSamples": [
@@ -290,42 +307,34 @@
       ],
       "terms": [
         {
-          "name": "顺序流程(sequential)",
-          "definition": "多 Agent 流程之一:任务按列表顺序逐一执行,上一道的产出自动成为下一道的上下文,适合依赖明确、链路固定的场景。"
+          "name": "Process.sequential",
+          "definition": "CrewAI 的顺序流程，按任务顺序执行并传递前置上下文。"
         },
         {
           "name": "kickoff",
-          "definition": "Crew 的启动方法:调用后按流程设定依次执行全部任务,返回各任务的产出列表。"
+          "definition": "启动真实 CrewAI 团队执行的方法。"
         },
         {
-          "name": "ChatOpenAI",
-          "definition": "LangChain 的 OpenAI 兼容客户端,可通过 base_url 接入 DeepSeek 等兼容服务,是真实场景下 Agent 的推理内核。"
+          "name": "课堂运行预算",
+          "definition": "单次交互控制在可接受时间内，因此只安排必要的真实模型调用。"
         }
       ],
       "techStack": [
         {
           "name": "CrewAI",
-          "role": "Agent 编排框架",
-          "description": "本步用纯 Python 复刻其 sequential process 调度逻辑。",
+          "role": "对照用快速原型框架",
+          "description": "使用真实 Agent、Task、Crew 与 Process 快速验证角色/任务式协作；不替代本章的 LangGraph 主线。",
           "officialUrl": "https://docs.crewai.com",
           "category": "框架",
           "installHint": "pip install crewai"
         },
         {
-          "name": "LangChain",
-          "role": "Agent 编排框架",
-          "description": "ChatOpenAI 与 SystemMessage/HumanMessage 构成派活通道。",
-          "officialUrl": "https://python.langchain.com",
-          "category": "框架",
-          "installHint": "pip install langchain langchain-openai"
-        },
-        {
           "name": "DeepSeek",
-          "role": "底层大模型",
-          "description": "OpenAI 兼容的国产大模型服务,本课程统一使用 deepseek-v4-pro。",
-          "officialUrl": "https://www.deepseek.com",
+          "role": "真实模型服务",
+          "description": "通过右上角配置的学习者 Key 调用；代码不保存 Key。",
+          "officialUrl": "https://api-docs.deepseek.com/",
           "category": "模型",
-          "installHint": "无需安装,base_url 指向 https://api.deepseek.com 即可"
+          "installHint": "无需安装，在右上角 AI 配置中填入自己的 Key"
         }
       ],
       "validation": [
@@ -338,14 +347,14 @@
         {
           "type": "api_call_exists",
           "message": "请保留 ChatOpenAI 客户端装配。",
-          "api": "ChatOpenAI",
+          "api": "LLM",
           "minCount": 1,
           "blocking": true
         },
         {
           "type": "ast_structure",
           "message": "请定义 Crew 编排类。",
-          "astType": "class_def",
+          "astType": "call",
           "name": "Crew",
           "blocking": true
         },
@@ -353,7 +362,7 @@
           "type": "ast_structure",
           "message": "请实现 kickoff 启动方法。",
           "astType": "function_def",
-          "name": "kickoff",
+          "name": "main",
           "blocking": true
         },
         {
@@ -372,48 +381,45 @@
     },
     {
       "id": "t53-crewai-team-s4",
+      "minimumSolutionLines": 26,
+      "compactSolutionRationale": "hierarchical 流程的关键是 Crew、Process.hierarchical 与 manager_llm；无需自定义调度器填充行数。",
       "taskId": "t53-crewai-team",
+      "needsNetwork": true,
       "order": 4,
-      "title": "层级流程:总管分派,层层上报",
-      "instruction": "### 目标\n\n给天庭加设「天庭总管」,实现层级流程(hierarchical):总管逐令签发分派令,执行者按令干活并把结果上报,复刻 CrewAI 的 `Process.hierarchical` 与 `manager_llm` 概念。这是多 Agent 协作从「平级接力」走向「有指挥链」的关键一步。\n\n### 原理\n\n顺序流程里所有任务平级接力,每个执行者直接拿到上一道产出;层级流程则多了一层总管:每道军令先交给总管读一遍,由它签发分派令,执行者按分派令干活,结果再上报给总管。代价是每道任务多一次 LLM 往返(总管签令 + 执行者执行),换来的是全局统筹——总管能看到全貌,能把任务分派给最合适的神职,而不是机械地按列表顺序接力。复刻方式也很直接:定义一个全局 `MANAGER` 角色卡,`Crew` 新增 `manager` 参数保存它,`_plan_order` 在每次执行前先问总管「此令交给谁、按什么标准做」,返回的分派令就是执行者的行动指令。\n\n### 操作\n\n1. 通读全局 `MANAGER` 角色卡,理解「总览全局、分派任务、验收结果」的定位;\n2. 补全 `Crew.__init__`:增加 `manager=None` 参数并保存为 `self.manager`;\n3. 补全 `_plan_order`:无总管走例行分派文案,离线走剧本,在线问总管签发分派令;\n4. 补全 `kickoff` 的指挥链循环:先签令、打印分派令,再执行、收集结果,设 `MOCK_LLM=1` 跑通。\n\n### 常见坑\n\n- 层级流程有两次 LLM 往返,离线 MOCK 时两处都要走剧本:签令取 `mock_output(\"天庭总管\")`,执行取执行者自己的台词,漏一处就会 KeyError;\n- `manager` 允许缺省:不传时 `_plan_order` 应退回「例行分派」文案,保证顺序流程仍然可用;\n- 执行者收到的参考材料是上一道产出,拼进 user 消息的「参考材料」段,别丢。\n",
+      "title": "对照原型：CrewAI 层级团队",
+      "instruction": "### 定位\n\nCrewAI 的 `Process.hierarchical` 用总管模型做角色/任务式调度。它适合快速探索，但总管决策会增加模型调用和不可预测性；可审计的生产流程仍应优先用 LangGraph 显式建图。\n\n### 目标\n\n使用真实 `Process.hierarchical` 与 `manager_llm` 运行一个最小任务，观察总管编排的最小形式，并将课堂等待控制在 30 秒目标内。\n\n### 操作\n\n1. 创建一个真实 `Agent` 与一个边界明确的 `Task`。\n2. 使用 `Crew(..., process=Process.hierarchical, manager_llm=llm)`。\n3. 调用 `kickoff()` 并检查交付。\n\n### 常见坑\n\n- 层级流程会增加总管调用，适合小型验证，不适合把它当作无边界循环。\n- Key 只能由右上角配置提供。",
       "todoItems": [
         {
-          "title": "实现 build_plan:返回 4 个单行 Task,顺序即依赖顺序",
-          "target": "build_plan() 函数",
-          "code": "Task(\"描述\", \"验收标准\", \"角色\")",
-          "expect": "不再报 TODO 错误"
+          "title": "创建一个真实角色和最小任务",
+          "target": "main",
+          "code": "Agent(...) 与 Task(...)",
+          "expect": "职责和交付明确，且只需一次委派"
         },
         {
-          "title": "补全 Crew.__init__:增加 manager=None 参数并保存为 self.manager",
-          "target": "Crew.__init__() 方法",
-          "code": "self.manager = manager",
-          "expect": "不再报 TODO 错误"
+          "title": "配置层级 Crew",
+          "target": "main",
+          "code": "Crew(..., process=Process.hierarchical, manager_llm=llm)",
+          "expect": "使用官方层级流程"
         },
         {
-          "title": "实现 _plan_order:无总管走例行分派,离线走剧本,在线问总管",
-          "target": "_plan_order() 方法",
-          "code": "mock_output(\"天庭总管\")",
-          "expect": "MOCK 模式下签令走剧本"
-        },
-        {
-          "title": "补全 kickoff 指挥链循环:先签令打印,再执行收集上报",
-          "target": "Crew.kickoff() 方法",
-          "code": "order = self._plan_order(llm, task)",
-          "expect": "设 MOCK_LLM=1 运行,依次看到分派令与上报结果"
+          "title": "执行并检查结果",
+          "target": "main",
+          "code": "crew.kickoff()",
+          "expect": "打印层级团队交付"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "层级流程的两次往返:总管先读任务签发分派令(ask_llm 给 MANAGER),执行者再按分派令干活(ask_llm 给执行者);MOCK 时两处都要走剧本。"
+          "text": "`manager_llm` 是官方层级流程的总管模型，不需要自己实现调度器。"
         },
         {
           "order": 2,
-          "text": "关键写法:MANAGER 是一个全局 Agent,role=\"天庭总管\";Crew.__init__ 增加 manager=None 参数并保存;无 manager 时 _plan_order 退回例行分派文案。"
+          "text": "总管会增加模型调用，本节只保留一个任务以验证层级编排。"
         },
         {
           "order": 3,
-          "text": "kickoff 骨架:先 assert process == \"hierarchical\",再逐令:order = self._plan_order(llm, task) 打印分派令 → 取执行者执行 → 产出存 results 并作为下道参考。"
+          "text": "若需要固定、可审计的分支和人工审批，回到 LangGraph。"
         }
       ],
       "codeSamples": [
@@ -426,42 +432,34 @@
       ],
       "terms": [
         {
-          "name": "层级流程(hierarchical)",
-          "definition": "多 Agent 流程之一:设一位总管逐令签发分派令,执行者按令干活并上报,相比顺序流程多一次总管决策往返。"
-        },
-        {
-          "name": "分派令",
-          "definition": "层级流程中总管对每道军令的处置指令:交给谁、按什么标准做,是执行者的行动依据。"
+          "name": "Process.hierarchical",
+          "definition": "CrewAI 的层级流程，由总管模型参与任务协调。"
         },
         {
           "name": "manager_llm",
-          "definition": "CrewAI 中层级流程专用的总管模型实例,负责全局统筹与任务分派。"
+          "definition": "供层级流程使用的总管模型实例。"
+        },
+        {
+          "name": "可审计工作流",
+          "definition": "条件、状态和终止条件可显式检查的流程；本章由 LangGraph 承担。"
         }
       ],
       "techStack": [
         {
           "name": "CrewAI",
-          "role": "Agent 编排框架",
-          "description": "本步用纯 Python 复刻其 hierarchical process 与 manager_llm 概念。",
+          "role": "对照用快速原型框架",
+          "description": "使用真实 Agent、Task、Crew 与 Process 快速验证角色/任务式协作；不替代本章的 LangGraph 主线。",
           "officialUrl": "https://docs.crewai.com",
           "category": "框架",
           "installHint": "pip install crewai"
         },
         {
-          "name": "LangChain",
-          "role": "Agent 编排框架",
-          "description": "ChatOpenAI 与 SystemMessage/HumanMessage 构成派活通道。",
-          "officialUrl": "https://python.langchain.com",
-          "category": "框架",
-          "installHint": "pip install langchain langchain-openai"
-        },
-        {
           "name": "DeepSeek",
-          "role": "底层大模型",
-          "description": "OpenAI 兼容的国产大模型服务,本课程统一使用 deepseek-v4-pro。",
-          "officialUrl": "https://www.deepseek.com",
+          "role": "真实模型服务",
+          "description": "通过右上角配置的学习者 Key 调用；代码不保存 Key。",
+          "officialUrl": "https://api-docs.deepseek.com/",
           "category": "模型",
-          "installHint": "无需安装,base_url 指向 https://api.deepseek.com 即可"
+          "installHint": "无需安装，在右上角 AI 配置中填入自己的 Key"
         }
       ],
       "validation": [
@@ -474,14 +472,14 @@
         {
           "type": "api_call_exists",
           "message": "请保留 ChatOpenAI 客户端装配。",
-          "api": "ChatOpenAI",
+          "api": "LLM",
           "minCount": 1,
           "blocking": true
         },
         {
           "type": "ast_structure",
           "message": "请定义 Crew 编排类。",
-          "astType": "class_def",
+          "astType": "call",
           "name": "Crew",
           "blocking": true
         },
@@ -489,7 +487,7 @@
           "type": "ast_structure",
           "message": "请实现 kickoff 启动方法。",
           "astType": "function_def",
-          "name": "kickoff",
+          "name": "main",
           "blocking": true
         },
         {
@@ -508,48 +506,45 @@
     },
     {
       "id": "t53-crewai-team-s5",
+      "minimumSolutionLines": 27,
+      "compactSolutionRationale": "项目闭环直接使用真实 Crew.kickoff 和 Path.write_text 落盘，保持代码紧凑以突出交付链路。",
       "taskId": "t53-crewai-team",
+      "needsNetwork": true,
       "order": 5,
-      "title": "天庭总装:完整项目协作闭环",
-      "instruction": "### 目标\n\n天庭总装:把前面四步攒下的「三件套」拼成完整项目闭环——5 位神职、6 道军令(需求分析、API 设计、后端实现、前端实现、测试验收、收官报告),逐道执行后把全部产出汇总成《天庭协作纪要》落盘,体验一个迷你多 Agent 项目的完整生命周期。\n\n### 原理\n\n这一步是从「练习」到「项目」的分水岭:规模上,任务从 4 道涨到 6 道,还新增「收官文官」专职汇总;结构上,整条流水线只是三件套的拼接——`Agent`(谁)、`Task`(干什么)、`Crew`(怎么串)三个独立模块各司其职,业务逻辑(角色卡、任务清单)与编排逻辑(流程调度)彻底分离,想加新任务只需往 `build_full_plan` 里追加一行;产出去向也从「打印到屏幕」升级为「沉淀成文档」,协作的最终产物是落盘的天庭协作纪要。\n\n### 操作\n\n1. 通读 `build_heaven` 与 `build_full_plan`,理解五位神职与六道军令的对应关系;\n2. 补全 `build_full_plan`:按顺序返回 6 个 `Task`,收官报告交给收官文官;\n3. 补全 `ask_llm`:拼出 system 与 user 两条消息并调用模型;\n4. 补全 `write_report`:把各阶段产出拼成 Markdown 并落盘,返回纪要文本;\n5. 设 `MOCK_LLM=1` 运行,确认流水线跑完且生成了《天庭协作纪要.md》。\n\n### 常见坑\n\n- 写盘必须显式传 `encoding=\"utf-8\"`,否则中文会因系统默认编码(Windows 下 GBK)乱码或报错;\n- `write_report` 两件事缺一不可:既要把文档写进文件,又要返回完整文本供 `main` 打印;\n- 六道军令的顺序即依赖顺序:需求分析 → 接口设计 → 后端实现 → 前端实现 → 测试验收 → 收官报告,改序会让下游拿到错误的上下文。\n",
+      "title": "对照原型：CrewAI 小型交付闭环",
+      "instruction": "### 定位\n\n用一个紧凑交付闭环总结 CrewAI 对照：它能快速把角色、任务与顺序流程组装起来；本章已学的 LangGraph 则负责需要状态图、返工、审批和明确终止条件的主工作流。\n\n### 目标\n\n使用真实 CrewAI 顺序团队完成需求、API 和验收三项任务，并将最终交付写入 Markdown 文件。\n\n### 操作\n\n1. 实现 `build_crew`，返回真实 `Crew`。\n2. 调用 `kickoff()` 获得交付。\n3. 用 `Path.write_text(..., encoding='utf-8')` 写入协作纪要。\n4. 运行并确认文件已生成。\n\n### 边界\n\n- 这不是生产编排方案的替代品；扩展到分支、重试或人工审批时，应迁移到 LangGraph。\n- 不在代码或文件中保存 API Key。",
       "todoItems": [
         {
-          "title": "实现 build_full_plan:按顺序返回 6 个 Task,收官报告交给收官文官",
-          "target": "build_full_plan() 函数",
-          "code": "Task(\"描述\", \"验收标准\", \"角色\")",
-          "expect": "不再报 TODO 错误"
+          "title": "构建真实 Crew",
+          "target": "build_crew",
+          "code": "返回含 Agent、Task、Process.sequential 的 Crew",
+          "expect": "三项任务具有明确依赖"
         },
         {
-          "title": "实现 ask_llm:拼出 system 与 user 两条消息并调用模型",
-          "target": "ask_llm() 函数",
-          "code": "llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])",
-          "expect": "不再报 TODO 错误"
+          "title": "执行并落盘",
+          "target": "main",
+          "code": "result = crew.kickoff(); Path(...).write_text(..., encoding='utf-8')",
+          "expect": "生成 Markdown 协作纪要"
         },
         {
-          "title": "实现 write_report:把各阶段产出拼成 Markdown 并落盘",
-          "target": "write_report() 函数",
-          "code": "with open(\"天庭协作纪要.md\", \"w\", encoding=\"utf-8\") as f:",
-          "expect": "生成的天庭协作纪要.md 内容完整"
-        },
-        {
-          "title": "设 MOCK_LLM=1 运行,确认流水线跑完且纪要落盘",
-          "target": "文件底部 main 入口",
-          "code": "MOCK_LLM=1 python t53-crewai-team-s5.py",
-          "expect": "终端打印纪要摘要,目录出现天庭协作纪要.md,退出码 0"
+          "title": "检查交付",
+          "target": "main",
+          "code": "python <文件名>.py",
+          "expect": "输出文件路径"
         }
       ],
       "hints": [
         {
           "order": 1,
-          "text": "总装思路:Agent(谁)、Task(干什么)、Crew(怎么串)三件套只靠拼接就撑起 6 道军令的完整流水线,业务逻辑与编排逻辑彻底分离。"
+          "text": "把 `result.raw` 写入文件即可保留最终交付，不要写入 API Key。"
         },
         {
           "order": 2,
-          "text": "关键 API:write_report 用 with open(\"天庭协作纪要.md\", \"w\", encoding=\"utf-8\") 落盘,返回完整纪要文本供 main 打印。"
+          "text": "显式指定 UTF-8，确保中文 Markdown 可读。"
         },
         {
           "order": 3,
-          "text": "6 道军令的顺序即依赖顺序:需求分析 → 接口设计 → 后端实现 → 前端实现 → 测试验收 → 收官报告,改序会让下游拿到错误的上下文。"
+          "text": "本闭环用于对照；生产扩展到重试或审批时应迁移到 LangGraph。"
         }
       ],
       "codeSamples": [
@@ -562,42 +557,34 @@
       ],
       "terms": [
         {
-          "name": "项目闭环",
-          "definition": "从需求、设计、实现、测试到最终文档沉淀的完整生命周期,由多个 Agent 协作一次走完。"
+          "name": "CrewAI 交付闭环",
+          "definition": "真实团队执行后将最终产出沉淀为文件的最小原型。"
         },
         {
-          "name": "协作纪要",
-          "definition": "收官角色把各阶段产出汇总而成的 Markdown 文档,是协作的最终交付物。"
+          "name": "result.raw",
+          "definition": "CrewAI 运行结果中的最终文本内容。"
         },
         {
-          "name": "三件套",
-          "definition": "Agent(谁)、Task(干什么)、Crew(怎么串)三个独立模块的合称,各司其职互相解耦。"
+          "name": "对照实现",
+          "definition": "用于理解另一种框架抽象；不改变 LangGraph 作为本章主线。"
         }
       ],
       "techStack": [
         {
           "name": "CrewAI",
-          "role": "Agent 编排框架",
-          "description": "本步的三件套(Agent/Task/Crew)与其设计哲学一一对应。",
+          "role": "对照用快速原型框架",
+          "description": "使用真实 Agent、Task、Crew 与 Process 快速验证角色/任务式协作；不替代本章的 LangGraph 主线。",
           "officialUrl": "https://docs.crewai.com",
           "category": "框架",
           "installHint": "pip install crewai"
         },
         {
-          "name": "LangChain",
-          "role": "Agent 编排框架",
-          "description": "ChatOpenAI 与 SystemMessage/HumanMessage 构成派活通道。",
-          "officialUrl": "https://python.langchain.com",
-          "category": "框架",
-          "installHint": "pip install langchain langchain-openai"
-        },
-        {
           "name": "DeepSeek",
-          "role": "底层大模型",
-          "description": "OpenAI 兼容的国产大模型服务,本课程统一使用 deepseek-v4-pro。",
-          "officialUrl": "https://www.deepseek.com",
+          "role": "真实模型服务",
+          "description": "通过右上角配置的学习者 Key 调用；代码不保存 Key。",
+          "officialUrl": "https://api-docs.deepseek.com/",
           "category": "模型",
-          "installHint": "无需安装,base_url 指向 https://api.deepseek.com 即可"
+          "installHint": "无需安装，在右上角 AI 配置中填入自己的 Key"
         }
       ],
       "validation": [
@@ -610,7 +597,7 @@
         {
           "type": "api_call_exists",
           "message": "请保留 ChatOpenAI 客户端装配。",
-          "api": "ChatOpenAI",
+          "api": "LLM",
           "minCount": 1,
           "blocking": true
         },
@@ -618,14 +605,13 @@
           "type": "ast_structure",
           "message": "请实现 build_full_plan 函数。",
           "astType": "function_def",
-          "name": "build_full_plan",
+          "name": "build_crew",
           "blocking": true
         },
         {
-          "type": "ast_structure",
+          "type": "api_call_exists",
           "message": "请实现 write_report 函数。",
-          "astType": "function_def",
-          "name": "write_report",
+          "api": "write_text",
           "blocking": true
         },
         {

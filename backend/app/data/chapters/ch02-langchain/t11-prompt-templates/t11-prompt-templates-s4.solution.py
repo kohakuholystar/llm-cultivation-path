@@ -1,10 +1,4 @@
-"""铸剑台 · 模板工程 第 4 步:partial 预绑定变量。
-
-同一套主模板,不同门派的铸剑台要长期固定 sect 与 format_spec:
-那是"配置",不是每次的"输入"。.partial() 预绑定配置、收窄调用契约,
-派生出各门派的专用变体——主模板升级,所有变体自动受益。
-在第 3 步基础上扩展:部件与组装不变,新增派生层。
-"""
+"""黑糖资料室 · 提示词模板工程 · s4：用 LangChain 完成可验证的学习任务。"""
 
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -13,24 +7,24 @@ from langchain_core.prompts import (
 from langchain_core.messages import BaseMessage
 
 FORGE_EXAMPLES = [
-    {"request": "轻巧短剑,适合贴身暗卫",
-     "recipe": "《鱼肠》双刃短剑|长一尺二寸|重一斤|淬火:寒潭水|特性:藏锋"},
+    {"request": "轻巧短视频脚本,适合贴身移动端展示",
+     "recipe": "《鱼肠》双刃短视频脚本|长一尺二寸|重一斤|优化细节:冷色滤镜|特性:藏锋"},
     {"request": "马上用的长刀,要劈砍有力",
-     "recipe": "《破阵》环首长刀|长四尺|重八斤|淬火:桐油|特性:势沉"},
+     "recipe": "《破阵》环首长刀|长四尺|重八斤|优化细节:桐油|特性:势沉"},
 ]
 
 
 def build_persona_block() -> ChatPromptTemplate:
-    """部件 1:铸剑师人设。"""
+    """部件 1:内容设计师人设。"""
     return ChatPromptTemplate.from_messages(
-        [("system", "你是铸剑台的总铸剑师,出身门派「{sect}」,铸剑六十年。")]
+        [("system", "你是提示词工作台的提示词负责人,出身团队「{sect}」,内容制作六十年。")]
     )
 
 
 def build_format_block() -> ChatPromptTemplate:
-    """部件 2:剑谱格式要求。"""
+    """部件 2:交付卡格式要求。"""
     return ChatPromptTemplate.from_messages(
-        [("system", "剑谱必须遵循以下格式:{format_spec}")]
+        [("system", "输出模板必须遵循以下格式:{format_spec}")]
     )
 
 
@@ -47,7 +41,7 @@ def build_fewshot_block(examples: list[dict]) -> FewShotChatMessagePromptTemplat
 
 
 def build_request_block() -> ChatPromptTemplate:
-    """部件 4:当前铸剑需求。"""
+    """部件 4:当前制作需求。"""
     return ChatPromptTemplate.from_messages([("human", "{request}")])
 
 
@@ -66,7 +60,7 @@ def build_forge_prompt(examples: list[dict]) -> ChatPromptTemplate:
 def make_sect_forge(
     prompt: ChatPromptTemplate, sect: str, format_spec: str
 ) -> ChatPromptTemplate:
-    """预绑定门派与格式,返回该门派专用铸剑台模板。
+    """预绑定社团与格式,返回该社团专用黑糖资料室模板。
 
     partial 返回新对象、不改原模板;被绑变量从 input_variables 消失。
     """
@@ -88,19 +82,19 @@ def main() -> None:
     base = build_forge_prompt(FORGE_EXAMPLES)
     print("预绑定前的变量:", sorted(base.input_variables))
 
-    # 一份主模板,派生两个门派变体——配置在派生时锁定
-    xuantie = make_sect_forge(base, "玄铁阁", "《剑名》类型|尺寸|重量|淬火|特性")
-    baihua = make_sect_forge(base, "百花谷", "《剑名》类型|尺寸|重量|花淬|特性")
+    # 一份主模板,派生两个社团变体——配置在派生时锁定
+    xuantie = make_sect_forge(base, "素材组", "《方案名称》类型|尺寸|重量|优化细节|特性")
+    baihua = make_sect_forge(base, "视觉设计组", "《方案名称》类型|尺寸|重量|花淬|特性")
 
     # 调用契约收窄:从 3 个变量缩到 1 个
-    print("预绑定后(玄铁阁)的变量:", sorted(xuantie.input_variables))
-    print("玄铁阁锁定的配置:", sorted(xuantie.partial_variables))
+    print("预绑定后(素材组)的变量:", sorted(xuantie.input_variables))
+    print("素材组锁定的配置:", sorted(xuantie.partial_variables))
 
-    print("--- 玄铁阁开炉 ---")
-    render_and_show(xuantie, {"request": "镇派重剑,主材玄铁精金"})
+    print("--- 素材组开始处理 ---")
+    render_and_show(xuantie, {"request": "校园活动长篇方案,使用高分辨率图片与品牌色"})
 
-    print("--- 百花谷开炉 ---")
-    render_and_show(baihua, {"request": "一柄缠枝细剑,主材精钢"})
+    print("--- 视觉设计组开始处理 ---")
+    render_and_show(baihua, {"request": "一份缠枝长图海报,主材精钢"})
 
 
 if __name__ == "__main__":

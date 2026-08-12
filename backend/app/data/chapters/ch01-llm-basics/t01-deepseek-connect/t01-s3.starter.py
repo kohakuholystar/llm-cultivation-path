@@ -1,6 +1,12 @@
-"""灵讯通 · s3:首次对话
-构造 messages 剧本发出第一条请求,完成灵讯通的第一次真实对话。
+"""星澈助手 · s3:首次对话
+构造 messages 剧本发出第一条请求,完成星澈助手的第一次真实对话。
 """
+# 学习契约
+# 目标：完成 t01-s3 的可验证实现，并理解它在本章工作流中的职责。
+# 补写内容：根据 TODO 完成缺失逻辑（当前包含 3 处待完成提示），不改变既有接口。
+# 关键函数/类与入出参：create_client() -> OpenAI; chat_once(client, question) -> str; main() -> None。
+# 技术栈：os, sys, openai；前置条件：在右上角 AI 配置填入自己的 DeepSeek API Key。
+# 可观察结果：运行 main() 后应输出本步骤的演示结果；通过测试即表示输入、输出与边界条件符合要求。
 import os
 import sys
 
@@ -8,7 +14,7 @@ from openai import OpenAI
 
 # 联网前置检查:没有 Key 就给出引导并优雅退出,不让学习者面对 traceback
 if not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
@@ -44,7 +50,7 @@ def chat_once(client: OpenAI, question: str) -> str:
     """
     # TODO: 调用 client.chat.completions.create(model=MODEL, messages=[...])
     #       注意: 参数名是 messages(复数),别写成 message,少个 s 会报错
-    #       messages 含两条字典: system(人设:你是灵讯通...)与 user(内容 question)
+    #       messages 含两条字典: system(人设:你是星澈助手...)与 user(内容 question)
     # TODO: 返回 response.choices[0].message.content
     raise NotImplementedError("chat_once 尚未实现:请按 TODO 提示调用 chat.completions.create 并返回 choices[0].message.content")
 
@@ -56,7 +62,7 @@ def main() -> None:
     question = "你好!请用一句话介绍你自己。"
     print(f"你: {question}")
     reply = chat_once(client, question)
-    print(f"灵讯通: {reply}")
+    print(f"星澈助手: {reply}")
 
 
 if __name__ == "__main__":

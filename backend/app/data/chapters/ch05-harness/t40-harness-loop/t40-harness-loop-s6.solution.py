@@ -1,6 +1,6 @@
-"""乾坤圈 · s6:收官实战——完整演练与运行报告
+"""Agent 运行时底座 · s6:收官实战——完整演练与运行报告
 
-本步给乾坤圈加上运行轨迹 trail:每一步执行后都留下一张
+本步给Agent 运行时底座加上运行轨迹 trail:每一步执行后都留下一张
 「快照」,跑完再输出三段式报告——运行轨迹、统计、终止原因。
 至此,一个带状态机、生命周期、终止条件与观测能力的最小
 Agent 运行时全部成形。
@@ -37,12 +37,12 @@ class AgentState:
 
 def get_time() -> str:
     hour = time.localtime().tm_hour
-    labels = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
-    return f"现在是{labels[hour % 12]}时"
+    labels = ["深夜", "凌晨", "凌晨", "清晨", "早晨", "上午", "中午", "下午", "下午", "傍晚", "夜间", "深夜"]
+    return f"当前时间段:{labels[hour % 12]}"
 
 
 def list_meridians() -> str:
-    return "十二经脉:手太阴肺经、手阳明大肠经、足阳明胃经……"
+    return "工作流阶段:接收请求、选择工具、执行工具、汇总答复"
 
 
 TOOLS = {"get_time": get_time, "list_meridians": list_meridians}
@@ -66,7 +66,7 @@ def evaluate_stop(state: AgentState, max_steps: int = 10) -> str:
 
 
 class AgentLoop:
-    """终极版乾坤圈:带运行轨迹的完整循环。"""
+    """终极版Agent 运行时底座:带运行轨迹的完整循环。"""
 
     def __init__(self, max_steps: int = 10):
         self.state = AgentState()
@@ -99,7 +99,7 @@ class AgentLoop:
             decision = script[i] if i < len(script) else "get_time"
             i += 1
             if decision == "reply":
-                state.reply = "乾坤圈: 时辰与经络俱明。"
+                state.reply = "Agent 运行时底座: 时间与工作流状态已汇总。"
                 state.status = AgentStatus.DONE
                 state.messages.append({"role": "assistant", "content": state.reply})
                 reason = evaluate_stop(state, self.max_steps)

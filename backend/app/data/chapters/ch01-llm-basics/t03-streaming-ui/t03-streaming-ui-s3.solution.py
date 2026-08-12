@@ -1,4 +1,4 @@
-"""灵讯通 · s3:打字机界面
+"""星澈助手 · s3:打字机界面
 把增量文本逐字刷到终端:print(end="", flush=True) 加节奏控制。
 """
 import os
@@ -10,7 +10,7 @@ from openai import OpenAI
 
 MOCK = bool(os.environ.get("MOCK_LLM"))
 if not MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     print("(本地演示可设置 MOCK_LLM=1 使用内置假回复)")
     sys.exit(0)
@@ -82,7 +82,7 @@ def main() -> None:
     client = create_client(config)
     question = "写一段 30 字左右的自我介绍。"
     print(f"你: {question}")
-    print("灵讯通: ", end="", flush=True)
+    print("星澈助手: ", end="", flush=True)
     start = time.perf_counter()
     # MOCK 演示时放慢节奏,真实模式跟紧 API 的推送速度
     reply = typewriter_print(client, config, question,

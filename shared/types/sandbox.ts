@@ -18,6 +18,8 @@ export interface SandboxRunRequest {
   env?: Record<string, string>
   /** 是否需要联网(调 LLM API 等);true 时沙箱开放网络 */
   needsNetwork?: boolean
+  /** 由课程步骤决定的教学沙箱，不接受任意镜像名。 */
+  sandboxProfile?: 'core' | 'ml'
 }
 
 /** 沙箱执行响应(扩展 SandboxOutput) */
@@ -26,6 +28,13 @@ export interface SandboxRunResponse extends SandboxOutput {
   truncated?: boolean
   /** 执行错误信息(如沙箱不可用) */
   error?: string
+}
+
+/** 服务端行为测试的最终结果。测试文件与执行策略均由服务端决定。 */
+export interface StepValidationResponse {
+  stepId: string
+  passed: boolean
+  output: SandboxRunResponse
 }
 
 /** 沙箱状态(健康检查 /api/health 返回) */

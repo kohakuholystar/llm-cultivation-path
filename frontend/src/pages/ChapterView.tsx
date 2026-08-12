@@ -26,7 +26,7 @@ export function ChapterView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link to="/learn" className="text-sm text-brand-600 hover:underline">
-        ‹ 返回修炼之路
+        ‹ 返回学习之路
       </Link>
       <h1 className="mt-2 text-3xl font-bold text-slate-900">{chapter.title}</h1>
       <p className="mt-1 text-slate-500">{chapter.theme}</p>

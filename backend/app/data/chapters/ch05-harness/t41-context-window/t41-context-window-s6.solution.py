@@ -1,4 +1,4 @@
-"""乾坤圈 · s6:总装——黑盒上下文管理器
+"""Agent 运行时底座 · s6:总装——黑盒上下文管理器
 
 前五步的散件(称重、滚动摘要、重要性评分、淘汰、溢出恢复)
 在本步拧成一根完整的轴:外部只调用 add / snapshot / stats
@@ -105,7 +105,7 @@ def recover_overflow(current: list, budget: TokenBudget, summary: SummaryBuffer)
 
 
 class ContextManager:
-    """乾坤圈总装:对外只暴露 add / snapshot / stats 三个动作。"""
+    """Agent 运行时底座总装:对外只暴露 add / snapshot / stats 三个动作。"""
 
     def __init__(self, budget=None, summary_max_chars: int = 200):
         self.budget = budget or TokenBudget(total=900, reserve_output=760)
@@ -138,13 +138,13 @@ class ContextManager:
 def main():
     cm = ContextManager()
     msgs = [
-        Message("system", "你是乾坤圈,负责管理对话窗口。"),
-        Message("user", "第1轮:请汇报今日灵气收支情况。附上月对比与结余明细。"),
+        Message("system", "你是Agent 运行时底座,负责管理对话窗口。"),
+        Message("user", "第1轮:请汇报今日运行资源收支情况。附上月对比与结余明细。"),
         Message("assistant", "收入五千二,支出三千一,结余两千一。对比上月整体健康,无异常波动。"),
-        Message("tool", "tool_result: 灵脉图已生成,存于藏经阁第三层。附各坊产量明细。"),
+        Message("tool", "tool_result: 网络图已生成,存于黑糖资料室第三层。附各模块产量明细。"),
         Message("user", "第2轮:结余如何处置?"),
-        Message("assistant", "建议三条:一扩丹房,二修大阵,三储备灵石。"),
-        Message("user", "第3轮:扩丹房需多少灵石?请估算回本周期,并对比现有丹房产量与矿石品质,给出灵矿储备明细。"),
+        Message("assistant", "建议三条:一扩丹房,二修大阵,三储备预算点。"),
+        Message("user", "第3轮:扩丹房需多少预算点?请估算回本周期,并对比现有丹房产量与矿石品质,给出灵矿储备明细。"),
     ]
     for m in msgs:
         cm.add(m)

@@ -5,7 +5,7 @@
       "taskId": "t50-message-bus",
       "order": 1,
       "title": "消息协议:Agent 的第一门共同语言",
-      "instruction": "### 目标\n\n本章主题是「天庭」——一支由多个 Agent 组成的虚拟开发团队。本步先立规矩:所有 Agent 之间只通过统一的消息结构沟通。你要完成 `Message` 数据类的两个方法:`to_dict()` 把消息转成字典,`__str__()` 给出人类可读的一行摘要,并运行一段模拟「任务分派 → 进度汇报 → 系统告警」的小剧场,验证协议可用。\n\n### 原理\n\n多 Agent 协作的第一步是确定「说什么语言」。如果把沟通写成「调对方函数」,每个 Agent 都得知道其他 Agent 的内部接口,耦合极深,新增一个成员就要改一大片代码。消息协议把沟通降级为「生产消息、消费消息」:消息只包含六个字段——`sender`(谁发的)、`receiver`(发给谁)、`topic`(主题)、`payload`(载荷)、`msg_id`(全局唯一编号)与 `ts`(时间戳),任何 Agent 看到一条消息都能独立理解它。`dataclass` 自动生成 `__init__` 与 `__repr__`;`field(default_factory=...)` 让 `msg_id` 与 `ts` 在每条消息创建时自动填充,无需手动传入——这是「每条消息都自带身份与时间」的保证。\n\n### 操作\n\n1. 实现 `Message.to_dict()`,返回含 `msg_id / ts / sender / receiver / topic / payload` 六键的字典;\n2. 实现 `Message.__str__()`,返回格式为 `f\"[{self.ts}] {self.sender} -> {self.receiver} <{self.topic}> {self.payload}\"` 的一行摘要;\n3. 运行脚本,确认先打印三条消息摘要,再按「== 序列化为字典 ==」逐键打印。\n\n### 常见坑\n\n- `field(default_factory=_next_id)` 的 `_next_id` 是模块级函数,不能写成 `field(default_factory=next(_ID_GEN))`——后者在创建类时就求值了,所有消息会共用同一个编号;\n- `__str__` 返回的是字符串,**不是 print**:只写 `return`,不要在里面 `print`;\n- `to_dict` 的键名要与字段名保持一致,后续步骤的落库、审计都依赖这份契约。\n",
+      "instruction": "### 目标\n\n本章主题是「校园 AI 社」——一支由多个 Agent 组成的虚拟开发团队。本步先立规矩:所有 Agent 之间只通过统一的消息结构沟通。你要完成 `Message` 数据类的两个方法:`to_dict()` 把消息转成字典,`__str__()` 给出人类可读的一行摘要,并运行一段模拟「任务分派 → 进度汇报 → 系统告警」的小剧场,验证协议可用。\n\n### 原理\n\n多 Agent 协作的第一步是确定「说什么语言」。如果把沟通写成「调对方函数」,每个 Agent 都得知道其他 Agent 的内部接口,耦合极深,新增一个成员就要改一大片代码。消息协议把沟通降级为「生产消息、消费消息」:消息只包含六个字段——`sender`(谁发的)、`receiver`(发给谁)、`topic`(主题)、`payload`(载荷)、`msg_id`(全局唯一编号)与 `ts`(时间戳),任何 Agent 看到一条消息都能独立理解它。`dataclass` 自动生成 `__init__` 与 `__repr__`;`field(default_factory=...)` 让 `msg_id` 与 `ts` 在每条消息创建时自动填充,无需手动传入——这是「每条消息都自带身份与时间」的保证。\n\n### 操作\n\n1. 实现 `Message.to_dict()`,返回含 `msg_id / ts / sender / receiver / topic / payload` 六键的字典;\n2. 实现 `Message.__str__()`,返回格式为 `f\"[{self.ts}] {self.sender} -> {self.receiver} <{self.topic}> {self.payload}\"` 的一行摘要;\n3. 运行脚本,确认先打印三条消息摘要,再按「== 序列化为字典 ==」逐键打印。\n\n### 常见坑\n\n- `field(default_factory=_next_id)` 的 `_next_id` 是模块级函数,不能写成 `field(default_factory=next(_ID_GEN))`——后者在创建类时就求值了,所有消息会共用同一个编号;\n- `__str__` 返回的是字符串,**不是 print**:只写 `return`,不要在里面 `print`;\n- `to_dict` 的键名要与字段名保持一致,后续步骤的落库、审计都依赖这份契约。\n",
       "hints": [
         {
           "order": 1,
@@ -479,8 +479,8 @@
       "id": "t50-message-bus-s6",
       "taskId": "t50-message-bus",
       "order": 6,
-      "title": "迷你天庭:多 Agent 流水线闭环",
-      "instruction": "### 目标\n\n收官实战:组装一个「迷你天庭」。产品经理发任务、开发汇报进度、质检官 `qa_gate` 把关放行,所有消息流入总线,`blackboard_bridge` 把一切沉淀成黑板,最后 `daily_report` 输出一天的日报。你要完成 `qa_gate` 与 `daily_report` 两个函数,让整条流水线闭环运行。\n\n### 原理\n\n前面五步的工具在此汇成一条完整流水线。`blackboard_bridge` 订阅 `task.#`,把任何 task 类消息的整条 payload 都写进黑板,键为 `task.{任务}.{事件}`;`qa_gate` 是质检官:只有进度 100% 且带提交 commit 的任务才算通过,通过就把结果写黑板、并向总线广播 `task.accepted`,否则广播 `task.rejected`——被广播的新消息又会触发 `blackboard_bridge` 写入黑板,形成「消息驱动状态更新」的连锁反应,但因为桥接器只写黑板、不发布新消息,所以不会有死循环。`daily_report` 则是整个系统的观测口:读总线审计、按主题统计、再读黑板快照,一次看清全貌。\n\n### 操作\n\n1. 实现 `qa_gate`:订阅 `\"task.done\"`,判定 `percent == 100` 且 `commit` 非空;通过则写 `task.{task}.qa = \"通过\"` 并发布 `\"task.accepted\"`,否则写 `\"打回\"` 并发布 `\"task.rejected\"`,author/sender 用 `\"qa_1\"`;\n2. 实现 `daily_report`:按示例格式打印日报头部、逐条消息、主题统计、黑板快照与收尾行;\n3. 运行脚本,确认日报中出现 `task.accepted` 广播与最终黑板快照。\n\n### 常见坑\n\n- `qa_gate` 里 `payload.get(\"percent\") == 100` 要用 `==` 而不是 `is`——字典取值是 int,`is` 比较的是对象身份;\n- 广播的 `topic` 是 `\"task.accepted\" if passed else \"task.rejected\"`,在同一个 `Message` 构造函数里用三元表达式一次完成,不要写两个分支重复代码;\n- `daily_report` 的 `stat` 用 `Counter` 聚合 `bus.published` 的主题,统计里应包含广播出的 `task.accepted`,共 5 个主题——如果少了,说明广播时机不对。\n",
+      "title": "迷你校园 AI 社:多 Agent 流水线闭环",
+      "instruction": "### 目标\n\n收官实战:组装一个「迷你校园 AI 社」。产品经理发任务、开发汇报进度、质检官 `qa_gate` 把关放行,所有消息流入总线,`blackboard_bridge` 把一切沉淀成黑板,最后 `daily_report` 输出一天的日报。你要完成 `qa_gate` 与 `daily_report` 两个函数,让整条流水线闭环运行。\n\n### 原理\n\n前面五步的工具在此汇成一条完整流水线。`blackboard_bridge` 订阅 `task.#`,把任何 task 类消息的整条 payload 都写进黑板,键为 `task.{任务}.{事件}`;`qa_gate` 是质检官:只有进度 100% 且带提交 commit 的任务才算通过,通过就把结果写黑板、并向总线广播 `task.accepted`,否则广播 `task.rejected`——被广播的新消息又会触发 `blackboard_bridge` 写入黑板,形成「消息驱动状态更新」的连锁反应,但因为桥接器只写黑板、不发布新消息,所以不会有死循环。`daily_report` 则是整个系统的观测口:读总线审计、按主题统计、再读黑板快照,一次看清全貌。\n\n### 操作\n\n1. 实现 `qa_gate`:订阅 `\"task.done\"`,判定 `percent == 100` 且 `commit` 非空;通过则写 `task.{task}.qa = \"通过\"` 并发布 `\"task.accepted\"`,否则写 `\"打回\"` 并发布 `\"task.rejected\"`,author/sender 用 `\"qa_1\"`;\n2. 实现 `daily_report`:按示例格式打印日报头部、逐条消息、主题统计、黑板快照与收尾行;\n3. 运行脚本,确认日报中出现 `task.accepted` 广播与最终黑板快照。\n\n### 常见坑\n\n- `qa_gate` 里 `payload.get(\"percent\") == 100` 要用 `==` 而不是 `is`——字典取值是 int,`is` 比较的是对象身份;\n- 广播的 `topic` 是 `\"task.accepted\" if passed else \"task.rejected\"`,在同一个 `Message` 构造函数里用三元表达式一次完成,不要写两个分支重复代码;\n- `daily_report` 的 `stat` 用 `Counter` 聚合 `bus.published` 的主题,统计里应包含广播出的 `task.accepted`,共 5 个主题——如果少了,说明广播时机不对。\n",
       "hints": [
         {
           "order": 1,
@@ -568,8 +568,8 @@
         },
         {
           "type": "sandbox_run",
-          "message": "运行应输出完整的天庭日报,含 accepted 广播与黑板快照。",
-          "expectedStdout": "===== 天庭日报 =====[\\s\\S]*task\\.accepted[\\s\\S]*===== 日报结束 =====",
+          "message": "运行应输出完整的校园 AI 社日报,含 accepted 广播与黑板快照。",
+          "expectedStdout": "===== 校园 AI 社日报 =====[\\s\\S]*task\\.accepted[\\s\\S]*===== 日报结束 =====",
           "stderrMustBeEmpty": true,
           "expectedExitCode": 0,
           "blocking": true

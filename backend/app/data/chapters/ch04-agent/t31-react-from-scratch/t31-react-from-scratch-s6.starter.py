@@ -1,10 +1,11 @@
-"""百宝囊 · t31-s6:上限保护与健壮性 —— 把玩具循环打磨成生产级 Agent。"""
+"""社团工具箱 · t31-s6:上限保护与健壮性 —— 把玩具循环打磨成生产级 Agent。"""
 
+# ????????? ReAct ?????????????????run_react ??????????????????????????????????????????????????t31-s5???????????????????????
 import ast, collections, json, operator, os, re, sys
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-REACT_INSTRUCTION = """你是「百宝囊」Agent,借助工具完成任务。每轮严格按格式输出,不要输出其他内容:
+REACT_INSTRUCTION = """你是「社团工具箱」Agent,借助工具完成任务。每轮严格按格式输出,不要输出其他内容:
 Thought: 思考 / Action: 工具名 / Action Input: JSON 参数(无参数写 {})
 掌握足够信息后改输出: Thought: 总结 + Final Answer: 最终答案"""
 
@@ -34,9 +35,9 @@ def calculate(expression: str) -> str:
     except (ValueError, SyntaxError, ZeroDivisionError): return f"错误:无法计算表达式 {expression!r}"
 
 
-TOOL_MANUAL = "法宝图鉴:\n" + "\n".join(f"- {n}: {f.tool_description}" for n, f in TOOLBOX.items())  # 注册表自动生成说明书
+TOOL_MANUAL = "工具清单:\n" + "\n".join(f"- {n}: {f.tool_description}" for n, f in TOOLBOX.items())  # 注册表自动生成说明书
 
-def build_prompt(question: str, scratchpad: str = "") -> str:  # 法宝图鉴 + 问题 + 历史轨迹(scratchpad)
+def build_prompt(question: str, scratchpad: str = "") -> str:  # 工具清单 + 问题 + 历史轨迹(scratchpad)
     return f"{TOOL_MANUAL}\n\n问题: {question}\n\n已完成的步骤:\n{scratchpad}\n请输出下一轮(以 Thought 开头):"
 
 MOCK_SCRIPT = ['Thought: 先算 (3 + 4) * 5。\nAction: calculate\nAction Input: {"expression": "(3 + 4) * 5"}', 'Thought: 得到 35,接下来乘以 2。\nAction: calculate\nAction Input: {"expression": "35 * 2"}', "Thought: 算出 70,可以收尾。\nFinal Answer: (3 + 4) * 5 = 35,35 × 2 = 70,最终答案是 70。"]

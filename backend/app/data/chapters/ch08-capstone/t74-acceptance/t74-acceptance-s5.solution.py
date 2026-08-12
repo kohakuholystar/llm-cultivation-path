@@ -20,8 +20,8 @@ def test_load_kb_splits_chunks():
 
 
 def test_retrieve_scores_by_frequency():
-    hits = retrieve("渡劫 飞升", ["渡劫飞升需要雷劫淬体", "心魔劫最难渡过", "飞升之后成仙"])
-    assert hits[0][0] == "渡劫飞升需要雷劫淬体"
+    hits = retrieve("上线验收 完成交付", ["黑糖资料室需要故障演练", "异常恢复最需要验证", "完成交付之后完成项目"])
+    assert hits[0][0] == "黑糖资料室需要故障演练"
 
 
 def test_p95_fixed():
@@ -29,7 +29,7 @@ def test_p95_fixed():
 
 
 def test_perf_p95_within_budget():
-    assert p95(bench_retrieve(KB, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+    assert p95(bench_retrieve(KB, "上线验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
 
 
 def test_run_checks_all_pass(tmp_path):
@@ -50,7 +50,7 @@ def test_report_sections():
 
 def test_report_ok():
     r = build_report((TEST_TOTAL, TEST_TOTAL, 0), 1.0, [{"name": "a", "ok": True, "desc": "d"}] * 6)
-    assert "可以上线渡劫!" in r
+    assert "可以上线上线验收!" in r
 
 
 def test_report_blocked():
@@ -72,7 +72,7 @@ CHECKLIST_YAML = """
 - {name: 延迟达标, desc: 线上延迟达标}
 """
 
-KB = ["渡劫需渡雷劫", "心魔劫最难渡过", "飞升需法器"]
+KB = ["上线验收需要覆盖故障", "异常恢复最需要验证", "完成交付需工具"]
 
 TEST_TOTAL = 9
 
@@ -107,10 +107,10 @@ def p95(times):
 
 
 def run_checks(kb, backup_path):
-    lat = lambda: p95(bench_retrieve(kb, "渡劫 雷劫", rounds=10)) * 1000 <= PERF_BUDGET_MS
+    lat = lambda: p95(bench_retrieve(kb, "上线验收 故障", rounds=10)) * 1000 <= PERF_BUDGET_MS
     checks = {
         "知识库可加载": lambda: len(kb) > 0,
-        "检索可用": lambda: len(retrieve("渡劫", kb)) > 0,
+        "检索可用": lambda: len(retrieve("上线验收", kb)) > 0,
         "性能达标": lat,
         "工具就绪": lambda: "calc" in TOOL_TABLE,
         "备份存在": lambda: Path(backup_path).exists(),
@@ -123,12 +123,12 @@ def run_checks(kb, backup_path):
 def build_report(stats, perf_ms, checks):
     total, passed, failed = stats
     ok = failed == 0 and perf_ms <= PERF_BUDGET_MS and all(c["ok"] for c in checks)
-    lines = ["# 渡劫飞升 · 上线复盘报告", "",
+    lines = ["# 黑糖资料室 · 上线复盘报告", "",
              "## 1 测试统计", f"共 {total} 个用例,通过 {passed} 个,失败 {failed} 个", "",
              "## 2 性能基线", f"检索 P95 = {perf_ms:.1f} ms(预算 {PERF_BUDGET_MS} ms)", "",
              "## 3 上线清单", ""]
     lines += [f"- {c['name']}:{'通过' if c['ok'] else '未通过'}" for c in checks]
-    lines += ["", "## 4 结论", "全部通过,可以上线渡劫!" if ok else "存在未通过项,禁止上线。"]
+    lines += ["", "## 4 结论", "全部通过,可以上线上线验收!" if ok else "存在未通过项,禁止上线。"]
     return "\n".join(lines)
 
 
@@ -142,17 +142,17 @@ def run_tests(work_dir):
 
 
 def main():
-    print("== 渡劫飞升 · 复盘与上线 s5 ==")
+    print("== 黑糖资料室 · 复盘与上线 s5 ==")
     backup = os.path.join(tempfile.gettempdir(), "kb_backup.json")
-    Path(backup).write_text('{"kb": "渡劫飞升知识库备份"}', encoding="utf-8")
+    Path(backup).write_text('{"kb": "黑糖资料室知识库备份"}', encoding="utf-8")
     with tempfile.TemporaryDirectory() as d:
         stats = run_tests(d)
         rp = os.path.join(d, "REPORT.md")
-        perf_ms = p95(bench_retrieve(KB, "渡劫 雷劫", rounds=20)) * 1000
+        perf_ms = p95(bench_retrieve(KB, "上线验收 故障", rounds=20)) * 1000
         report = build_report(stats, perf_ms, run_checks(KB, backup))
         Path(rp).write_text(report, encoding="utf-8")
         print(f"复盘报告已生成:{rp}")
-    print("渡劫飞升,全部通过,可以上线!")
+    print("黑糖资料室,全部通过,可以上线!")
 
 
 if __name__ == "__main__":

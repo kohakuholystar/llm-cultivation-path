@@ -1,10 +1,4 @@
-"""铸剑台 · s4:备好退路 —— with_fallbacks 降级链
-
-结构化锻房有一个软肋:模型输出不合契约时 parser 会抛异常,链条当场崩断。
-本步给锻房挂上"备用炉":primary.with_fallbacks([fallback]),
-主链失败自动切散文副链,客人绝不空手而归;
-MOCK 剧本里第一炉 JSON 残缺逼出降级,第二炉合格展示恢复。
-"""
+"""黑糖资料室 · 项目咨询路由 · s4：用 LangChain 完成可验证的学习任务。"""
 import os
 import sys
 
@@ -20,21 +14,21 @@ MOCK_LLM = os.environ.get("MOCK_LLM") == "1"
 
 # 无 Key 且未开 MOCK 时给出引导并优雅退出
 if not MOCK_LLM and not os.environ.get("OPENAI_API_KEY"):
-    print("[铸剑台] 未检测到 OPENAI_API_KEY。")
+    print("[提示词工作台] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
 INTENT_OPTIONS = ("forge", "inscribe", "appraise", "chat")
-MOCK_SWORD_JSON = '{"name": "青霜", "material": "寒铁", "sharpness": 92, "inscription": "霜刃未曾试"}'
+MOCK_SWORD_JSON = '{"name": "晨光", "material": "冷色调素材", "sharpness": 92, "inscription": "让创意被看见"}'
 
 
 class SwordOrder(BaseModel):
-    """铸剑单(t12 的数据契约):锻房的硬出口。"""
+    """制作单(t12 的数据契约):制作组的硬出口。"""
 
-    name: str = Field(description="剑名,两到四个汉字")
-    material: str = Field(description="主材,如 寒铁/玄钢/陨星砂")
-    sharpness: int = Field(ge=1, le=100, description="锋芒值,1-100")
-    inscription: str = Field(description="剑身铭文,不超过十二字")
+    name: str = Field(description="方案名称,两到四个汉字")
+    material: str = Field(description="主材,如 冷色调图片/品牌字体/活动图标")
+    sharpness: int = Field(ge=1, le=100, description="质量评分,1-100")
+    inscription: str = Field(description="方案文案,不超过十二字")
 
 
 parser = PydanticOutputParser(pydantic_object=SwordOrder)
@@ -53,10 +47,10 @@ def build_llm(mock_replies=None) -> BaseChatModel:
 
 
 def build_classifier_chain():
-    """意图分类链:本步剧本判出 铸剑 → 铭文 → 铸剑。"""
+    """意图分类链:本步剧本判出 制作 → 文案 → 制作。"""
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑台的接待。判断客人来意,只回答一个词:"
-                   "forge(铸剑)、inscribe(题铭文)、appraise(鉴剑)、chat(闲聊)。"),
+        ("system", "你是提示词工作台的接待。判断客人来意,只回答一个词:"
+                   "forge(内容制作)、inscribe(撰写文案)、appraise(质量评审)、chat(闲聊)。"),
         ("human", "{request}"),
     ])
     return prompt | build_llm(["forge", "inscribe", "forge"]) | StrOutputParser()
@@ -71,38 +65,38 @@ def normalize_intent(raw: str) -> str:
 
 
 def build_structured_forge_chain():
-    """锻房主链:产出 SwordOrder;JSON 不合格会抛 OutputParserException。"""
+    """制作组主链:产出 SwordOrder;JSON 不合格会抛 OutputParserException。"""
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑大师,按契约输出铸剑单 JSON。"),
+        ("system", "你是内容策划助手,按契约输出内容方案单 JSON。"),
         ("human", "客人需求:{request}\n{format_instructions}"),
     ]).partial(format_instructions=parser.get_format_instructions())
-    # MOCK 剧本:第一炉 JSON 残缺(逼出降级),第二炉合格(展示恢复)
-    return prompt | build_llm(['{"name": "青霜", "material": "寒铁", "sha', MOCK_SWORD_JSON]) | parser
+    # MOCK 剧本:第一流程 JSON 残缺(逼出降级),第二流程合格(展示恢复)
+    return prompt | build_llm(['{"name": "晨光", "material": "冷色调素材", "sha', MOCK_SWORD_JSON]) | parser
 
 
 def build_fallback_forge_chain():
-    """锻房副链:不要契约只要人话,故障面更小,兜底用。"""
+    """制作组副链:不要契约只要人话,故障面更小,兜底用。"""
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是铸剑大师,用三句散文给出铸剑建议。"),
+        ("system", "你是内容策划助手,用三句散文给出内容制作建议。"),
         ("human", "{request}"),  # 输入变量必须与主链一致,否则降级时再炸一次
     ])
-    return prompt | build_llm(["[降级] 炉火正旺,且以玄钢打底,徐徐图之。"]) | StrOutputParser()
+    return prompt | build_llm(["[降级] 模型服务繁忙,先使用品牌字体完成基础版式,稍后再补充细节。"]) | StrOutputParser()
 
 
 def build_forge_chain():
-    """主链挂副链:主链抛异常时自动降级,客人绝不空手而归。"""
+    """主链挂副链:主链抛异常时自动降级,咨询者绝不空手而归。"""
     # with_fallbacks 的参数是 Runnable 的【列表】,按序尝试;默认捕获所有 Exception
     return build_structured_forge_chain().with_fallbacks([build_fallback_forge_chain()])
 
 
 def build_inscribe_chain():
-    """铭文坊:为宝剑题铭文。"""
-    prompt = ChatPromptTemplate.from_messages([("system", "你是铭文师,题一句四言或七言铭文。"), ("human", "{request}")])
-    return prompt | build_llm(["霜刃未曾试,今日把示君。"]) | StrOutputParser()
+    """文案组:为内容方案撰写文案。"""
+    prompt = ChatPromptTemplate.from_messages([("system", "你是文案师,题一句四言或七言文案。"), ("human", "{request}")])
+    return prompt | build_llm(["让创意被看见,今日把示君。"]) | StrOutputParser()
 
 
 def build_router():
-    """路由器照旧:挂了降级的锻房链对上游完全透明。"""
+    """路由器照旧:挂了降级的制作组链对上游完全透明。"""
     classify = build_classifier_chain() | normalize_intent
     return RunnablePassthrough.assign(intent=classify) | RunnableBranch(
         (lambda x: x["intent"] == "forge", build_forge_chain()),
@@ -112,15 +106,15 @@ def build_router():
 
 
 def main() -> None:
-    """两次铸剑:第一炉降级为散文,第二炉恢复正常出铸剑单。"""
+    """两次制作:第一流程降级为散文,第二流程恢复正常出制作单。"""
     router = build_router()
-    guests = ["我要铸一柄佩剑", "给此剑题句铭文", "再铸一柄更好的"]
-    print("== 铸剑台 · 备用炉演练 ==")
+    guests = ["我要制作一份活动主视觉", "为这份方案写一句短文案", "再制作一份更好的"]
+    print("== 提示词工作台 · 备用链演练 ==")
     for g in guests:
         result = router.invoke({"request": g})
         if isinstance(result, SwordOrder):
-            print(f"「{g}」→ 主链出货 · 铸剑单:{result.name}|锋芒{result.sharpness}")
-        else:  # 副链散文自带 [降级] 标记:主链失手,备用炉顶上
+            print(f"「{g}」→ 主链出货 · 内容方案单:{result.name}|质量{result.sharpness}")
+        else:  # 副链散文自带 [降级] 标记:主链失手,备用流程顶上
             print(f"「{g}」→ {result}")
 
 

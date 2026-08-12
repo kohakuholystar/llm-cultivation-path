@@ -1,4 +1,4 @@
-"""铸剑台 · 第五步:原生 SDK vs LCEL 对比实验 —— 铸剑台 v0.1 收炉。"""
+"""黑糖资料室 · LCEL 处理管道 · s5：用 LangChain 完成可验证的学习任务。"""
 import os
 import sys
 import time
@@ -12,7 +12,7 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 
 # 两条路线共用同一份提示词语义,保证实验公平
-SYSTEM_PROMPT = "你是铸剑师,只输出剑名,格式:剑名「X」。"
+SYSTEM_PROMPT = "你是内容策划助手,只输出方案名称,格式:方案名称「X」。"
 
 
 def use_mock() -> bool:
@@ -32,7 +32,7 @@ def check_api_key() -> None:
 def call_native_sdk(material: str) -> str:
     """路线一:原生 openai SDK —— 手动拼 messages、手动剥响应,每步都自己管。"""
     if use_mock():
-        return f"剑名「{material[:2]}锋」(原生 mock)"
+        return f"方案名称「{material[:2]}锋」(原生 mock)"
     from openai import OpenAI
     # 不传参:SDK 自动读 OPENAI_API_KEY / OPENAI_BASE_URL 环境变量
     client = OpenAI()
@@ -54,7 +54,7 @@ def build_lcel_chain():
         ("human", "材料:{material}"),
     ])
     if use_mock():
-        llm = FakeListChatModel(responses=["剑名「青霜」(LCEL mock)"] * 3)
+        llm = FakeListChatModel(responses=["方案名称「晨光」(LCEL mock)"] * 3)
     else:
         llm = ChatOpenAI(model=MODEL_NAME, base_url=BASE_URL, temperature=0.7, timeout=30)
     return prompt | llm | StrOutputParser()
@@ -76,11 +76,11 @@ def compare(material: str, chain) -> None:
 def main() -> None:
     check_api_key()
     chain = build_lcel_chain()
-    print(f"铸剑台 v0.1 对比实验 [{MODEL_NAME}]")
-    for material in ["天外陨铁", "千年寒玉"]:
+    print(f"提示词工作台 v0.1 对比实验 [{MODEL_NAME}]")
+    for material in ["活动素材", "校园照片"]:
         compare(material, chain)
-    print("结论:同炉同火,单次调用两者相当;LCEL 胜在组件可复用、可批量、可预设,")
-    print("流程长成多环链时,原生 SDK 的手动拼装会先乱。铸剑台 v0.1 收炉。")
+    print("结论:同处理器同火,单次调用两者相当;LCEL 胜在组件可复用、可批量、可预设,")
+    print("流程长成多环链时,原生 SDK 的手动拼装会先乱。提示词工作台 v0.1 收处理器。")
 
 
 if __name__ == "__main__":

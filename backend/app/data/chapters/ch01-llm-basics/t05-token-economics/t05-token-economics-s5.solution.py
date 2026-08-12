@@ -1,10 +1,10 @@
-"""灵讯通 · 成本仪表盘 v1.0:多会话用量统计报表——章项目收官。"""
+"""星澈助手 · 成本仪表盘 v1.0:多会话用量统计报表——章项目收官。"""
 import functools
 import tiktoken
 from dataclasses import dataclass
 
 PAT_STR = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-FALLBACK_WORDS = ["灵讯通", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
+FALLBACK_WORDS = ["星澈助手", "成本", "仪表盘", "预算", "守卫", "会话", "报表", "助手", "的", "了", "你", "好", "请", "问", "是", "我", "一个", "回复", "用户", "系统"]
 CHAT_OVERHEAD = 4  # 每条 chat 消息的包装开销(教学近似值)
 MODEL_NAME = "deepseek-v4-pro"
 
@@ -108,15 +108,15 @@ def budget_guard(max_budget: float, meter: TokenMeter, ledger: UsageLedger = Non
 
 def mock_chat(messages: list[dict], max_tokens: int = 200) -> dict:
     prompt_tokens, completion_tokens = TokenMeter().count_messages(messages), min(32, max_tokens)  # 离线假 LLM
-    return {"reply": "收到,灵讯通成本助手已记录你的请求。", "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "cost": estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens)}
+    return {"reply": "收到,星澈助手成本助手已记录你的请求。", "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "cost": estimate_cost(MODEL_NAME, prompt_tokens, completion_tokens)}
 
 
 def render_report(ledger: UsageLedger, budget: float, rejected: int) -> str:
-    """把账本渲染成灵讯通成本仪表盘:返回字符串,与打印解耦,便于测试。"""
+    """把账本渲染成星澈助手成本仪表盘:返回字符串,与打印解耦,便于测试。"""
     sessions = ledger.by_session()
-    if not sessions: return "灵讯通 · 成本仪表盘\n暂无用量记录。"
+    if not sessions: return "星澈助手 · 成本仪表盘\n暂无用量记录。"
     total, calls = ledger.total_cost(), sum(s["calls"] for s in sessions.values())  # 平均值是隐藏的异常探测器
-    rows = ["灵讯通 · 成本仪表盘", f"{'会话':<6} {'调用':>2} {'tokens':>5} {'成本(元)':>10}"]
+    rows = ["星澈助手 · 成本仪表盘", f"{'会话':<6} {'调用':>2} {'tokens':>5} {'成本(元)':>10}"]
     rows += [f"{sid:<6} {s['calls']:>4} {s['tokens']:>6} {s['cost']:>13.6f}" for sid, s in sessions.items()]
     rows.append(f"总成本 ¥{total:.6f} / 预算 ¥{budget:.4f} | 共 {calls} 次调用(均 ¥{total / calls:.6f}),守卫拒绝 {rejected} 次")
     rows.append("状态: " + ("预算告急,请充值或收紧 max_tokens" if total > budget * 0.8 else "预算健康"))  # 阈值写成预算的比例
@@ -125,7 +125,7 @@ def render_report(ledger: UsageLedger, budget: float, rejected: int) -> str:
 def main() -> None:
     meter, ledger, budget = TokenMeter(), UsageLedger(), 0.0025
     guarded_chat = budget_guard(max_budget=budget, meter=meter, ledger=ledger)(mock_chat)
-    plan = [("客服会话", "帮我写一句灵讯通的欢迎语"), ("客服会话", "再写一句口号"), ("售后会话", "写一条退款安抚回复"), ("售后会话", "再写一条更诚恳的"), ("售后会话", "继续写第三条")]
+    plan = [("客服会话", "帮我写一句星澈助手的欢迎语"), ("客服会话", "再写一句口号"), ("售后会话", "写一条退款安抚回复"), ("售后会话", "再写一条更诚恳的"), ("售后会话", "继续写第三条")]
     for session_id, prompt in plan:
         try:
             guarded_chat([{"role": "user", "content": prompt}], max_tokens=200, session_id=session_id)

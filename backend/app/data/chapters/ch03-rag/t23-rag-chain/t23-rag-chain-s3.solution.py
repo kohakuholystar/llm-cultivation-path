@@ -1,4 +1,4 @@
-"""藏经阁第 3 步:RAG 链组装 —— 本地检索 + DeepSeek 生成。
+"""黑糖资料室第 3 步:RAG 链组装 —— 本地检索 + DeepSeek 生成。
 
 问题 → 向量检索 top-k → 片段拼进 prompt → deepseek-v4-pro 基于证据作答。
 设置 MOCK_LLM=1 可在无网环境用假回复演示整条链路。
@@ -14,27 +14,27 @@ EMBED_DIM, TOP_K = 512, 3
 MODEL_NAME = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 
-# 藏经阁秘籍总目(第 1 步登记的语料,内联自带保证单文件可跑)
+# 黑糖资料室参考资料总目(第 1 步登记的语料,内联自带保证单文件可跑)
 DOCUMENTS = [
-    {"doc_id": "yjj", "source": "《易筋经·卷一》", "content": "易筋经乃少林镇寺之宝,讲究以意导气、以气运力。修习者需每日寅时起身,面东而立,先行吐纳三十六次,再依图谱摆出十二式桩架。初学者切忌贪快,桩架不正则气行偏差,轻则筋骨酸痛,重则伤及经络。经中明言:宁可十日不进阶,不可一日错行功。"},
-    {"doc_id": "jy", "source": "《九阳真经·总纲》", "content": "九阳真经重在内力生生不息。其总纲云:他强由他强,清风拂山岗。修习九阳神功者,内力自行周天运转,寒暑不侵,百毒难伤。然此功进境极缓,非有大毅力者不能成。觉远大师于华山之巅口述此经,张君宝与郭襄各得一部分,后衍化为武当、峨眉两派内功根基。"},
-    {"doc_id": "dg", "source": "《独孤九剑·剑理篇》", "content": "独孤九剑共九式,破尽天下武功。其核心剑理只有四个字:料敌机先。风清扬传令狐冲时言:剑招是死的,人是活的,无招胜有招。破剑式用以破解各派剑法,破刀式克制单刀双刀,破气式则专克内功深厚的对手。习此剑者须忘却固定招式,只记剑意。"},
-    {"doc_id": "qk", "source": "《乾坤大挪移·心法》", "content": "乾坤大挪移为明教镇教神功,共分七层。其要义在于激发人体潜力、挪移乾坤二气。第一层需七年苦修,第二层加倍,层层递进。张无忌因身具九阳神功,内力深厚,方能在密道中速成。此功最忌根基不牢而强行冲关,历代教主多有因此殒命者。"},
+    {"doc_id": "yjj", "source": "《文档切分指南·第一章》", "content": "文档切分指南是资料组的核心文档。处理前先统一编码与换行,再按标题、段落和长度边界切分。初学者不要只追求切块数量:片段过短会丢失上下文,片段过长会降低检索精度。每次调整参数后都应保存样例并复查引用是否仍能回到原文。"},
+    {"doc_id": "jy", "source": "《检索基础指南·总纲》", "content": "检索基础指南强调召回稳定性。查询进入系统后先规范化文本,再从索引中取得候选片段。候选不足时应记录未命中的查询,而不是让生成模型补写事实。资料组、开发组和测试组分别维护数据、实现与回归样例。"},
+    {"doc_id": "dg", "source": "《重排设计指南》", "content": "重排设计指南介绍如何把更相关的候选放到前面。先保留召回阶段的候选集,再结合关键词覆盖、来源质量和位置特征计算分数。同分结果使用稳定的文档编号排序,避免多次运行顺序漂移。"},
+    {"doc_id": "qk", "source": "《黑糖资料室·检索设计》", "content": "黑糖资料室采用分层检索设计,共分数据加载、文本切分、候选召回、结果重排与引用生成五层。其要义是让回答始终能回到原始资料。第一层负责统一格式,第二层保留上下文边界,后续层逐步提高相关性。若跳过数据质量检查直接生成回答,结果容易失去可靠来源。"},
 ]
 
-PROMPT_TEMPLATE = """你是藏经阁的守阁僧人,只依据下列秘籍片段回答香客提问,不得编造片段之外的内容。
+PROMPT_TEMPLATE = """你是黑糖资料室的资料管理员,只依据下列操作指南片段回答用户提问,不得编造片段之外的内容。
 
-【秘籍片段】
+【操作指南片段】
 {context}
 
-【香客提问】
+【用户提问】
 {question}
 
 请用中文简洁作答:"""
 
 
 def chunk_documents(documents, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
-    """第 1 步成果:秘籍切块,出处元数据随切片走。"""
+    """第 1 步成果:参考资料切块,出处元数据随切片走。"""
     chunks, step = [], max(chunk_size - overlap, 1)
     for doc in documents:
         text = doc["content"]
@@ -92,7 +92,7 @@ class DeepSeekLLM:
 
     def chat(self, prompt):
         if self.mock:
-            return "【MOCK】守阁僧人依据秘籍片段给出回答(真实运行时此处为 deepseek-v4-pro 的生成结果)。"
+            return "【MOCK】资料管理员依据操作指南片段给出回答(真实运行时此处为 deepseek-v4-pro 的生成结果)。"
         resp = self.client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
@@ -115,7 +115,7 @@ def main():
         sys.exit(0)  # 无 Key 优雅退出,不抛 traceback
     store = VectorStore(LocalEmbedder())
     store.add(chunk_documents(DOCUMENTS))
-    question = "初学者练易筋经要注意什么?"
+    question = "初学者练文档切分指南要注意什么?"
     print(f"问:{question}")
     print("答:" + rag_answer(store, DeepSeekLLM(), question))
 

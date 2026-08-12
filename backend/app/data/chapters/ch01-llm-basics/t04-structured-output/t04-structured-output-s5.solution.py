@@ -1,4 +1,4 @@
-"""灵讯通 · 结构化抽取 v5:封装成可复用的 TicketExtractor 工具类"""
+"""星澈助手 · 结构化抽取 v5:封装成可复用的 TicketExtractor 工具类"""
 import json, os, sys
 from dataclasses import dataclass
 from typing import Literal
@@ -68,7 +68,7 @@ class TicketExtractor:
         return resp.choices[0].message.content
 
     def _messages(self, dialog: str) -> list[dict]:
-        head = "你是灵讯通客服质检助手。只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。"
+        head = "你是星澈助手客服质检助手。只输出一个 JSON 对象,字段为 issue、order_id、emotion、priority。"
         shots = [f"对话:{d} 输出:{json.dumps(a, ensure_ascii=False)}" for d, a in FEW_SHOT]
         return [{"role": "system", "content": "\n".join([head, "参考示例:"] + shots)}, {"role": "user", "content": dialog}]
 

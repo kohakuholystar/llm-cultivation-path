@@ -1,4 +1,4 @@
-"""百宝囊 · s4:百宝囊总装
+"""社团工具箱 · s4:社团工具箱总装
 记忆 + 工具 + HITL 闸门,装配成会思考、会请示的完整 Agent。
 """
 import json
@@ -16,7 +16,7 @@ if not MOCK and not os.environ.get("OPENAI_API_KEY"):
 
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com")
 MODEL = os.environ.get("MODEL_NAME", "deepseek-v4-pro")
-SYSTEM_PROMPT = ("你是「百宝囊」法宝管家。决定调用工具还是直接回答,只输出 JSON: "
+SYSTEM_PROMPT = ("你是「社团工具箱」工具管家。决定调用工具还是直接回答,只输出 JSON: "
                  '{"tool": 工具名或 null, "args": {...}, "reply": "回答"}。'
                  "可用工具: get_time()、delete_file(path)。")
 
@@ -90,7 +90,7 @@ class LLM:
 
 
 class BaibaonangAgent:
-    """「百宝囊」完全体:记忆 + 工具 + HITL 闸门 + 步数保险丝。"""
+    """「社团工具箱」完全体:记忆 + 工具 + HITL 闸门 + 步数保险丝。"""
 
     def __init__(self, llm: LLM, hitl: HITLController, max_steps: int = 4):
         self.llm = llm
@@ -133,8 +133,8 @@ def main() -> None:
     hitl = HITLController((lambda t, a: ("y", "演示批准")) if MOCK else None)
     agent = BaibaonangAgent(LLM(client, script), hitl)
     print("我: 现在几点?顺便把 old.log 清掉")
-    print("百宝囊:", agent.chat("现在几点?"))
-    print("百宝囊:", agent.chat("把 old.log 删掉"))
+    print("社团工具箱:", agent.chat("现在几点?"))
+    print("社团工具箱:", agent.chat("把 old.log 删掉"))
     print(f"[检查] old.log 是否还在: {os.path.exists('old.log')}, "
           f"审计 {len(agent.hitl.audit)} 条,记忆 {len(agent.memory.history())} 条")
 

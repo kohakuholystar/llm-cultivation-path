@@ -1,4 +1,4 @@
-"""灵讯通 · t02-s3:滑动窗口
+"""星澈助手 · t02-s3:滑动窗口
 上下文不是无限的:发送时只带最近 max_turns 轮,窗口外的消息存档但不再发给模型。
 """
 import os
@@ -10,11 +10,11 @@ USE_MOCK = os.environ.get("MOCK_LLM") == "1"  # MOCK_LLM=1 时用本地假回复
 
 # 联网前置检查:没有 Key(且未开模拟)就给出引导并优雅退出
 if not USE_MOCK and not os.environ.get("OPENAI_API_KEY"):
-    print("[灵讯通] 未检测到 OPENAI_API_KEY。")
+    print("[星澈助手] 未检测到 OPENAI_API_KEY。")
     print("请先在右上角 AI 配置填入 DeepSeek API Key,然后重新运行。")
     sys.exit(0)
 
-DEFAULT_PERSONA = "你是灵讯通,一个简洁可靠的命令行智能助手,回答不超过三句话。"
+DEFAULT_PERSONA = "你是星澈助手,一个简洁可靠的命令行智能助手,回答不超过三句话。"
 
 
 @dataclass
@@ -101,7 +101,7 @@ def main() -> None:
               "第三轮闲聊。", "考考你:我叫什么名字?"]
     for q in rounds:
         print(f"你: {q}")
-        print(f"灵讯通: {session.say(q)}")
+        print(f"星澈助手: {session.say(q)}")
         print(f"   [窗口] 历史 {len(session.history)} 条,窗外 {session.dropped_count()} 条\n")
 
     print("姓名在第 1 轮,早已滑出窗口——模型'忘记'它是必然,不是 bug。")

@@ -1,4 +1,4 @@
-"""乾坤圈 · s3:熔断器 CircuitBreaker
+"""Agent 运行时底座 · s3:熔断器 CircuitBreaker
 
 熔断器给故障装上闸门:连续失败达到阈值就跳闸(open),
 冷却期内的调用直接快速失败,不再打必坏的依赖;冷却期结束
@@ -78,7 +78,7 @@ class FakeClock:
 
 
 def main():
-    print("== 乾坤圈 · s3:熔断器 CircuitBreaker ==")
+    print("== Agent 运行时底座 · s3:熔断器 CircuitBreaker ==")
     clock = FakeClock()
 
     def fragile_service():
