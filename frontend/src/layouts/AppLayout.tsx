@@ -35,6 +35,7 @@ export function AppLayout() {
     </header>
     <main className="flex-1"><Outlet /></main>
     <footer className="border-t border-slate-200 bg-white/70 py-4 text-center text-xs text-slate-400">LLM Agent 工程师修炼之路 · 打怪升级式 LLM 学习平台 · 本地优先,数据在你手里</footer>
-    <AiConfigModal open={modalOpen || !hasSystemConfig} required={!hasSystemConfig} inviteRequired={inviteRequired} onClose={() => { if (hasSystemConfig) setModalOpen(false) }} />
+    {/* 弹窗不再全局强制: 落地页/普通页静默; 进入任务工作区(IDE)时由 TaskWorkspace 触发弹出, 可 X/取消/ESC 关闭 */}
+    <AiConfigModal open={modalOpen} inviteRequired={inviteRequired} onClose={() => setModalOpen(false)} />
   </div>
 }

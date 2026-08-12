@@ -40,7 +40,21 @@ export function Modal({ open, onClose, dismissible = true, title, children, foot
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {title && <h2 className="mb-4 text-lg font-semibold text-slate-900">{title}</h2>}
+        {/* 标题栏 + 关闭按钮(X 始终可点, 即使是必填引导也允许先关掉) */}
+        <div className="mb-4 flex items-start justify-between">
+          {title ? (
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          ) : (
+            <span />
+          )}
+          <button
+            onClick={onClose}
+            aria-label="关闭"
+            className="-mr-1 -mt-1 rounded-lg p-1 text-base leading-none text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          >
+            ✕
+          </button>
+        </div>
         <div>{children}</div>
         {footer && <div className="mt-5 flex justify-end gap-2">{footer}</div>}
       </div>

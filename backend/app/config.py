@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # === 公网防护(云端启用; 空/0 = 关闭, 公开库与本地默认休眠) ===
     # 访问口令(邀请码), 逗号分隔多个; 空 = 关闭门槛
     access_codes: str = ""
+    # 邀请码真源文件(服务器独立私有文件, 600; 缺失/损坏时回退 access_codes)
+    invite_codes_path: str = "/etc/llmquest/invite-codes.json"
     # 每 IP 每分钟沙箱运行次数上限; 0 = 不限
     sandbox_rate_limit: int = 10
     # 并发槽位满时排队等待上限(秒), 超时返回 503 沙箱繁忙而不是无限挂起
