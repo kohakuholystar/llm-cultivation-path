@@ -16,10 +16,12 @@ Learn LLM engineering like leveling up in a game: 8 chapters, 39 hands-on tasks,
 
 ## ✨ Features
 
-- ⚔️ **Gamified curriculum** — 8 chapters / 39 tasks covering the full LLM stack, from API basics to a self-built tiny model
-- 💻 **Built-in IDE** — Monaco Editor with teaching comments baked into starter code; every task ships with a checklist, hints, and a reference solution
-- 🐳 **Real code execution** — your Python runs in a Docker sandbox against the live DeepSeek API (OpenAI-compatible), with real stdout back
-- ✅ **Smart validation** — 9 rule types (API-call inspection, output matching, unit tests, …) decide pass/fail precisely
+- ⚔️ **Gamified curriculum** — 8 chapters / 39 tasks / **212 steps** covering the full LLM stack, from API basics to a self-built tiny model
+- 💻 **Built-in IDE** — Monaco Editor; every task ships with instructions, a checklist, hints, samples, and a reference solution
+- 📜 **Learning-contract starters** — every starter file opens with the step's goal, what to fill in, key function signatures, the tech stack, and the expected observable result
+- 🐳 **Real code execution** — your Python runs in a Docker sandbox (core / ml images) against the live DeepSeek API, with real stdout back
+- ✅ **Smart validation** — static rules (AST / API-call / output matching) plus behavioral checks (sandbox runs + pytest) decide pass/fail precisely
+- 🔑 **Bring your own key** — network tasks require your own DeepSeek key (kept in your browser, never stored server-side); there is no shared key to leech
 - 🤖 **LLM-generated courseware** — the curriculum itself is produced by an LLM pipeline (`scripts/generate_curriculum.py`) with Pydantic validation
 - 📦 **Local-first** — no sign-up; progress lives in `localStorage`
 - 📖 **Full docs site** — installation guide, learning path, and a searchable tech reference for every library used
