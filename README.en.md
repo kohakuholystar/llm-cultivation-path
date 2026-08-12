@@ -111,12 +111,12 @@ GENERATOR_MODEL=deepseek-v4-pro
 | :--- | :--- |
 | 1 · 项目起步 | LLM basics — DeepSeek setup, chat, streaming, structured output, token economics |
 | 2 · 进入项目组 | LangChain — LCEL pipes, prompt templates, output parsers, memory, routing |
-| 3 · 黑糖资料室 | RAG — embeddings, vector stores, retrieval pipelines |
-| 4 · 快速执行术 | Agent control — tools, structured calling, memory, human-in-the-loop |
-| 5 · 工具开发 | Harness engineering — context windows, error resilience, observability, plugins |
-| 6 · 协作评审 | Multi-Agent — message bus, supervisor, debate patterns |
-| 7 · 铸魂 | Build a tiny model — tokenizer, training loop, inference |
-| 8 · 出师 | Capstone — ship a complete LLM application |
+| 3 · 资料检索 | RAG — embeddings, vector stores, retrieval pipelines |
+| 4 · 工具开发进阶 | Agent control — tools, structured calling, memory, human-in-the-loop |
+| 5 · 运行时工程 | Harness engineering — context windows, error resilience, observability, plugins |
+| 6 · 多 Agent 协作 | Multi-Agent — message bus, supervisor, debate patterns |
+| 7 · 微型模型实验 | Build a tiny model — tokenizer, training loop, inference |
+| 8 · 黑糖资料室 | Capstone — ship a complete LLM application |
 
 ## 🛠️ Tech Stack
 
