@@ -42,7 +42,7 @@
 
 ```bash
 # 1. 克隆
-git clone https://github.com/kohakuholystar/llm-cultivation-path.git
+git clone https://github.com/kohakushigure/llm-cultivation-path.git
 cd llm-cultivation-path
 
 # 2. 前端依赖
@@ -161,4 +161,4 @@ python scripts/verify_solutions.py
 
 ## 📄 许可证
 
-[MIT](LICENSE) © 2026 kohakuholystar
+[MIT](LICENSE) © 2026 kohakushigure

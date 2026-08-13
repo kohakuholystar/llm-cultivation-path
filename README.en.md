@@ -42,7 +42,7 @@ Learn LLM engineering like leveling up in a game: 8 chapters, 39 hands-on tasks,
 
 ```bash
 # 1. Clone
-git clone https://github.com/kohakuholystar/llm-cultivation-path.git
+git clone https://github.com/kohakushigure/llm-cultivation-path.git
 cd llm-cultivation-path
 
 # 2. Frontend deps
@@ -161,4 +161,4 @@ python scripts/verify_solutions.py
 
 ## 📄 License
 
-[MIT](LICENSE) © 2026 kohakuholystar
+[MIT](LICENSE) © 2026 kohakushigure
