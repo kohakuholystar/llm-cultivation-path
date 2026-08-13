@@ -60,7 +60,7 @@ pnpm dev:backend   # FastAPI,端口 4200
 pnpm dev           # Vite,端口 3200
 ```
 
-打开 http://localhost:3200,点 **开始学习**,通关你的第一个任务。
+打开 http://localhost:3200   ,点 **开始学习**,通关你的第一个任务。
 
 **可选 —— 启用代码沙箱**(不启用则部分任务降级为前端验证):
 
