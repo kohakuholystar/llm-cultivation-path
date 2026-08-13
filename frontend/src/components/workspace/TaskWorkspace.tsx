@@ -242,7 +242,7 @@ export function TaskWorkspace() {
       progress.completeStep(step.id, task.id, STEP_BASE_EXP)
       let taskExp = STEP_BASE_EXP
       if (willCompleteTask && !progress.completedTasks.includes(task.id)) {
-        progress.completeTask(task.id, task.expReward, hintsRevealed === 0)
+        progress.completeTask(task.id, task.expReward, hintsRevealed > 0)
         taskExp += task.expReward
       }
       setShowComplete(true)

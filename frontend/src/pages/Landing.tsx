@@ -2,13 +2,23 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Badge } from '@/components/ui'
 
-const REPO_URL = 'https://github.com/kohakuholystar/llm-cultivation-path'
+const REPO_URL = 'https://github.com/kohakushigure/llm-cultivation-path'
+const GITEE_URL = 'https://gitee.com/kohakushigure/llm-cultivation-path'
 
 /** GitHub 徽标(octocat mark) */
 function GitHubIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
       <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" />
+    </svg>
+  )
+}
+
+/** Gitee 徽标 */
+function GiteeIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M11.984 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.016 0zm6.09 5.333c.328 0 .593.266.592.593v1.482a.594.594 0 0 1-.593.592H9.777c-.982 0-1.778.796-1.778 1.778v5.63c0 .327.266.592.593.592h5.63c.982 0 1.778-.796 1.778-1.778v-.296a.593.593 0 0 0-.592-.593h-4.15a.592.592 0 0 1-.592-.592v-1.482a.593.593 0 0 1 .593-.592h6.815c.327 0 .593.265.593.592v3.408a4 4 0 0 1-4 4H5.926a.593.593 0 0 1-.593-.593V9.778a4.444 4.444 0 0 1 4.445-4.444h8.296Z" />
     </svg>
   )
 }
@@ -392,12 +402,12 @@ export function Landing() {
 
             <div className="mt-8 flex animate-slide-up flex-wrap gap-4 [animation-delay:0.3s]">
               <Link to="/learn">
-                <Button size="lg" className="px-9 text-base">
+                <Button size="lg" className="px-5 text-base">
                   ⚡ 开始学习
                 </Button>
               </Link>
               <Link to="/docs">
-                <Button size="lg" variant="secondary" className="px-9 text-base">
+                <Button size="lg" variant="secondary" className="px-5 text-base">
                   查看文档
                 </Button>
               </Link>
@@ -405,10 +415,19 @@ export function Landing() {
                 href={REPO_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-8 py-2.5 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-700 hover:shadow-xl active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-700 hover:shadow-xl active:scale-[0.98]"
               >
                 <GitHubIcon />
                 GitHub
+              </a>
+              <a
+                href={GITEE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C71D23] px-5 py-2.5 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#a6171d] hover:shadow-xl active:scale-[0.98]"
+              >
+                <GiteeIcon />
+                Gitee
               </a>
             </div>
 

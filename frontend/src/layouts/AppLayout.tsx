@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
-import { Outlet, Link, NavLink } from 'react-router-dom'
+import { Outlet, NavLink } from 'react-router-dom'
 import { ExpBar } from '@/components/ExpBar'
+import logoIcon from '@/assets/logo-icon.png'
+import logoWordmark from '@/assets/logo-wordmark.png'
 import { AiConfigModal } from '@/components/AiConfigModal'
 import { useAiConfig, useHasSystemConfig } from '@/features/aiConfig/store'
 import { api } from '@/api/client'
@@ -27,7 +29,7 @@ export function AppLayout() {
   return <div className="flex min-h-screen flex-col">
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        <Link to="/" className="group flex items-center gap-2.5 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-brand text-base font-bold text-white shadow-glow-brand">学</span><span className="hidden bg-gradient-to-r from-brand-600 to-exp-500 bg-clip-text text-transparent sm:inline">LLM Agent 工程师学习之路</span></Link>
+        <div className="flex items-center gap-2.5"><img src={logoIcon} alt="LLM Agent 学习之路" className="h-10 w-auto" /><img src={logoWordmark} alt="LLM Agent 工程师学习之路" className="hidden h-6 w-auto sm:inline" /></div>
         <nav className="flex items-center gap-1">{navItems.map((item) => <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => `rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200 ${isActive ? 'bg-brand-50 text-brand-700 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.25)]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>{item.label}</NavLink>)}
           <button onClick={() => setModalOpen(true)} title="AI 配置(全局)" className={`relative ml-1 flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 ${hasSystemConfig ? 'text-brand-600 hover:bg-brand-50' : 'text-amber-500 hover:bg-amber-50'}`}><span className="text-base">⚙️</span>{!hasSystemConfig && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-500" />}</button>
         </nav>

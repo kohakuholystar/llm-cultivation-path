@@ -13,6 +13,7 @@ import asyncio
 import base64
 import subprocess
 import time
+import uuid
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -97,8 +98,9 @@ class SandboxRunner:
                 "MODEL_NAME": model,
             }
         image = settings.sandbox_ml_image if req.sandbox_profile == "ml" else self._image
+        container_name = f"llmquest-sandbox-{uuid.uuid4().hex[:12]}"
         cmd = [
-            "docker", "run", "--rm", "-i",
+            "docker", "run", "--rm", "-i", "--name", container_name,
             "--network=" + ("none" if not req.needs_network else "default"),
             "--memory=256m",
             "--cpus=0.5",
@@ -140,6 +142,7 @@ class SandboxRunner:
                 timed_out=False,
             )
         except subprocess.TimeoutExpired:
+            self._cleanup_container(container_name)
             duration_ms = int((time.time() - start) * 1000)
             return SandboxRunResponse(
                 stdout="",
@@ -181,8 +184,10 @@ class SandboxRunner:
             }
         env["LEARNER_CODE_B64"] = base64.b64encode(req.code.encode("utf-8")).decode("ascii")
         env["STEP_TEST_B64"] = base64.b64encode(test_code.encode("utf-8")).decode("ascii")
+        container_name = f"llmquest-pytest-{uuid.uuid4().hex[:12]}"
         cmd = [
-            "docker", "run", "--rm", "-i", "--network=" + ("none" if not req.needs_network else "default"),
+            "docker", "run", "--rm", "-i", "--name", container_name,
+            "--network=" + ("none" if not req.needs_network else "default"),
             "--memory=256m", "--cpus=0.5", "--read-only", "--tmpfs=/tmp:rw,size=32m",
             "--tmpfs=/workspace:rw,size=32m,mode=1777", "--workdir=/workspace", "--cap-drop=ALL",
             "--security-opt=no-new-privileges", "--user=runner", "--pids-limit=64",
@@ -203,11 +208,19 @@ class SandboxRunner:
             duration_ms = int((time.time() - start) * 1000)
             return SandboxRunResponse(stdout=proc.stdout.decode("utf-8", errors="replace"), stderr=proc.stderr.decode("utf-8", errors="replace"), exit_code=proc.returncode, duration_ms=duration_ms, timed_out=False)
         except subprocess.TimeoutExpired:
+            self._cleanup_container(container_name)
             duration_ms = int((time.time() - start) * 1000)
             return SandboxRunResponse(stdout="", stderr=f"验证超时(>{req.timeout}秒, 已终止)", exit_code=-1, duration_ms=duration_ms, timed_out=True)
         except Exception as exc:
             duration_ms = int((time.time() - start) * 1000)
             return SandboxRunResponse(stdout="", stderr=str(exc), exit_code=-1, duration_ms=duration_ms, timed_out=False, error=str(exc))
+
+    def _cleanup_container(self, name: str) -> None:
+        """超时后兜底停掉并移除容器(若 daemon 已停则无操作)。"""
+        try:
+            subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=10)
+        except Exception:
+            pass
 
     def is_available(self, profile: str = "core") -> bool:
         """检查沙箱镜像是否就绪。"""
